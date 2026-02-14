@@ -1,0 +1,9 @@
+# Request
+string model            # e.g. "vs060", "cobotta", "hsr065"
+string planning_group   # e.g. "arm"
+float64 velocity_scale  # 0.0..1.0
+float64 accel_scale     # 0.0..1.0
+---
+# Response
+bool success
+string message
