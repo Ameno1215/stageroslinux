@@ -22,6 +22,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/GoToJoint.srv"
   "srv/GoToPose.srv"
   "srv/SetScaling.srv"
+  "srv/GetCurrentPose.srv"
+  "srv/GetJointState.srv"
   DEPENDENCIES geometry_msgs
 )
 
@@ -69,6 +71,11 @@ install(TARGETS
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
+
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
+
 
 
 

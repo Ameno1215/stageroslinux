@@ -1,0 +1,5 @@
+# Request
+---
+bool success
+string message
+float64[] joints

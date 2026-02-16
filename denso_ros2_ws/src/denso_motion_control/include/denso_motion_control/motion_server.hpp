@@ -7,6 +7,8 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include "sensor_msgs/msg/joint_state.hpp"
+
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
@@ -15,6 +17,9 @@
 #include "denso_motion_control/srv/go_to_joint.hpp"
 #include "denso_motion_control/srv/go_to_pose.hpp"
 #include "denso_motion_control/srv/set_scaling.hpp"
+#include "denso_motion_control/srv/get_joint_state.hpp"
+#include "denso_motion_control/srv/get_current_pose.hpp"
+
 
 namespace denso_motion_control
 {
@@ -42,6 +47,15 @@ namespace denso_motion_control
                 const std::shared_ptr<srv::SetScaling::Request> req,
                 std::shared_ptr<srv::SetScaling::Response> res);
 
+            void onGetJointState(
+                const std::shared_ptr<srv::GetJointState::Request> req,
+                std::shared_ptr<srv::GetJointState::Response> res);
+
+            void onGetCurrentPose(
+                const std::shared_ptr<srv::GetCurrentPose::Request> req,
+                std::shared_ptr<srv::GetCurrentPose::Response> res);
+
+
 
         // Internal helpers
         bool ensureInitialized(std::string& why) const;
@@ -63,6 +77,9 @@ namespace denso_motion_control
         rclcpp::Service<srv::GoToJoint>::SharedPtr srv_joint_;
         rclcpp::Service<srv::GoToPose>::SharedPtr srv_pose_;
         rclcpp::Service<srv::SetScaling>::SharedPtr srv_scaling_;
+        rclcpp::Service<srv::GetJointState>::SharedPtr srv_get_joints_;
+        rclcpp::Service<srv::GetCurrentPose>::SharedPtr srv_get_pose_;
+
 
     };
 

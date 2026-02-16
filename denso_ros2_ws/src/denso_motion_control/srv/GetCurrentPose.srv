@@ -1,0 +1,6 @@
+# Request
+string frame_id   # optionnel: frame demandé, sinon planning frame
+---
+bool success
+string message
+geometry_msgs/PoseStamped pose
