@@ -15,6 +15,10 @@ namespace denso_motion_control
         this->declare_parameter<double>("accel_scale", 0.1);
         this->set_parameter(rclcpp::Parameter("use_sim_time", true));
 
+        // Initialisation du système d'écoute TF
+        tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
         srv_init_ = this->create_service<srv::InitRobot>(
             "init_robot",
             std::bind(&MotionServer::onInitRobot, this, std::placeholders::_1, std::placeholders::_2));
@@ -79,6 +83,14 @@ namespace denso_motion_control
 
             move_group_->setMaxVelocityScalingFactor(vel_scale_);
             move_group_->setMaxAccelerationScalingFactor(accel_scale_);
+
+            // Log available joints and links
+            auto names = move_group_->getRobotModel()->getLinkModelNames();
+            RCLCPP_INFO(this->get_logger(), "--- Links available for this robot ---");
+            for (const auto& name : names) {
+                RCLCPP_INFO(this->get_logger(), "Link: %s", name.c_str());
+            }
+            RCLCPP_INFO(this->get_logger(), "---------------------------------------");
 
             std::ostringstream oss;
             oss << "Initialized with model=" << model_
@@ -278,34 +290,55 @@ namespace denso_motion_control
     void MotionServer::onGetCurrentPose(
         const std::shared_ptr<srv::GetCurrentPose::Request> req,
         std::shared_ptr<srv::GetCurrentPose::Response> res)
-        {
-        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
+    {
         std::lock_guard<std::mutex> lock(mtx_);
 
-        // Check if MoveGroupInterface is initialized
-        std::string why;
-        if (!ensureInitialized(why)) {
-            res->success = false;
-            res->message = why;
-            return;
-        }
-
-        // Get current end-effector pose from MoveIt
-        auto ps = move_group_->getCurrentPose(); // PoseStamped
-
-        // If a specific frame_id is requested, we would normally transform the pose to that frame using TF2.
-        if (!req->frame_id.empty()) {
-            // use TF2 to transform the pose to the requested frame_id.
-            if (req->frame_id != ps.header.frame_id) {
+        // Determine the target frame
+        std::string target_frame = req->child_frame_id;
+        
+        // If no child_frame_id provided, default to end-effector link
+        if (target_frame.empty()) {
+            if (move_group_) {
+                target_frame = move_group_->getEndEffectorLink();
+            } else {
                 res->success = false;
-                res->message = "Frame transformation not implemented. Requested frame_id: " + req->frame_id;
+                res->message = "MoveGroup not ready and no child_frame_id provided.";
                 return;
             }
         }
 
-        res->pose = ps;
-        res->success = true;
-        res->message = "OK";
+        // Determine the reference frame (default to "world" if not provided)
+        std::string reference_frame = req->frame_id;
+        if (reference_frame.empty()) {
+            reference_frame = "world"; // Ou "base_link" selon ta préférence
+        }
+
+        // Calculate the transform from reference_frame to target_frame using TF2
+        try {
+            geometry_msgs::msg::TransformStamped t;
+
+            t = tf_buffer_->lookupTransform(
+                reference_frame, 
+                target_frame, 
+                tf2::TimePointZero
+            );
+
+            // Fill the response pose  
+            res->pose.header = t.header;
+            res->pose.pose.position.x = t.transform.translation.x;
+            res->pose.pose.position.y = t.transform.translation.y;
+            res->pose.pose.position.z = t.transform.translation.z;
+            res->pose.pose.orientation = t.transform.rotation;
+
+            res->success = true;
+            res->message = "Pose retrieved via TF2 for link: " + target_frame;
+        } 
+        catch (const tf2::TransformException & ex) {
+            // If TF2 lookup fails, return an error message
+            res->success = false;
+            res->message = std::string("TF2 Error: ") + ex.what();
+            RCLCPP_ERROR(this->get_logger(), "%s", res->message.c_str());
+        }
     }
 
 

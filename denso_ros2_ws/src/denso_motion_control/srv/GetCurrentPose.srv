@@ -1,5 +1,6 @@
 # Request
-string frame_id   # optionnel: frame demandé, sinon planning frame
+string frame_id        # The reference (ex: "world" or "base_link")
+string child_frame_id  # Desired body (ex tool, J1...)
 ---
 bool success
 string message

@@ -11,6 +11,10 @@
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
 #include "denso_motion_control/srv/init_robot.hpp"
 #include "denso_motion_control/srv/go_to_joint.hpp"
 #include "denso_motion_control/srv/go_to_pose.hpp"
@@ -38,7 +42,10 @@ namespace denso_motion_control
         explicit MotionServer(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
         private:
-        // Service callbacks
+            std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+            std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
+            // Service callbacks
             /**
              * @brief Initializes the MoveIt MoveGroup interface.
              * * This function must be called (via the /init_robot service) before any motion command.
@@ -95,6 +102,13 @@ namespace denso_motion_control
              * * Calculates the position (X,Y,Z) and orientation of the tool tip relative to the base.
              * * @param req Can specify a specific reference frame_id (optional).
              * @param res The current PoseStamped.
+             */
+            /**
+             * @brief Retrieves the Cartesian pose of a specific link relative to a reference frame.
+             * * If `child_frame_id` is empty, it defaults to the robot's end-effector (e.g., "J6" or "flange").
+             * * If `frame_id` is empty, it defaults to "world".
+             * * @param req Contains `child_frame_id` (the link to measure) and `frame_id` (the reference origin).
+             * @param res Returns the calculated PoseStamped and success status.
              */
             void onGetCurrentPose(
                 const std::shared_ptr<srv::GetCurrentPose::Request> req,
