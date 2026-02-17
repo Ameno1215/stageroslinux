@@ -106,43 +106,47 @@ namespace denso_motion_control
         const std::shared_ptr<srv::GoToJoint::Request> req,
         std::shared_ptr<srv::GoToJoint::Response> res)
         {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
         std::lock_guard<std::mutex> lock(mtx_);
 
         std::string why;
+        // Check if MoveGroupInterface is initialized
         if (!ensureInitialized(why)) {
             res->success = false;
             res->message = why;
             return;
         }
 
+        // Validate joint target
         if (req->joints.empty()) {
             res->success = false;
             res->message = "Empty joint target.";
             return;
         }
 
-        // move_group_->setJointValueTarget(req->joints);
-
+        // Get joint names from MoveIt to ensure correct mapping
         const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
         const auto& names = jmg->getVariableNames();
 
+        // Check if the provided joint values match the expected size
         if (req->joints.size() != names.size()) {
         res->success = false;
         res->message = "Joint target size mismatch. Expected " + std::to_string(names.size());
         return;
         }
 
+        // Create a map of joint names to target values
         std::map<std::string, double> target;
         for (size_t i = 0; i < names.size(); ++i) {
         target[names[i]] = req->joints[i];
         }
-
         move_group_->setJointValueTarget(target);
 
 
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
+        // Plan the motion to the joint target
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         auto code = move_group_->plan(plan);
 
@@ -152,6 +156,7 @@ namespace denso_motion_control
             return;
         }
 
+        // If execute flag is true, execute the planned trajectory
         if (req->execute) {
             auto exec_code = move_group_->execute(plan);
             if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
@@ -171,6 +176,7 @@ namespace denso_motion_control
         const std::shared_ptr<srv::GoToPose::Request> req,
         std::shared_ptr<srv::GoToPose::Response> res)
         {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
         std::lock_guard<std::mutex> lock(mtx_);
 
         std::string why;
@@ -180,12 +186,12 @@ namespace denso_motion_control
             return;
         }
 
-        // PoseStamped lets you specify the frame_id explicitly
         move_group_->setPoseTarget(req->target);
 
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
+        // Plan the motion to the Cartesian pose target
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         auto code = move_group_->plan(plan);
 
@@ -198,6 +204,7 @@ namespace denso_motion_control
             return;
         }
 
+        // If execute flag is true, execute the planned trajectory
         if (req->execute) {
             auto exec_code = move_group_->execute(plan);
             if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
@@ -218,6 +225,7 @@ namespace denso_motion_control
         const std::shared_ptr<srv::SetScaling::Request> req,
         std::shared_ptr<srv::SetScaling::Response> res)
         {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
         std::lock_guard<std::mutex> lock(mtx_);
 
         // Clamp to [0, 1]
@@ -249,8 +257,10 @@ namespace denso_motion_control
         const std::shared_ptr<srv::GetJointState::Request> /*req*/,
         std::shared_ptr<srv::GetJointState::Response> res)
         {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
         std::lock_guard<std::mutex> lock(mtx_);
 
+        // Check if MoveGroupInterface is initialized
         std::string why;
         if (!ensureInitialized(why)) {
             res->success = false;
@@ -258,6 +268,7 @@ namespace denso_motion_control
             return;
         }
 
+        // Get current joint values from MoveIt
         auto joints = move_group_->getCurrentJointValues();
         res->joints = joints;
         res->success = true;
@@ -268,8 +279,10 @@ namespace denso_motion_control
         const std::shared_ptr<srv::GetCurrentPose::Request> req,
         std::shared_ptr<srv::GetCurrentPose::Response> res)
         {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
         std::lock_guard<std::mutex> lock(mtx_);
 
+        // Check if MoveGroupInterface is initialized
         std::string why;
         if (!ensureInitialized(why)) {
             res->success = false;
@@ -277,13 +290,17 @@ namespace denso_motion_control
             return;
         }
 
-        // Pose courante de l’EEF (MoveIt)
+        // Get current end-effector pose from MoveIt
         auto ps = move_group_->getCurrentPose(); // PoseStamped
 
-        // Si l’utilisateur demande une frame spécifique, MoveIt renvoie souvent déjà planning frame.
-        // Pour transformer dans une autre frame, il faut TF2 (optionnel).
+        // If a specific frame_id is requested, we would normally transform the pose to that frame using TF2.
         if (!req->frame_id.empty()) {
-            // Ici: simple retour tel quel. (On peut ajouter TF2 si besoin.)
+            // use TF2 to transform the pose to the requested frame_id.
+            if (req->frame_id != ps.header.frame_id) {
+                res->success = false;
+                res->message = "Frame transformation not implemented. Requested frame_id: " + req->frame_id;
+                return;
+            }
         }
 
         res->pose = ps;
