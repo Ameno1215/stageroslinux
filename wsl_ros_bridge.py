@@ -168,10 +168,12 @@ class DensoMotionRosClient(Node):
         except Exception as e:
             raise RuntimeError(f"GetJointState failed: {e}")
         return {"success": res.success, "message": res.message, "joints": list(res.joints)}
-
-    def call_get_pose(self):
+    
+    def call_get_pose(self, frame_id: str = "", child_frame_id: str = ""):
         req = GetCurrentPose.Request()
-        req.frame_id = "" 
+        req.frame_id = frame_id # Reference frame for the returned pose (e.g. "base_link"). If empty, the robot's default frame will be used.
+        req.child_frame_id = child_frame_id # (Optional) If specified, the service will attempt to return the pose of this child frame. If empty, the end-effector frame will be used.
+        
         fut = self.get_pose_cli.call_async(req)
         try:
             res = self._wait_for_future(fut, timeout=5.0)
@@ -183,6 +185,7 @@ class DensoMotionRosClient(Node):
             "success": res.success,
             "message": res.message,
             "frame_id": res.pose.header.frame_id,
+            "child_frame_id": child_frame_id,
             "position": {"x": p.position.x, "y": p.position.y, "z": p.position.z},
             "orientation": {"x": p.orientation.x, "y": p.orientation.y, "z": p.orientation.z, "w": p.orientation.w},
         }
@@ -260,6 +263,7 @@ def goto_pose(req: PoseReq):
 def state_joints():
     return _ros_client.call_get_joints()
 
+
 @app.get("/state/pose")
-def state_pose():
-    return _ros_client.call_get_pose()
+def state_pose(frame_id: str = "", child_frame_id: str = ""):
+    return _ros_client.call_get_pose(frame_id, child_frame_id)
