@@ -34,6 +34,8 @@
 	<disable_collisions link1="$(arg namespace)J3" link2="$(arg namespace)J4" reason="Adjacent"/>
 	<disable_collisions link1="$(arg namespace)J3" link2="$(arg namespace)J5" reason="Never"/>
 	<disable_collisions link1="$(arg namespace)J4" link2="$(arg namespace)J5" reason="Adjacent"/>
-
+  
+  <disable_collisions link1="$(arg namespace)J6" link2="$(arg namespace)tool_link" reason="Attached by fixed joint" />
+  
   </xacro:macro>
 </robot>
