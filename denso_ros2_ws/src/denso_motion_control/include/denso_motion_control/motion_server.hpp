@@ -14,6 +14,8 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Transform.h>
 
 #include "denso_motion_control/srv/init_robot.hpp"
 #include "denso_motion_control/srv/go_to_joint.hpp"
@@ -21,6 +23,7 @@
 #include "denso_motion_control/srv/set_scaling.hpp"
 #include "denso_motion_control/srv/get_joint_state.hpp"
 #include "denso_motion_control/srv/get_current_pose.hpp"
+#include "denso_motion_control/srv/go_to_euler.hpp"
 
 
 namespace denso_motion_control
@@ -68,6 +71,20 @@ namespace denso_motion_control
                 std::shared_ptr<srv::GoToJoint::Response> res);
 
             /**
+             * @brief Helper function to interface with MoveIt logic.
+             * Sets the target, applies scaling factors, plans the trajectory, and optionally executes it.
+             * @param target The final Cartesian pose (geometry_msgs::msg::PoseStamped) the robot should reach.
+             * @param execute If true, the robot will move. If false, it only checks if a path exists (Plan only).
+             * @param out_msg Reference to a string where status or error messages will be written.
+             * @return true If the planning (and execution if requested) was successful.
+             * @return false If MoveIt failed to find a plan or failed to execute the trajectory.
+             */
+            bool planAndMaybeExecutePose(
+                const geometry_msgs::msg::PoseStamped& target,
+                bool execute,
+                std::string& out_msg);
+
+            /**
              * @brief Commands a movement to a Cartesian pose (Position + Orientation).
              * * Uses inverse kinematics to reach the target position and orientation.
              * * @param req The target PoseStamped including the reference frame_id.
@@ -76,6 +93,37 @@ namespace denso_motion_control
             void onGoToPose(
                 const std::shared_ptr<srv::GoToPose::Request> req,
                 std::shared_ptr<srv::GoToPose::Response> res);
+
+            /**
+             * @brief Commands a movement using absolute World coordinates and Euler angles.
+             * Converts the requested Euler angles (Extrinsic XYZ / RPY) into a Quaternion
+             * and plans a path to that absolute target pose.
+             * @param req Request containing x, y, z positions and rx, ry, rz (Roll-Pitch-Yaw) orientations in a fixed frame.
+             * @param res Returns the success of the planning/execution.
+             */
+            void onGoToEulerWorld(
+                const std::shared_ptr<denso_motion_control::srv::GoToEuler::Request> req,
+                std::shared_ptr<denso_motion_control::srv::GoToEuler::Response> res);
+            
+            /**
+             * @brief Commands a relative movement with respect to the current Tool Center Point (TCP).
+             * Performs "Fly-by-wire" style control: moving forward/backward, sliding left/right,
+             * or rotating around the tool's own axes.
+             * @param req Request containing relative deltas (dx, dy, dz, drx, dry, drz) to apply to the current pose.
+             * @param res Returns the success of the calculation and execution.
+             */
+            void onMoveRelativeTool(
+                const std::shared_ptr<denso_motion_control::srv::GoToEuler::Request> req,
+                std::shared_ptr<denso_motion_control::srv::GoToEuler::Response> res);
+
+            /**
+             * @brief Commands a relative movement in World Frame.
+             * Translates along global axes (X, Y, Z) and rotates around global axes.
+             * Example: "Go up 10cm" (z=0.1) regardless of tool orientation.
+             */
+            void onMoveRelativeWorld(
+                const std::shared_ptr<denso_motion_control::srv::GoToEuler::Request> req,
+                std::shared_ptr<denso_motion_control::srv::GoToEuler::Response> res);
 
             /**
              * @brief Updates the velocity and acceleration scaling factors.
@@ -97,12 +145,6 @@ namespace denso_motion_control
                 const std::shared_ptr<srv::GetJointState::Request> req,
                 std::shared_ptr<srv::GetJointState::Response> res);
 
-            /**
-             * @brief Retrieves the current Cartesian pose of the end-effector.
-             * * Calculates the position (X,Y,Z) and orientation of the tool tip relative to the base.
-             * * @param req Can specify a specific reference frame_id (optional).
-             * @param res The current PoseStamped.
-             */
             /**
              * @brief Retrieves the Cartesian pose of a specific link relative to a reference frame.
              * * If `child_frame_id` is empty, it defaults to the robot's end-effector (e.g., "J6" or "flange").
@@ -139,7 +181,9 @@ namespace denso_motion_control
         rclcpp::Service<srv::SetScaling>::SharedPtr srv_scaling_;
         rclcpp::Service<srv::GetJointState>::SharedPtr srv_get_joints_;
         rclcpp::Service<srv::GetCurrentPose>::SharedPtr srv_get_pose_;
-
+        rclcpp::Service<denso_motion_control::srv::GoToEuler>::SharedPtr srv_euler_world_;
+        rclcpp::Service<denso_motion_control::srv::GoToEuler>::SharedPtr srv_euler_local_;
+        rclcpp::Service<denso_motion_control::srv::GoToEuler>::SharedPtr srv_euler_world_rel_;
 
     };
 

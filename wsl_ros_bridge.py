@@ -8,7 +8,7 @@ from rclpy.node import Node
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from denso_motion_control.srv import InitRobot, GoToJoint, GoToPose, SetScaling, GetJointState, GetCurrentPose
+from denso_motion_control.srv import InitRobot, GoToJoint, GoToPose, SetScaling, GetJointState, GetCurrentPose, GoToEuler
 from geometry_msgs.msg import PoseStamped
 
 
@@ -39,6 +39,16 @@ class PoseReq(BaseModel):
     orientation: Dict[str, float]
     execute: bool = True
 
+class EulerReq(BaseModel):
+    frame_id: str = "base_link"
+    x: float
+    y: float
+    z: float
+    rx: float
+    ry: float
+    rz: float
+    execute: bool = True
+
 
 # ----------------------------
 # ROS2 client node
@@ -54,6 +64,9 @@ class DensoMotionRosClient(Node):
         self.scale_cli = self.create_client(SetScaling, "/set_scaling")
         self.get_joints_cli = self.create_client(GetJointState, "/get_joint_state")
         self.get_pose_cli = self.create_client(GetCurrentPose, "/get_current_pose")
+        self.euler_world_cli = self.create_client(GoToEuler, "/goto_euler_world")
+        self.euler_local_cli = self.create_client(GoToEuler, "/move_relative_tool")
+        self.euler_world_rel_cli = self.create_client(GoToEuler, "/move_relative_world")
 
         # Wait for services (30s)
         for cli, name in [
@@ -63,6 +76,8 @@ class DensoMotionRosClient(Node):
             (self.scale_cli, "/set_scaling"),
             (self.get_joints_cli, "/get_joint_state"),
             (self.get_pose_cli, "/get_current_pose"),
+            (self.euler_world_cli, "/goto_euler_world"),
+            (self.euler_local_cli, "/move_relative_tool"),
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 self.get_logger().error(f"Service {name} not available. Is motion_server running?")
@@ -160,6 +175,60 @@ class DensoMotionRosClient(Node):
 
         return {"success": bool(res.success), "message": str(res.message)}
     
+    def call_euler_world(self, req: EulerReq) -> Dict[str, Any]:
+        ros_req = GoToEuler.Request()
+        ros_req.frame_id = req.frame_id
+        ros_req.x = float(req.x)
+        ros_req.y = float(req.y)
+        ros_req.z = float(req.z)
+        ros_req.rx = float(req.rx)
+        ros_req.ry = float(req.ry)
+        ros_req.rz = float(req.rz)
+        ros_req.execute = bool(req.execute)
+
+        fut = self.euler_world_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=None)
+        except Exception as e:
+            raise RuntimeError(f"GoToEulerWorld failed: {e}")
+        return {"success": bool(res.success), "message": str(res.message)}
+
+    def call_euler_local(self, req: EulerReq) -> Dict[str, Any]:
+        ros_req = GoToEuler.Request()
+        ros_req.frame_id = req.frame_id 
+        ros_req.x = float(req.x)
+        ros_req.y = float(req.y)
+        ros_req.z = float(req.z)
+        ros_req.rx = float(req.rx)
+        ros_req.ry = float(req.ry)
+        ros_req.rz = float(req.rz)
+        ros_req.execute = bool(req.execute)
+
+        fut = self.euler_local_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=None)
+        except Exception as e:
+            raise RuntimeError(f"MoveRelativeTool failed: {e}")
+        return {"success": bool(res.success), "message": str(res.message)}
+    
+    def call_euler_world_rel(self, req: EulerReq) -> Dict[str, Any]:
+        ros_req = GoToEuler.Request()
+        ros_req.frame_id = req.frame_id # Souvent ignoré ou forcé à world
+        ros_req.x = float(req.x)
+        ros_req.y = float(req.y)
+        ros_req.z = float(req.z)
+        ros_req.rx = float(req.rx)
+        ros_req.ry = float(req.ry)
+        ros_req.rz = float(req.rz)
+        ros_req.execute = bool(req.execute)
+
+        fut = self.euler_world_rel_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=None)
+        except Exception as e:
+            raise RuntimeError(f"MoveRelativeWorld failed: {e}")
+        return {"success": bool(res.success), "message": str(res.message)}
+    
     def call_get_joints(self):
         req = GetJointState.Request()
         fut = self.get_joints_cli.call_async(req)
@@ -199,7 +268,6 @@ app = FastAPI(title="Denso Motion HTTP Bridge", version="1.0")
 
 _ros_client: Optional[DensoMotionRosClient] = None
 
-
 @app.on_event("startup")
 def on_startup():
     global _ros_client
@@ -214,7 +282,6 @@ def on_startup():
     t = threading.Thread(target=_spin, daemon=True)
     t.start()
 
-
 @app.on_event("shutdown")
 def on_shutdown():
     global _ros_client
@@ -222,11 +289,9 @@ def on_shutdown():
         _ros_client.destroy_node()
     rclpy.shutdown()
 
-
 @app.get("/health")
 def health():
     return {"ok": True}
-
 
 @app.post("/init")
 def init_robot(req: InitReq):
@@ -235,14 +300,12 @@ def init_robot(req: InitReq):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.post("/scaling")
 def set_scaling(req: ScalingReq):
     try:
         return _ros_client.call_scaling(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/goto_joint")
 def goto_joint(req: JointReq):
@@ -251,18 +314,37 @@ def goto_joint(req: JointReq):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.post("/goto_pose")
 def goto_pose(req: PoseReq):
     try:
         return _ros_client.call_pose(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/goto_euler_world")
+def goto_euler_world(req: EulerReq):
+    try:
+        return _ros_client.call_euler_world(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/move_relative_tool")
+def move_relative_tool(req: EulerReq):
+    try:
+        return _ros_client.call_euler_local(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/move_relative_world")
+def move_relative_world(req: EulerReq):
+    try:
+        return _ros_client.call_euler_world_rel(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/state/joints")
 def state_joints():
     return _ros_client.call_get_joints()
-
 
 @app.get("/state/pose")
 def state_pose(frame_id: str = "", child_frame_id: str = ""):

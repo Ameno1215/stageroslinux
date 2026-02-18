@@ -24,6 +24,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SetScaling.srv"
   "srv/GetCurrentPose.srv"
   "srv/GetJointState.srv"
+  "srv/GoToEuler.srv"
   DEPENDENCIES geometry_msgs
 )
 

@@ -1,0 +1,13 @@
+# Request
+string frame_id   # The reference frame (e.g., "world" or "base_link")
+float64 x         # X Position (meters)
+float64 y         # Y Position (meters)
+float64 z         # Z Position (meters)
+float64 rx        # Rotation around X (radians) - Roll
+float64 ry        # Rotation around Y (radians) - Pitch
+float64 rz        # Rotation around Z (radians) - Yaw
+bool execute      # True = Move the robot, False = Plan only
+---
+# Response
+bool success      # True if the operation was successful
+string message    # Success or error message

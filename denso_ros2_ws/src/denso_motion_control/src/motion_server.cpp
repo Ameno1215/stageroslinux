@@ -31,11 +31,23 @@ namespace denso_motion_control
             "goto_cartesian",
             std::bind(&MotionServer::onGoToPose, this, std::placeholders::_1, std::placeholders::_2));
 
+        srv_euler_world_ = this->create_service<denso_motion_control::srv::GoToEuler>(
+            "goto_euler_world",
+            std::bind(&MotionServer::onGoToEulerWorld, this, std::placeholders::_1, std::placeholders::_2));
+
+        srv_euler_local_ = this->create_service<denso_motion_control::srv::GoToEuler>(
+            "move_relative_tool",
+            std::bind(&MotionServer::onMoveRelativeTool, this, std::placeholders::_1, std::placeholders::_2));
+        
+        srv_euler_world_rel_ = this->create_service<denso_motion_control::srv::GoToEuler>(
+            "move_relative_world",
+            std::bind(&MotionServer::onMoveRelativeWorld, this, std::placeholders::_1, std::placeholders::_2));
+
         srv_scaling_ = this->create_service<srv::SetScaling>(
             "set_scaling",
             std::bind(&MotionServer::onSetScaling, this, std::placeholders::_1, std::placeholders::_2));
 
-            srv_get_joints_ = this->create_service<srv::GetJointState>(
+        srv_get_joints_ = this->create_service<srv::GetJointState>(
             "get_joint_state",
             std::bind(&MotionServer::onGetJointState, this, std::placeholders::_1, std::placeholders::_2));
 
@@ -61,6 +73,7 @@ namespace denso_motion_control
         const std::shared_ptr<srv::InitRobot::Request> req,
         std::shared_ptr<srv::InitRobot::Response> res)
         {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
         std::lock_guard<std::mutex> lock(mtx_);
 
         // If request fields are empty, fallback to node parameters
@@ -184,6 +197,43 @@ namespace denso_motion_control
         }
     }
 
+    bool MotionServer::planAndMaybeExecutePose(
+        const geometry_msgs::msg::PoseStamped& target,
+        bool execute,
+        std::string& out_msg)
+    {
+        move_group_->setPoseTarget(target);
+
+        move_group_->setMaxVelocityScalingFactor(vel_scale_);
+        move_group_->setMaxAccelerationScalingFactor(accel_scale_);
+
+        // Plan the motion to the Cartesian pose target
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        auto code = move_group_->plan(plan);
+
+        // Always clear pose targets to avoid accidental reuse
+        move_group_->clearPoseTargets();
+
+        if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+            out_msg = "Planning failed for pose target.";
+            return false;
+        }
+
+        // If execute flag is true, execute the planned trajectory
+        if (execute) {
+            auto exec_code = move_group_->execute(plan);
+            if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+            out_msg = "Execution failed for pose target.";
+            return false;
+            }
+            out_msg = "Planned and executed pose target successfully.";
+            return true;
+        }
+
+        out_msg = "Planned pose target successfully (execute=false).";
+        return true;
+    }
+
     void MotionServer::onGoToPose(
         const std::shared_ptr<srv::GoToPose::Request> req,
         std::shared_ptr<srv::GoToPose::Response> res)
@@ -198,38 +248,136 @@ namespace denso_motion_control
             return;
         }
 
-        move_group_->setPoseTarget(req->target);
+        std::string msg;
+        bool success = planAndMaybeExecutePose(req->target, req->execute, msg);
+        
+        res->success = success;
+        res->message = msg;
+    }
 
-        move_group_->setMaxVelocityScalingFactor(vel_scale_);
-        move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        // Plan the motion to the Cartesian pose target
-        moveit::planning_interface::MoveGroupInterface::Plan plan;
-        auto code = move_group_->plan(plan);
-
-        // Always clear pose targets to avoid accidental reuse
-        move_group_->clearPoseTargets();
-
-        if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+    void MotionServer::onGoToEulerWorld(
+        const std::shared_ptr<denso_motion_control::srv::GoToEuler::Request> req,
+        std::shared_ptr<denso_motion_control::srv::GoToEuler::Response> res)
+    {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
+        std::lock_guard<std::mutex> lock(mtx_);
+        std::string why;
+        if (!ensureInitialized(why)) { 
             res->success = false;
-            res->message = "Planning failed for pose target.";
+            res->message = why; 
             return;
         }
 
-        // If execute flag is true, execute the planned trajectory
-        if (req->execute) {
-            auto exec_code = move_group_->execute(plan);
-            if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-            res->success = false;
-            res->message = "Execution failed for pose target.";
-            return;
-            }
-            res->success = true;
-            res->message = "Planned and executed pose target successfully.";
-        } else {
-            res->success = true;
-            res->message = "Planned pose target successfully (execute=false).";
+        // Construction of the Absolute Target Pose
+        geometry_msgs::msg::PoseStamped target;
+        target.header.frame_id = req->frame_id.empty() ? "world" : req->frame_id;
+        target.header.stamp = this->now();
+        
+        target.pose.position.x = req->x;
+        target.pose.position.y = req->y;
+        target.pose.position.z = req->z;
+
+        // Euler Conversion (Extrinsic RPY) -> Quaternion
+        tf2::Quaternion q;
+        q.setRPY(req->rx, req->ry, req->rz);
+        target.pose.orientation = tf2::toMsg(q);
+
+        // Execution of the planned motion
+        std::string msg;
+        bool success = planAndMaybeExecutePose(target, req->execute, msg);
+        
+        res->success = success;
+        res->message = msg;
+    }
+
+    void MotionServer::onMoveRelativeTool(
+        const std::shared_ptr<denso_motion_control::srv::GoToEuler::Request> req,
+        std::shared_ptr<denso_motion_control::srv::GoToEuler::Response> res)
+    {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
+        std::lock_guard<std::mutex> lock(mtx_);
+        std::string why;
+        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+
+        // Retrieve the robot's current pose in the world frame
+        geometry_msgs::msg::PoseStamped current_pose_msg = move_group_->getCurrentPose();
+        
+        // Convert TF2 into a mathematical object to perform multiplications.
+        tf2::Transform current_transform;
+        tf2::fromMsg(current_pose_msg.pose, current_transform);
+
+        // Create the "Delta" transformation (The requested movement)
+        tf2::Transform delta_transform;
+        delta_transform.setOrigin(tf2::Vector3(req->x, req->y, req->z));
+        tf2::Quaternion q_delta;
+        q_delta.setRPY(req->rx, req->ry, req->rz);
+        delta_transform.setRotation(q_delta);
+
+        // MATHS: Apply the Delta function to the current coordinate system 
+        tf2::Transform target_transform = current_transform * delta_transform;
+
+        // Convert back to ROS message for MoveIt
+        geometry_msgs::msg::PoseStamped target_pose;
+        target_pose.header.frame_id = "world"; // Le résultat est exprimé dans le monde
+        target_pose.header.stamp = this->now();
+        tf2::toMsg(target_transform, target_pose.pose);
+
+        // Execution of the planned motion
+        std::string msg;
+        bool success = planAndMaybeExecutePose(target_pose, req->execute, msg);
+
+        res->success = success;
+        res->message = success ? "Relative move computed and executed." : msg;
+    }
+
+    void MotionServer::onMoveRelativeWorld(
+        const std::shared_ptr<denso_motion_control::srv::GoToEuler::Request> req,
+        std::shared_ptr<denso_motion_control::srv::GoToEuler::Response> res)
+    {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
+        std::lock_guard<std::mutex> lock(mtx_);
+
+        std::string why;
+        if (!ensureInitialized(why)) { 
+            res->success = false; 
+            res->message = why; 
+            return; 
         }
+
+        // Retrieve the robot's current pose in the world frame
+        geometry_msgs::msg::PoseStamped current_pose_msg = move_group_->getCurrentPose();
+        
+        // Convert TF2 into a mathematical object to perform multiplications.
+        tf2::Transform current_transform;
+        tf2::fromMsg(current_pose_msg.pose, current_transform);
+        
+        // Create the "Delta" transformation (The requested movement)
+        // Position delta (Vecteur3)
+        tf2::Vector3 translation_delta(req->x, req->y, req->z);
+        
+        // Rotation delta (Quaternion)
+        tf2::Quaternion rotation_delta;
+        rotation_delta.setRPY(req->rx, req->ry, req->rz);
+
+        // MATHS: Apply the Delta function to the current coordinate system         
+        tf2::Transform target_transform;
+        target_transform.setOrigin(current_transform.getOrigin() + translation_delta);
+        target_transform.setRotation(rotation_delta * current_transform.getRotation());
+        target_transform.getRotation().normalize(); // Toujours normaliser un quaternion calculé
+
+        // Convert back to ROS message for MoveIt
+        geometry_msgs::msg::PoseStamped target_pose;
+        target_pose.header.frame_id = "world"; 
+        target_pose.header.stamp = this->now();
+        tf2::toMsg(target_transform, target_pose.pose);
+
+        std::string msg;
+        // Execution of the planned motion
+        bool success = planAndMaybeExecutePose(target_pose, req->execute, msg);
+
+        res->success = success;
+        res->message = success ? "Relative World move executed." : msg;
     }
 
 
@@ -310,7 +458,7 @@ namespace denso_motion_control
         // Determine the reference frame (default to "world" if not provided)
         std::string reference_frame = req->frame_id;
         if (reference_frame.empty()) {
-            reference_frame = "world"; // Ou "base_link" selon ta préférence
+            reference_frame = "world";
         }
 
         // Calculate the transform from reference_frame to target_frame using TF2
@@ -340,6 +488,9 @@ namespace denso_motion_control
             RCLCPP_ERROR(this->get_logger(), "%s", res->message.c_str());
         }
     }
+
+
+
 
 
 }  // namespace denso_motion_control
