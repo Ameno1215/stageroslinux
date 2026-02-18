@@ -16,6 +16,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Transform.h>
+#include <tf2/LinearMath/Matrix3x3.h>
 
 #include "denso_motion_control/srv/init_robot.hpp"
 #include "denso_motion_control/srv/go_to_joint.hpp"
@@ -146,15 +147,20 @@ namespace denso_motion_control
                 std::shared_ptr<srv::GetJointState::Response> res);
 
             /**
-             * @brief Retrieves the Cartesian pose of a specific link relative to a reference frame.
-             * * If `child_frame_id` is empty, it defaults to the robot's end-effector (e.g., "J6" or "flange").
-             * * If `frame_id` is empty, it defaults to "world".
-             * * @param req Contains `child_frame_id` (the link to measure) and `frame_id` (the reference origin).
-             * @param res Returns the calculated PoseStamped and success status.
+             * @brief Retrieves the current Cartesian pose of a specific link relative to a reference frame.
+             * Computes the transform using TF2 and returns it in two formats:
+             * 1. Standard Pose (Position + Quaternion).
+             * 2. Euler Angles (Roll-Pitch-Yaw) in fixed XYZ convention.
+             *
+             * - If `child_frame_id` is empty, it defaults to the robot's end-effector.
+             * - If `frame_id` is empty, it defaults to "world".
+             *
+             * @param req Contains `child_frame_id` (target) and `frame_id` (reference).
+             * @param res Returns the PoseStamped, the Euler angles array, and success status.
              */
             void onGetCurrentPose(
-                const std::shared_ptr<srv::GetCurrentPose::Request> req,
-                std::shared_ptr<srv::GetCurrentPose::Response> res);
+                const std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Request> req,
+                std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Response> res);
 
 
 

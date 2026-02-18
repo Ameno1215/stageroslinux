@@ -1,7 +1,9 @@
 # Request
-string frame_id        # The reference (ex: "world" or "base_link")
-string child_frame_id  # Desired body (ex tool, J1...)
+string frame_id        # Reference frame (e.g., "world"). Default if empty: "world"
+string child_frame_id  # Target frame (e.g., "tool_link"). Default if empty: End-Effector
 ---
+# Response
 bool success
 string message
-geometry_msgs/PoseStamped pose
+geometry_msgs/PoseStamped pose   # Standard Pose (Position + Quaternion)
+float64[] euler_rpy              # Euler Angles [roll, pitch, yaw] in radians (Fixed XYZ)

@@ -435,54 +435,67 @@ namespace denso_motion_control
         res->message = "OK";
         }
 
-    void MotionServer::onGetCurrentPose(
-        const std::shared_ptr<srv::GetCurrentPose::Request> req,
-        std::shared_ptr<srv::GetCurrentPose::Response> res)
+void MotionServer::onGetCurrentPose(
+        const std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Request> req,
+        std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Response> res)
     {
+        // Thread-safety: Protect MoveIt access
         std::lock_guard<std::mutex> lock(mtx_);
 
-        // Determine the target frame
+        // Handle default frames
+        // If child_frame is empty, use the robot's End-Effector
         std::string target_frame = req->child_frame_id;
-        
-        // If no child_frame_id provided, default to end-effector link
         if (target_frame.empty()) {
             if (move_group_) {
                 target_frame = move_group_->getEndEffectorLink();
             } else {
                 res->success = false;
-                res->message = "MoveGroup not ready and no child_frame_id provided.";
+                res->message = "MoveGroup not ready. Cannot determine End-Effector link.";
                 return;
             }
         }
 
-        // Determine the reference frame (default to "world" if not provided)
-        std::string reference_frame = req->frame_id;
-        if (reference_frame.empty()) {
-            reference_frame = "world";
-        }
+        // If frame_id is empty, default to "world"
+        std::string reference_frame = req->frame_id.empty() ? "world" : req->frame_id;
 
-        // Calculate the transform from reference_frame to target_frame using TF2
         try {
+            // Lookup Transform via TF2
             geometry_msgs::msg::TransformStamped t;
-
             t = tf_buffer_->lookupTransform(
                 reference_frame, 
                 target_frame, 
-                tf2::TimePointZero
+                tf2::TimePointZero // Get the latest available transform
             );
 
-            // Fill the response pose  
+            // Fill Standard Pose (Position + Quaternion)
             res->pose.header = t.header;
             res->pose.pose.position.x = t.transform.translation.x;
             res->pose.pose.position.y = t.transform.translation.y;
             res->pose.pose.position.z = t.transform.translation.z;
             res->pose.pose.orientation = t.transform.rotation;
 
+            // Calculate Euler Angles (Always included)
+            // Convert GeometryMsg Quaternion to TF2 Quaternion
+            tf2::Quaternion q(
+                t.transform.rotation.x,
+                t.transform.rotation.y,
+                t.transform.rotation.z,
+                t.transform.rotation.w
+            );
+
+            // Convert to RPY (Roll-Pitch-Yaw / Extrinsic XYZ)
+            tf2::Matrix3x3 m(q);
+            double roll, pitch, yaw;
+            m.getRPY(roll, pitch, yaw);
+            
+            // Fill the float array
+            res->euler_rpy = {roll, pitch, yaw};
+
             res->success = true;
             res->message = "Pose retrieved via TF2 for link: " + target_frame;
         } 
         catch (const tf2::TransformException & ex) {
-            // If TF2 lookup fails, return an error message
+            // Handle TF2 errors (e.g., frame does not exist)
             res->success = false;
             res->message = std::string("TF2 Error: ") + ex.what();
             RCLCPP_ERROR(this->get_logger(), "%s", res->message.c_str());
