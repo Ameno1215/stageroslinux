@@ -250,13 +250,33 @@ class DensoMotionRosClient(Node):
             raise RuntimeError(f"GetCurrentPose failed: {e}")
 
         p = res.pose.pose
+        
+        # Safe extraction of Euler angles (default to 0.0 if empty for any reason)
+        rx, ry, rz = 0.0, 0.0, 0.0
+        if len(res.euler_rpy) >= 3:
+            rx = res.euler_rpy[0]
+            ry = res.euler_rpy[1]
+            rz = res.euler_rpy[2]
+
         return {
             "success": res.success,
             "message": res.message,
             "frame_id": res.pose.header.frame_id,
             "child_frame_id": child_frame_id,
             "position": {"x": p.position.x, "y": p.position.y, "z": p.position.z},
-            "orientation": {"x": p.orientation.x, "y": p.orientation.y, "z": p.orientation.z, "w": p.orientation.w},
+            
+            # We return BOTH formats. The client (Windows side) will filter what it needs.
+            "orientation_quat": {
+                "x": p.orientation.x, 
+                "y": p.orientation.y, 
+                "z": p.orientation.z, 
+                "w": p.orientation.w
+            },
+            "orientation_euler": {
+                "rx": rx, 
+                "ry": ry, 
+                "rz": rz
+            }
         }
 
 
