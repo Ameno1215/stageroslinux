@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg model)">
 
-  <!-- robot name parameter -->
   <xacro:arg name="model" default="denso_robot"/>
-  <!-- parameters -->
   <xacro:arg name="namespace" default="" />
+  <xacro:arg name="tool" default="none" />
 
   <xacro:include filename="$(find denso_robot_moveit_config)/robots/$(arg model)/srdf/denso_robot_macro.srdf.xacro"/>
 
-  <xacro:denso_robot_srdf name="$(arg namespace)$(arg model)" namespace="$(arg namespace)"/>
+  <xacro:denso_robot_srdf name="$(arg namespace)$(arg model)" namespace="$(arg namespace)" tool="$(arg tool)"/>
 
 </robot>

@@ -1,22 +1,19 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg model)">
-   <!-- robot name parameter -->
+   <xacro:arg name="tool" default="none"/>
+
    <xacro:arg name="model" default="denso_robot"/>
-   <!-- import main macro -->
+   
    <xacro:include filename="$(find denso_robot_descriptions)/robots/$(arg model)/urdf/denso_robot_macro.xacro"/>
 
-   <!-- parameters -->
    <xacro:arg name="namespace" default="" />
    <xacro:arg name="transmission_hw_interface" default=""/>
-
-   <!-- ros2_control related parameters -->
    <xacro:arg name="verbose" default="false" />
    <xacro:arg name="sim" default="false" />
    <xacro:arg name="ip_address" default="192.168.0.1" />
    <xacro:arg name="send_format" default="288" />
    <xacro:arg name="recv_format" default="292" />
 
-   <!-- arm -->
    <xacro:denso_robot
      model="$(arg model)"
      namespace="$(arg namespace)"
@@ -27,34 +24,60 @@
      send_format="$(arg send_format)"
      recv_format="$(arg recv_format)" />
 
-   <link name="$(arg namespace)tool_link">
-    <visual>
-      <origin xyz="0 0 -0.207" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurV1.STL" scale="0.001 0.001 0.001"/>
-      </geometry>
-      <material name="grey">
-        <color rgba="0.5 0.5 0.5 1.0"/>
-      </material>
-    </visual>
+   <xacro:if value="${'$(arg tool)' == 'effecteur_v1'}">
+     <link name="$(arg namespace)tool_link">
+      <visual>
+        <origin xyz="0 0 -0.207" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurV1.STL" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="grey">
+          <color rgba="0.5 0.5 0.5 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 -0.207" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurV1.STL" scale="0.001 0.001 0.001"/>
+        </geometry>
+      </collision>
+      <inertial>
+         <mass value="0.5" /> <origin xyz="0 0 0.1" rpy="0 0 0" /> <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+      </inertial>
+     </link>
 
-    <collision>
-      <origin xyz="0 0 -0.207" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurV1.STL" scale="0.001 0.001 0.001"/>
-      </geometry>
-    </collision>
+     <joint name="$(arg namespace)tool_joint" type="fixed">
+      <parent link="$(arg namespace)J6" /> 
+      <child link="$(arg namespace)tool_link" />
+      <origin xyz="0 0 0.207" rpy="0 0 0" /> 
+     </joint>
+   </xacro:if>
 
-    <inertial>
-       <mass value="0.5" /> <origin xyz="0 0 0.1" rpy="0 0 0" /> <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
-    </inertial>
-  </link>
+   <xacro:if value="${'$(arg tool)' == 'effecteur_test'}">
+     <link name="$(arg namespace)tool_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" /> <geometry>
+          <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurTest.STL" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="blue">
+          <color rgba="0.0 0.0 0.8 1.0"/> </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0.0" rpy="0 0 0" /> <geometry>
+          <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurTest.STL" scale="0.001 0.001 0.001"/>
+        </geometry>
+      </collision>
+      <inertial>
+         <mass value="0.8" /> 
+         <origin xyz="0 0 0.05" rpy="0 0 0" /> 
+         <inertia ixx="0.002" ixy="0.0" ixz="0.0" iyy="0.002" iyz="0.0" izz="0.002" />
+      </inertial>
+     </link>
 
-  <joint name="$(arg namespace)tool_joint" type="fixed">
-    <parent link="$(arg namespace)J6" /> 
-    <child link="$(arg namespace)tool_link" />
-    <origin xyz="0 0 0.207" rpy="0 0 0" /> 
-  </joint>
-
+     <joint name="$(arg namespace)tool_joint" type="fixed">
+      <parent link="$(arg namespace)J6" /> 
+      <child link="$(arg namespace)tool_link" />
+      <origin xyz="0 0 0.0" rpy="0 0 0" /> </joint>
+   </xacro:if>
 
 </robot>

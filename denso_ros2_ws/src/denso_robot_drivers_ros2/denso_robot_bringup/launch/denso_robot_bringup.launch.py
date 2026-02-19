@@ -147,6 +147,10 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'robot_controller', default_value='denso_joint_trajectory_controller',
             description='Robot controller to start.'))
+    declared_arguments.append(
+        DeclareLaunchArgument('tool', default_value='none', description='End-effector tool to attach (e.g., none, effecteur_v1)')
+    )
+
 # Execution arguments (Rviz and Gazebo)
 # TODO: shall we give the user the choice not to load the rviz graphical environment ??
 #    declared_arguments.append(
@@ -177,6 +181,7 @@ def generate_launch_description():
     verbose = LaunchConfiguration('verbose')
     controllers_file = LaunchConfiguration('controllers_file')
     robot_controller = LaunchConfiguration('robot_controller')
+    tool = LaunchConfiguration('tool')
 
     denso_robot_core_pkg = get_package_share_directory('denso_robot_core')
 
@@ -196,7 +201,8 @@ def generate_launch_description():
             'recv_format:=', recv_format, ' ',
             'namespace:=', namespace, ' ',
             'verbose:=', verbose, ' ',
-            'sim:=', sim, ' '
+            'sim:=', sim, ' ',
+            'tool:=', tool, ' '
         ])
     robot_description = {'robot_description': robot_description_content}
 
@@ -209,7 +215,8 @@ def generate_launch_description():
                 [FindPackageShare(moveit_config_package), 'srdf', moveit_config_file]),
             ' ',
             'model:=', denso_robot_model, ' ',
-            'namespace:=', namespace, ' '
+            'namespace:=', namespace, ' ',
+            'tool:=', tool, ' '
         ])
     robot_description_semantic = {'robot_description_semantic': robot_description_semantic_content}
     kinematics_yaml = load_yaml('denso_robot_moveit_config', 'config/kinematics.yaml')

@@ -38,6 +38,9 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument("accel_scale", default_value="0.1", description="Max acceleration scaling factor [0..1].")
     )
+    declared_arguments.append(
+        DeclareLaunchArgument("tool", default_value="none", description="End-effector tool to attach (e.g., none, effecteur_v1)")
+    )
 
     declared_arguments.append(
         DeclareLaunchArgument(
@@ -74,6 +77,7 @@ def generate_launch_description():
     planning_group = LaunchConfiguration("planning_group")
     velocity_scale = LaunchConfiguration("velocity_scale")
     accel_scale = LaunchConfiguration("accel_scale")
+    tool = LaunchConfiguration("tool")
 
     description_package = LaunchConfiguration("description_package")
     description_file = LaunchConfiguration("description_file")
@@ -87,13 +91,10 @@ def generate_launch_description():
             " ",
             PathJoinSubstitution([FindPackageShare(description_package), "urdf", description_file]),
             " ",
-            "model:=",
-            model,
-            " ",
-            "sim:=",
-            sim,
-            " ",
-            "namespace:=''",
+            "model:=", model, " ",
+            "sim:=", sim, " ",
+            "namespace:=''", " ",
+            "tool:=", tool, " ",
         ]
     )
     robot_description = {"robot_description": robot_description_content}
@@ -105,10 +106,9 @@ def generate_launch_description():
             " ",
             PathJoinSubstitution([FindPackageShare(moveit_config_package), "srdf", moveit_config_file]),
             " ",
-            "model:=",
-            model,
-            " ",
-            "namespace:=''",
+            "model:=", model, " ",
+            "namespace:=''", " ",
+            "tool:=", tool, " ",
         ]
     )
     robot_description_semantic = {"robot_description_semantic": robot_description_semantic_content}
