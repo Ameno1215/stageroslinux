@@ -27,6 +27,7 @@
 #include "denso_motion_control/srv/move_to_pose.hpp"
 #include "denso_motion_control/srv/move_joints.hpp"
 #include "denso_motion_control/srv/move_waypoints.hpp"
+#include "denso_motion_control/srv/set_virtual_cage.hpp"
 
 
 namespace denso_motion_control
@@ -172,32 +173,48 @@ namespace denso_motion_control
                 const std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Request> req,
                 std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Response> res);
 
+            /**
+             * @brief Service callback to dynamically generate a virtual collision cage around the robot.
+             * * Creates 6 walls (CollisionObjects) in the MoveIt planning scene to strictly 
+             * restrict the robot's workspace and prevent any part of the arm from exceeding the limits. 
+             * The dimensions provided define the exact internal free space originating from the 
+             * "world" frame (0, 0, 0). 
+             * * IMPORTANT: The thickness of the collision walls is added exclusively to the OUTSIDE 
+             * of the specified boundaries. Therefore, the given parameters exactly represent the 
+             * permitted internal workspace without any loss of volume due to wall thickness.
+             * * @param req Contains the enable flag and the 6 maximum distances (front, back, left, right, top, bottom).
+             * @param res Returns the success status of the cage generation or removal.
+             */
+            void onSetVirtualCage(
+                const std::shared_ptr<srv::SetVirtualCage::Request> req,
+                std::shared_ptr<srv::SetVirtualCage::Response> res);
 
 
-        // Internal helpers
-        // Checks if the MoveGroup interface is initialized before processing motion commands
-        bool ensureInitialized(std::string& why) const;
+            // Internal helpers
+            // Checks if the MoveGroup interface is initialized before processing motion commands
+            bool ensureInitialized(std::string& why) const;
 
-        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
-        mutable std::mutex mtx_;
+            // Thread-safety: MoveGroupInterface is not designed to be called concurrently
+            mutable std::mutex mtx_;
 
-        bool initialized_{false};
-        std::string model_;
-        std::string planning_group_{"arm"};
-        double vel_scale_{0.1};
-        double accel_scale_{0.1};
+            bool initialized_{false};
+            std::string model_;
+            std::string planning_group_{"arm"};
+            double vel_scale_{0.1};
+            double accel_scale_{0.1};
 
-        std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
-        std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_;
+            std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
+            std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_;
 
-        // Services
-        rclcpp::Service<srv::InitRobot>::SharedPtr srv_init_;
-        rclcpp::Service<srv::SetScaling>::SharedPtr srv_scaling_;
-        rclcpp::Service<srv::GetJointState>::SharedPtr srv_get_joints_;
-        rclcpp::Service<srv::GetCurrentPose>::SharedPtr srv_get_pose_;
-        rclcpp::Service<srv::MoveJoints>::SharedPtr srv_move_joints_;
-        rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_;
-        rclcpp::Service<srv::MoveWaypoints>::SharedPtr srv_move_waypoints_;
+            // Services
+            rclcpp::Service<srv::InitRobot>::SharedPtr srv_init_;
+            rclcpp::Service<srv::SetScaling>::SharedPtr srv_scaling_;
+            rclcpp::Service<srv::GetJointState>::SharedPtr srv_get_joints_;
+            rclcpp::Service<srv::GetCurrentPose>::SharedPtr srv_get_pose_;
+            rclcpp::Service<srv::MoveJoints>::SharedPtr srv_move_joints_;
+            rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_;
+            rclcpp::Service<srv::MoveWaypoints>::SharedPtr srv_move_waypoints_;
+            rclcpp::Service<srv::SetVirtualCage>::SharedPtr srv_virtual_cage_;
     };
 
 }  // namespace denso_motion_control

@@ -1,4 +1,4 @@
-# REQUÊTE
+# Request
 # Import du type standard ROS 2
 geometry_msgs/Pose[] waypoints
 
@@ -9,6 +9,6 @@ bool cartesian_path        # True = relie les points en lignes droites, False = 
 bool execute               # True = planifie et bouge, False = planifie seulement
 
 ---
-# RÉPONSE
+# Response
 bool success
 string message

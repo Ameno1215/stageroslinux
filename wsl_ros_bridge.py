@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 # NOUVEAUX IMPORTS DES SRV
-from denso_motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose
+from denso_motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage
 from geometry_msgs.msg import PoseStamped, Pose
 
 
@@ -83,6 +83,20 @@ class MoveWaypointsReq(BaseModel):
     cartesian_path: bool = True
     execute: bool = True
 
+class VirtualCageReq(BaseModel):
+    enable: bool
+    front: float = 1.0
+    back: float = 1.0
+    left: float = 1.0
+    right: float = 1.0
+    top: float = 1.5
+    bottom: float = 0.0
+
+    r: float = 0.0
+    g: float = 0.6
+    b: float = 1.0
+    a: float = 0.15
+
 
 # ----------------------------
 # ROS2 client node
@@ -99,6 +113,7 @@ class DensoMotionRosClient(Node):
         self.move_pose_cli = self.create_client(MoveToPose, "/move_to_pose")
         self.move_joints_cli = self.create_client(MoveJoints, "/move_joints")
         self.move_waypoints_cli = self.create_client(MoveWaypoints, "/move_waypoints")
+        self.cage_cli = self.create_client(SetVirtualCage, "/set_virtual_cage")
 
         # Wait for services
         for cli, name in [
@@ -109,6 +124,7 @@ class DensoMotionRosClient(Node):
             (self.move_pose_cli, "/move_to_pose"),
             (self.move_joints_cli, "/move_joints"),
             (self.move_waypoints_cli, "/move_waypoints"),
+            (self.cage_cli, "/set_virtual_cage"),
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 self.get_logger().error(f"Service {name} not available. Is motion_server running?")
@@ -283,6 +299,27 @@ class DensoMotionRosClient(Node):
             }
         }
 
+    def call_set_virtual_cage(self, req: VirtualCageReq) -> Dict[str, Any]:
+        ros_req = SetVirtualCage.Request()
+        ros_req.enable = bool(req.enable)
+        ros_req.front = float(req.front)
+        ros_req.back = float(req.back)
+        ros_req.left = float(req.left)
+        ros_req.right = float(req.right)
+        ros_req.top = float(req.top)
+        ros_req.bottom = float(req.bottom)
+        ros_req.r = float(req.r)
+        ros_req.g = float(req.g)
+        ros_req.b = float(req.b)
+        ros_req.a = float(req.a)
+
+        fut = self.cage_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+        except Exception as e:
+            raise RuntimeError(f"SetVirtualCage failed: {e}")
+        return {"success": bool(res.success), "message": str(res.message)}
+
 
 # ----------------------------
 # FastAPI app
@@ -359,3 +396,10 @@ def state_joints():
 @app.get("/state/pose")
 def state_pose(frame_id: str = "", child_frame_id: str = ""):
     return _ros_client.call_get_pose(frame_id, child_frame_id)
+
+@app.post("/set_virtual_cage")
+def set_virtual_cage(req: VirtualCageReq):
+    try:
+        return _ros_client.call_set_virtual_cage(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

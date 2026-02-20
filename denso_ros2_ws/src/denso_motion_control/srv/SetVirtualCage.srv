@@ -1,0 +1,19 @@
+# Request
+bool enable          # True to activate the cage, False to remove it
+float64 front        # Maximum distance forward (+X)
+float64 back         # Maximum distance backward (-X)
+float64 left         # Maximum distance left (+Y)
+float64 right        # Maximum distance right (-Y)
+float64 top          # Maximum height above 0 (+Z)
+float64 bottom       # Maximum height bellow 0 (-Z)
+
+# --- Appearance settings (0.0 to 1.0) ---
+float64 r            # Red
+float64 g            # Green
+float64 b            # Blue
+float64 a            # Alpha (0.0 = invisible, 1.0 = opaque)
+
+---
+# Response
+bool success
+string message

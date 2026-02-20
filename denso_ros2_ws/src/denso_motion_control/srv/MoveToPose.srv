@@ -1,4 +1,4 @@
-# REQUÊTE
+# Request
 float64 x
 float64 y
 float64 z
@@ -19,6 +19,6 @@ bool cartesian_path        # True = ligne droite, False = mouvement articulaire 
 bool execute               # True = planifie et bouge, False = planifie seulement
 
 ---
-# RÉPONSE
+# Response
 bool success
 string message

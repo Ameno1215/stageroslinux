@@ -46,6 +46,10 @@ namespace denso_motion_control
         srv_get_pose_ = this->create_service<srv::GetCurrentPose>(
             "get_current_pose",
             std::bind(&MotionServer::onGetCurrentPose, this, std::placeholders::_1, std::placeholders::_2));
+        
+        srv_virtual_cage_ = this->create_service<srv::SetVirtualCage>(
+            "set_virtual_cage",
+            std::bind(&MotionServer::onSetVirtualCage, this, std::placeholders::_1, std::placeholders::_2));
 
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
@@ -89,9 +93,9 @@ namespace denso_motion_control
 
             // TODO configurable at launch
             // Find best parameters for fast and reliable planning. These can be tuned based on the robot's performance and environment complexity.
-            move_group_->setPlanningTime(5.0); 
-            move_group_->setNumPlanningAttempts(10); 
-            move_group_->allowReplanning(true);
+            move_group_->setPlanningTime(5.0); // Maximum time (in seconds) allowed for planning.
+            move_group_->setNumPlanningAttempts(10); //Number of attempts simultaneously launched by MoveIt to find a valid plan (with different random seeds).
+            move_group_->allowReplanning(true); // If true, MoveIt will automatically try to replan if the current plan fails during execution (e.g., due to a new obstacle).
 
             // Log available joints and links
             auto names = move_group_->getRobotModel()->getLinkModelNames();
@@ -531,7 +535,100 @@ namespace denso_motion_control
         }
     }
 
+    void MotionServer::onSetVirtualCage(
+        const std::shared_ptr<srv::SetVirtualCage::Request> req,
+        std::shared_ptr<srv::SetVirtualCage::Response> res)
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        std::string why;
+        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
 
+        std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+        std::vector<std::string> wall_names = {"cage_front", "cage_back", "cage_left", "cage_right", "cage_top", "cage_bottom"};
+
+        if (!req->enable) {
+            // // Destroy the cage (MoveIt to REMOVE these objects)
+            for (const auto& name : wall_names) {
+                moveit_msgs::msg::CollisionObject obj;
+                obj.id = name;
+                obj.operation = obj.REMOVE;
+                collision_objects.push_back(obj);
+            }
+            planning_scene_->applyCollisionObjects(collision_objects);
+            res->success = true; res->message = "Virtual cage removed";
+            return;
+        }
+
+        // Cage construction
+        const double thickness = 0.01; // Walls tickness of 1cm
+
+        // Utility function to generate a wall as a CollisionObject
+        auto make_wall = [&](const std::string& id, double cx, double cy, double cz, double sx, double sy, double sz) {
+            moveit_msgs::msg::CollisionObject obj;
+            obj.header.frame_id = "world";
+            obj.id = id;
+            obj.operation = obj.ADD;
+            
+            shape_msgs::msg::SolidPrimitive primitive;
+            primitive.type = primitive.BOX;
+            primitive.dimensions = {sx, sy, sz};
+            
+            geometry_msgs::msg::Pose pose;
+            pose.position.x = cx; pose.position.y = cy; pose.position.z = cz;
+            pose.orientation.w = 1.0;
+            
+            obj.primitives.push_back(primitive);
+            obj.primitive_poses.push_back(pose);
+            return obj;
+        };
+
+        // Calculation of the cage's internal dimensions
+        double dim_x = req->front + req->back;
+        double dim_y = req->left + req->right;
+        double dim_z = req->top + req->bottom;
+
+        // Calculation of the overall center of the cage
+        double cx = (req->front - req->back) / 2.0;
+        double cy = (req->left - req->right) / 2.0;
+        double cz = (req->top - req->bottom) / 2.0;
+
+        // Front Wall (+X)
+        collision_objects.push_back(make_wall("cage_front", req->front + thickness/2, cy, cz, thickness, dim_y, dim_z));
+        // Back Wall (-X)
+        collision_objects.push_back(make_wall("cage_back", -req->back - thickness/2, cy, cz, thickness, dim_y, dim_z));
+        // Left Wall (+Y)
+        collision_objects.push_back(make_wall("cage_left", cx, req->left + thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
+        // Right Wall (-Y)
+        collision_objects.push_back(make_wall("cage_right", cx, -req->right - thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
+        // Ceiling (+Z)
+        collision_objects.push_back(make_wall("cage_top", cx, cy, req->top + thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
+        //  Floor (-Z)
+        collision_objects.push_back(make_wall("cage_bottom", cx, cy, -req->bottom - thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
+
+        
+        moveit_msgs::msg::PlanningScene planning_scene_msg;
+        planning_scene_msg.is_diff = true;
+        
+        std_msgs::msg::ColorRGBA cage_color;
+        cage_color.r = req->r;
+        cage_color.g = req->g;
+        cage_color.b = req->b;
+        cage_color.a = req->a; 
+
+        for (const auto& obj : collision_objects) {
+            moveit_msgs::msg::ObjectColor oc;
+            oc.id = obj.id;
+            oc.color = cage_color;
+            planning_scene_msg.object_colors.push_back(oc);
+        }
+        
+        // Apply the cage to the planning scene
+        planning_scene_msg.world.collision_objects = collision_objects;
+        planning_scene_->applyPlanningScene(planning_scene_msg);
+
+        res->success = true;
+        res->message = "Virtual cage successfully activated";
+    }
 
 
 
