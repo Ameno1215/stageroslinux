@@ -87,6 +87,12 @@ namespace denso_motion_control
             move_group_->setMaxVelocityScalingFactor(vel_scale_);
             move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
+            // TODO configurable at launch
+            // Find best parameters for fast and reliable planning. These can be tuned based on the robot's performance and environment complexity.
+            move_group_->setPlanningTime(5.0); 
+            move_group_->setNumPlanningAttempts(10); 
+            move_group_->allowReplanning(true);
+
             // Log available joints and links
             auto names = move_group_->getRobotModel()->getLinkModelNames();
             RCLCPP_INFO(this->get_logger(), "--- Links available for this robot ---");
@@ -270,7 +276,7 @@ namespace denso_motion_control
             waypoints.push_back(target_pose.pose);
 
             moveit_msgs::msg::RobotTrajectory trajectory;
-            const double jump_threshold = 0.0;
+            const double jump_threshold = 1.5; // 1.5 radian jump threshold (prevents joint "jumps")
             const double eef_step = 0.01; // 1 cm resolution
 
             double fraction = move_group_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
@@ -360,7 +366,7 @@ namespace denso_motion_control
         if (req->cartesian_path) {
             // Cartesian mode: Drawing in pure straight lines between each point
             moveit_msgs::msg::RobotTrajectory trajectory;
-            const double jump_threshold = 0.0; // Disables joint "jumps"
+            const double jump_threshold = 1.5; // Disables joint "jumps"
             const double eef_step = 0.01;      // A point calculated every 1 cm
 
             double fraction = move_group_->computeCartesianPath(absolute_waypoints, eef_step, jump_threshold, trajectory);
