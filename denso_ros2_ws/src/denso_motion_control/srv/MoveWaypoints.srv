@@ -1,0 +1,14 @@
+# REQUÊTE
+# Import du type standard ROS 2
+geometry_msgs/Pose[] waypoints
+
+# Configuration globale pour toute la trajectoire
+string reference_frame     # "WORLD" ou "TOOL"
+bool is_relative           # True = chaque point est relatif au précédent
+bool cartesian_path        # True = relie les points en lignes droites, False = courbe fluide
+bool execute               # True = planifie et bouge, False = planifie seulement
+
+---
+# RÉPONSE
+bool success
+string message

@@ -17,14 +17,16 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2/LinearMath/Matrix3x3.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
+#include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
 #include "denso_motion_control/srv/init_robot.hpp"
-#include "denso_motion_control/srv/go_to_joint.hpp"
-#include "denso_motion_control/srv/go_to_pose.hpp"
 #include "denso_motion_control/srv/set_scaling.hpp"
 #include "denso_motion_control/srv/get_joint_state.hpp"
 #include "denso_motion_control/srv/get_current_pose.hpp"
-#include "denso_motion_control/srv/go_to_euler.hpp"
+#include "denso_motion_control/srv/move_to_pose.hpp"
+#include "denso_motion_control/srv/move_joints.hpp"
+#include "denso_motion_control/srv/move_waypoints.hpp"
 
 
 namespace denso_motion_control
@@ -62,14 +64,63 @@ namespace denso_motion_control
                 std::shared_ptr<srv::InitRobot::Response> res);
 
             /**
-             * @brief Commands a movement to a target joint configuration.
-             * * Plans and (optionally) executes a movement to the specified joint angles.
-             * * @param req List of target joint angles (must match the number of joints in the group).
-             * @param res Returns the success of the planning/execution.
+             * @brief Mathematical engine to compute the absolute target pose in the "world" frame.
+             * Resolves complex coordinate transformations including relative movements, 
+             * Tool Center Point (TCP) offsets, and Euler/Quaternion conversions.
+             * @param x Translation along the X axis.
+             * @param y Translation along the Y axis.
+             * @param z Translation along the Z axis.
+             * @param r1 Rotation 1 (Roll for RPY, or X for Quaternion).
+             * @param r2 Rotation 2 (Pitch for RPY, or Y for Quaternion).
+             * @param r3 Rotation 3 (Yaw for RPY, or Z for Quaternion).
+             * @param r4 Rotation 4 (W for Quaternion. Ignored if rot_format is "RPY").
+             * @param rot_format String indicating rotation format: "RPY" or "QUAT".
+             * @param ref_frame String indicating the reference frame: "WORLD" or "TOOL".
+             * @param is_relative If true, treats the inputs as a delta applied to the current pose.
+             * @param out_error_msg Reference to a string to output any transformation errors.
+             * @return geometry_msgs::msg::PoseStamped The computed absolute pose in the world frame.
              */
-            void onGoToJoint(
-                const std::shared_ptr<srv::GoToJoint::Request> req,
-                std::shared_ptr<srv::GoToJoint::Response> res);
+            geometry_msgs::msg::PoseStamped computeAbsoluteTarget(
+                double x, double y, double z,
+                double r1, double r2, double r3, double r4,
+                const std::string& rot_format,
+                const std::string& ref_frame,
+                bool is_relative,
+                std::string& out_error_msg);
+
+            /**
+             * @brief Universal service callback to move the robot to a target Cartesian pose.
+             * Replaces multiple legacy services. Handles absolute positions, relative offsets 
+             * (fly-by-wire or crane mode), and both fluid joint-space planning or strict linear Cartesian paths.
+             * * @param req Contains target coordinates, formats, reference frames, and motion flags.
+             * @param res Returns the success status and informational messages.
+             */
+            void onMoveToPose(
+                const std::shared_ptr<denso_motion_control::srv::MoveToPose::Request> req,
+                std::shared_ptr<denso_motion_control::srv::MoveToPose::Response> res);
+
+            /**
+             * @brief Service callback to command a movement in the joint space.
+             * Moves the robot's axes to specific angles. Supports both absolute joint configurations 
+             * and relative angular offsets from the current motor states.
+             * * @param req Contains the target joint values and the is_relative behavior flag.
+             * @param res Returns the success status of the planning and execution.
+             */
+            void onMoveJoints(
+                const std::shared_ptr<denso_motion_control::srv::MoveJoints::Request> req,
+                std::shared_ptr<denso_motion_control::srv::MoveJoints::Response> res);
+
+            /**
+             * @brief Service callback to follow a continuous multi-point trajectory (Waypoints).
+             * Computes and executes a path passing through a provided list of poses. 
+             * Highly useful for welding, gluing, or complex collision avoidance. 
+             * Supports relative waypoint chaining (where point N is relative to point N-1).
+             * * @param req Contains the list of waypoints and trajectory configuration flags.
+             * @param res Returns the success status and the completion percentage of the path.
+             */
+            void onMoveWaypoints(
+                const std::shared_ptr<denso_motion_control::srv::MoveWaypoints::Request> req,
+                std::shared_ptr<denso_motion_control::srv::MoveWaypoints::Response> res);
 
             /**
              * @brief Helper function to interface with MoveIt logic.
@@ -84,47 +135,6 @@ namespace denso_motion_control
                 const geometry_msgs::msg::PoseStamped& target,
                 bool execute,
                 std::string& out_msg);
-
-            /**
-             * @brief Commands a movement to a Cartesian pose (Position + Orientation).
-             * * Uses inverse kinematics to reach the target position and orientation.
-             * * @param req The target PoseStamped including the reference frame_id.
-             * @param res Returns the success of the planning/execution.
-             */
-            void onGoToPose(
-                const std::shared_ptr<srv::GoToPose::Request> req,
-                std::shared_ptr<srv::GoToPose::Response> res);
-
-            /**
-             * @brief Commands a movement using absolute World coordinates and Euler angles.
-             * Converts the requested Euler angles (Extrinsic XYZ / RPY) into a Quaternion
-             * and plans a path to that absolute target pose.
-             * @param req Request containing x, y, z positions and rx, ry, rz (Roll-Pitch-Yaw) orientations in a fixed frame.
-             * @param res Returns the success of the planning/execution.
-             */
-            void onGoToEulerWorld(
-                const std::shared_ptr<denso_motion_control::srv::GoToEuler::Request> req,
-                std::shared_ptr<denso_motion_control::srv::GoToEuler::Response> res);
-            
-            /**
-             * @brief Commands a relative movement with respect to the current Tool Center Point (TCP).
-             * Performs "Fly-by-wire" style control: moving forward/backward, sliding left/right,
-             * or rotating around the tool's own axes.
-             * @param req Request containing relative deltas (dx, dy, dz, drx, dry, drz) to apply to the current pose.
-             * @param res Returns the success of the calculation and execution.
-             */
-            void onMoveRelativeTool(
-                const std::shared_ptr<denso_motion_control::srv::GoToEuler::Request> req,
-                std::shared_ptr<denso_motion_control::srv::GoToEuler::Response> res);
-
-            /**
-             * @brief Commands a relative movement in World Frame.
-             * Translates along global axes (X, Y, Z) and rotates around global axes.
-             * Example: "Go up 10cm" (z=0.1) regardless of tool orientation.
-             */
-            void onMoveRelativeWorld(
-                const std::shared_ptr<denso_motion_control::srv::GoToEuler::Request> req,
-                std::shared_ptr<denso_motion_control::srv::GoToEuler::Response> res);
 
             /**
              * @brief Updates the velocity and acceleration scaling factors.
@@ -182,15 +192,12 @@ namespace denso_motion_control
 
         // Services
         rclcpp::Service<srv::InitRobot>::SharedPtr srv_init_;
-        rclcpp::Service<srv::GoToJoint>::SharedPtr srv_joint_;
-        rclcpp::Service<srv::GoToPose>::SharedPtr srv_pose_;
         rclcpp::Service<srv::SetScaling>::SharedPtr srv_scaling_;
         rclcpp::Service<srv::GetJointState>::SharedPtr srv_get_joints_;
         rclcpp::Service<srv::GetCurrentPose>::SharedPtr srv_get_pose_;
-        rclcpp::Service<denso_motion_control::srv::GoToEuler>::SharedPtr srv_euler_world_;
-        rclcpp::Service<denso_motion_control::srv::GoToEuler>::SharedPtr srv_euler_local_;
-        rclcpp::Service<denso_motion_control::srv::GoToEuler>::SharedPtr srv_euler_world_rel_;
-
+        rclcpp::Service<srv::MoveJoints>::SharedPtr srv_move_joints_;
+        rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_;
+        rclcpp::Service<srv::MoveWaypoints>::SharedPtr srv_move_waypoints_;
     };
 
 }  // namespace denso_motion_control

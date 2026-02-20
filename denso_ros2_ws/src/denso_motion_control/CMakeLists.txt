@@ -19,12 +19,12 @@ find_package(tf2_geometry_msgs REQUIRED)
 # ---- Interfaces (srv) ----
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/InitRobot.srv"
-  "srv/GoToJoint.srv"
-  "srv/GoToPose.srv"
   "srv/SetScaling.srv"
   "srv/GetCurrentPose.srv"
   "srv/GetJointState.srv"
-  "srv/GoToEuler.srv"
+  "srv/MoveToPose.srv"
+  "srv/MoveJoints.srv"
+  "srv/MoveWaypoints.srv"
   DEPENDENCIES geometry_msgs
 )
 

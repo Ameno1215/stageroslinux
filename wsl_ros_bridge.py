@@ -1,5 +1,6 @@
 import threading
 import time
+import math
 from typing import List, Optional, Dict, Any
 
 import rclpy
@@ -8,8 +9,28 @@ from rclpy.node import Node
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from denso_motion_control.srv import InitRobot, GoToJoint, GoToPose, SetScaling, GetJointState, GetCurrentPose, GoToEuler
-from geometry_msgs.msg import PoseStamped
+# NOUVEAUX IMPORTS DES SRV
+from denso_motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose
+from geometry_msgs.msg import PoseStamped, Pose
+
+
+# ----------------------------
+# Utility functions
+# ----------------------------
+def euler_to_quaternion(roll, pitch, yaw):
+    """Converts RPY to Quaternion to populate geometry_msgs/Pose"""
+    cy = math.cos(yaw * 0.5)
+    sy = math.sin(yaw * 0.5)
+    cp = math.cos(pitch * 0.5)
+    sp = math.sin(pitch * 0.5)
+    cr = math.cos(roll * 0.5)
+    sr = math.sin(roll * 0.5)
+
+    qw = cr * cp * cy + sr * sp * sy
+    qx = sr * cp * cy - cr * sp * sy
+    qy = cr * sp * cy + sr * cp * sy
+    qz = cr * cp * sy - sr * sp * cy
+    return qx, qy, qz, qw
 
 
 # ----------------------------
@@ -22,31 +43,44 @@ class InitReq(BaseModel):
     velocity_scale: float = 0.1
     accel_scale: float = 0.1
 
-
 class ScalingReq(BaseModel):
     velocity_scale: float = Field(ge=0.0, le=1.0)
     accel_scale: float = Field(ge=0.0, le=1.0)
 
-
 class JointReq(BaseModel):
     joints: List[float]
+    is_relative: bool = False
     execute: bool = True
 
-
-class PoseReq(BaseModel):
-    frame_id: str = "base_link"
-    position: Dict[str, float]
-    orientation: Dict[str, float]
-    execute: bool = True
-
-class EulerReq(BaseModel):
-    frame_id: str = "base_link"
+class MoveToPoseReq(BaseModel):
     x: float
     y: float
     z: float
-    rx: float
-    ry: float
-    rz: float
+    r1: float
+    r2: float
+    r3: float
+    r4: float = 0.0
+    rotation_format: str = "RPY"
+    reference_frame: str = "WORLD"
+    is_relative: bool = False
+    cartesian_path: bool = False
+    execute: bool = True
+
+class WaypointItem(BaseModel):
+    x: float
+    y: float
+    z: float
+    r1: float
+    r2: float
+    r3: float
+    r4: float = 0.0
+
+class MoveWaypointsReq(BaseModel):
+    waypoints: List[WaypointItem]
+    rotation_format: str = "RPY"
+    reference_frame: str = "WORLD"
+    is_relative: bool = False
+    cartesian_path: bool = True
     execute: bool = True
 
 
@@ -59,32 +93,29 @@ class DensoMotionRosClient(Node):
         super().__init__("denso_motion_http_bridge")
 
         self.init_cli = self.create_client(InitRobot, "/init_robot")
-        self.joint_cli = self.create_client(GoToJoint, "/goto_joint")
-        self.pose_cli = self.create_client(GoToPose, "/goto_cartesian")
         self.scale_cli = self.create_client(SetScaling, "/set_scaling")
         self.get_joints_cli = self.create_client(GetJointState, "/get_joint_state")
         self.get_pose_cli = self.create_client(GetCurrentPose, "/get_current_pose")
-        self.euler_world_cli = self.create_client(GoToEuler, "/goto_euler_world")
-        self.euler_local_cli = self.create_client(GoToEuler, "/move_relative_tool")
-        self.euler_world_rel_cli = self.create_client(GoToEuler, "/move_relative_world")
+        self.move_pose_cli = self.create_client(MoveToPose, "/move_to_pose")
+        self.move_joints_cli = self.create_client(MoveJoints, "/move_joints")
+        self.move_waypoints_cli = self.create_client(MoveWaypoints, "/move_waypoints")
 
-        # Wait for services (30s)
+        # Wait for services
         for cli, name in [
             (self.init_cli, "/init_robot"),
-            (self.joint_cli, "/goto_joint"),
-            (self.pose_cli, "/goto_cartesian"),
             (self.scale_cli, "/set_scaling"),
             (self.get_joints_cli, "/get_joint_state"),
             (self.get_pose_cli, "/get_current_pose"),
-            (self.euler_world_cli, "/goto_euler_world"),
-            (self.euler_local_cli, "/move_relative_tool"),
+            (self.move_pose_cli, "/move_to_pose"),
+            (self.move_joints_cli, "/move_joints"),
+            (self.move_waypoints_cli, "/move_waypoints"),
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 self.get_logger().error(f"Service {name} not available. Is motion_server running?")
 
     def _wait_for_future(self, fut, timeout: Optional[float]):
         """
-        Attente manuelle car rclpy.Future.result() ne prend pas d'argument timeout.
+        Manual wait because rclpy.Future.result() does not take a timeout argument.
         """
         start_time = time.time()
         while not fut.done():
@@ -132,101 +163,74 @@ class DensoMotionRosClient(Node):
 
         return {"success": bool(res.success), "message": str(res.message)}
 
-    def call_joint(self, req: JointReq) -> Dict[str, Any]:
-        ros_req = GoToJoint.Request()
+    def call_move_joints(self, req: JointReq) -> Dict[str, Any]:
+        ros_req = MoveJoints.Request()
         ros_req.joints = [float(x) for x in req.joints]
+        ros_req.is_relative = bool(req.is_relative)
         ros_req.execute = bool(req.execute)
 
-        fut = self.joint_cli.call_async(ros_req)
-        
-        try:
-            # Timeout None = Infinite (we wait for the end of the movement) 
-            res = self._wait_for_future(fut, timeout=None)
-        except Exception as e:
-            raise RuntimeError(f"GoToJoint failed: {e}")
-
-        return {"success": bool(res.success), "message": str(res.message)}
-
-    def call_pose(self, req: PoseReq) -> Dict[str, Any]:
-        pose = PoseStamped()
-        pose.header.frame_id = req.frame_id
-
-        # set position and orientation from request
-        pose.pose.position.x = float(req.position["x"])
-        pose.pose.position.y = float(req.position["y"])
-        pose.pose.position.z = float(req.position["z"])
-
-        pose.pose.orientation.x = float(req.orientation["x"])
-        pose.pose.orientation.y = float(req.orientation["y"])
-        pose.pose.orientation.z = float(req.orientation["z"])
-        pose.pose.orientation.w = float(req.orientation["w"])
-
-        # Execute the service call
-        ros_req = GoToPose.Request()
-        ros_req.target = pose
-        ros_req.execute = bool(req.execute)
-
-        fut = self.pose_cli.call_async(ros_req)
-        
+        fut = self.move_joints_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=None)
         except Exception as e:
-            raise RuntimeError(f"GoToPose failed: {e}")
-
+            raise RuntimeError(f"MoveJoints failed: {e}")
         return {"success": bool(res.success), "message": str(res.message)}
-    
-    def call_euler_world(self, req: EulerReq) -> Dict[str, Any]:
-        ros_req = GoToEuler.Request()
-        ros_req.frame_id = req.frame_id
+
+    def call_move_to_pose(self, req: MoveToPoseReq) -> Dict[str, Any]:
+        ros_req = MoveToPose.Request()
         ros_req.x = float(req.x)
         ros_req.y = float(req.y)
         ros_req.z = float(req.z)
-        ros_req.rx = float(req.rx)
-        ros_req.ry = float(req.ry)
-        ros_req.rz = float(req.rz)
+        ros_req.r1 = float(req.r1)
+        ros_req.r2 = float(req.r2)
+        ros_req.r3 = float(req.r3)
+        ros_req.r4 = float(req.r4)
+        ros_req.rotation_format = str(req.rotation_format)
+        ros_req.reference_frame = str(req.reference_frame)
+        ros_req.is_relative = bool(req.is_relative)
+        ros_req.cartesian_path = bool(req.cartesian_path)
         ros_req.execute = bool(req.execute)
 
-        fut = self.euler_world_cli.call_async(ros_req)
+        fut = self.move_pose_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=None)
         except Exception as e:
-            raise RuntimeError(f"GoToEulerWorld failed: {e}")
+            raise RuntimeError(f"MoveToPose failed: {e}")
         return {"success": bool(res.success), "message": str(res.message)}
 
-    def call_euler_local(self, req: EulerReq) -> Dict[str, Any]:
-        ros_req = GoToEuler.Request()
-        ros_req.frame_id = req.frame_id 
-        ros_req.x = float(req.x)
-        ros_req.y = float(req.y)
-        ros_req.z = float(req.z)
-        ros_req.rx = float(req.rx)
-        ros_req.ry = float(req.ry)
-        ros_req.rz = float(req.rz)
+    def call_move_waypoints(self, req: MoveWaypointsReq) -> Dict[str, Any]:
+        ros_req = MoveWaypoints.Request()
+        ros_req.reference_frame = str(req.reference_frame)
+        ros_req.is_relative = bool(req.is_relative)
+        ros_req.cartesian_path = bool(req.cartesian_path)
         ros_req.execute = bool(req.execute)
 
-        fut = self.euler_local_cli.call_async(ros_req)
+        # Construction of the geometry_msgs/Pose table
+        for wp in req.waypoints:
+            p = Pose()
+            p.position.x = float(wp.x)
+            p.position.y = float(wp.y)
+            p.position.z = float(wp.z)
+            
+            if req.rotation_format == "RPY":
+                qx, qy, qz, qw = euler_to_quaternion(wp.r1, wp.r2, wp.r3)
+                p.orientation.x = qx
+                p.orientation.y = qy
+                p.orientation.z = qz
+                p.orientation.w = qw
+            else:
+                p.orientation.x = float(wp.r1)
+                p.orientation.y = float(wp.r2)
+                p.orientation.z = float(wp.r3)
+                p.orientation.w = float(wp.r4)
+            
+            ros_req.waypoints.append(p)
+
+        fut = self.move_waypoints_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=None)
         except Exception as e:
-            raise RuntimeError(f"MoveRelativeTool failed: {e}")
-        return {"success": bool(res.success), "message": str(res.message)}
-    
-    def call_euler_world_rel(self, req: EulerReq) -> Dict[str, Any]:
-        ros_req = GoToEuler.Request()
-        ros_req.frame_id = req.frame_id # Souvent ignoré ou forcé à world
-        ros_req.x = float(req.x)
-        ros_req.y = float(req.y)
-        ros_req.z = float(req.z)
-        ros_req.rx = float(req.rx)
-        ros_req.ry = float(req.ry)
-        ros_req.rz = float(req.rz)
-        ros_req.execute = bool(req.execute)
-
-        fut = self.euler_world_rel_cli.call_async(ros_req)
-        try:
-            res = self._wait_for_future(fut, timeout=None)
-        except Exception as e:
-            raise RuntimeError(f"MoveRelativeWorld failed: {e}")
+            raise RuntimeError(f"MoveWaypoints failed: {e}")
         return {"success": bool(res.success), "message": str(res.message)}
     
     def call_get_joints(self):
@@ -327,38 +331,24 @@ def set_scaling(req: ScalingReq):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/goto_joint")
-def goto_joint(req: JointReq):
+@app.post("/move_joints")
+def move_joints(req: JointReq):
     try:
-        return _ros_client.call_joint(req)
+        return _ros_client.call_move_joints(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/goto_pose")
-def goto_pose(req: PoseReq):
+@app.post("/move_to_pose")
+def move_to_pose(req: MoveToPoseReq):
     try:
-        return _ros_client.call_pose(req)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@app.post("/goto_euler_world")
-def goto_euler_world(req: EulerReq):
-    try:
-        return _ros_client.call_euler_world(req)
+        return _ros_client.call_move_to_pose(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/move_relative_tool")
-def move_relative_tool(req: EulerReq):
+@app.post("/move_waypoints")
+def move_waypoints(req: MoveWaypointsReq):
     try:
-        return _ros_client.call_euler_local(req)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/move_relative_world")
-def move_relative_world(req: EulerReq):
-    try:
-        return _ros_client.call_euler_world_rel(req)
+        return _ros_client.call_move_waypoints(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
