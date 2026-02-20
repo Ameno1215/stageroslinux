@@ -1,0 +1,20 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from denso_robot_core_interfaces/action/DriveString.action
+// generated code does not contain a copyright notice
+
+
+module denso_robot_core_interfaces {
+  module action {
+    struct DriveString_Goal {
+      string pose;
+
+      string option;
+    };
+    struct DriveString_Result {
+      int32 hresult;
+    };
+    struct DriveString_Feedback {
+      sequence<double> pose;
+    };
+  };
+};

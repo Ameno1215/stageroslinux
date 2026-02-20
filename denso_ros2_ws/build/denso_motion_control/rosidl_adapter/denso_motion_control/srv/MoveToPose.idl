@@ -1,0 +1,57 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from denso_motion_control/srv/MoveToPose.srv
+// generated code does not contain a copyright notice
+
+
+module denso_motion_control {
+  module srv {
+    @verbatim (language="comment", text=
+      "REQUÊTE")
+    struct MoveToPose_Request {
+      double x;
+
+      double y;
+
+      double z;
+
+      @verbatim (language="comment", text=
+        "Rotation (RPY = r1, r2, r3) ou (Quaternion = r1, r2, r3, r4)")
+      double r1;
+
+      double r2;
+
+      double r3;
+
+      double r4;
+
+      @verbatim (language="comment", text=
+        "Configuration mathématique" "\n"
+        "\"QUAT\" ou \"RPY\"")
+      string rotation_format;
+
+      @verbatim (language="comment", text=
+        "\"WORLD\" ou \"TOOL\"")
+      string reference_frame;
+
+      @verbatim (language="comment", text=
+        "Drapeaux de comportement" "\n"
+        "True = mouvement relatif, False = cible absolue")
+      boolean is_relative;
+
+      @verbatim (language="comment", text=
+        "True = ligne droite, False = mouvement articulaire fluide")
+      boolean cartesian_path;
+
+      @verbatim (language="comment", text=
+        "True = planifie et bouge, False = planifie seulement")
+      boolean execute;
+    };
+    @verbatim (language="comment", text=
+      "RÉPONSE")
+    struct MoveToPose_Response {
+      boolean success;
+
+      string message;
+    };
+  };
+};

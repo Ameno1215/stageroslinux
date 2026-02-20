@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: denso-robot-description-installer
+Version: 1.2.0
+Summary: The denso_robot_description_installer package contains utilities for installing robot description and configuration files for DENSO robots (as created by the DENSO ROS2 Converter Tool).
+Home-page: UNKNOWN
+Maintainer: DENSO WAVE INCORPORATED
+Maintainer-email: fa-support@denso-wave.com
+License: MIT
+Platform: UNKNOWN
+
+UNKNOWN
+

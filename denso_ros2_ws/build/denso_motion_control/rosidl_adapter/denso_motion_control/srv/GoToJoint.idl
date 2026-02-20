@@ -1,0 +1,27 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from denso_motion_control/srv/GoToJoint.srv
+// generated code does not contain a copyright notice
+
+
+module denso_motion_control {
+  module srv {
+    @verbatim (language="comment", text=
+      "Request")
+    struct GoToJoint_Request {
+      @verbatim (language="comment", text=
+        "joint targets in radians (or meters for prismatic if applicable)")
+      sequence<double> joints;
+
+      @verbatim (language="comment", text=
+        "if false: plan only")
+      boolean execute;
+    };
+    @verbatim (language="comment", text=
+      "Response")
+    struct GoToJoint_Response {
+      boolean success;
+
+      string message;
+    };
+  };
+};

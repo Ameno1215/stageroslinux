@@ -1,0 +1,97 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-076d1426956e21adabbe.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "denso_robot_moveit_demo",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_robot_moveit_demo::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_robot_moveit_demo-fc533ae7082a6c07e659.json",
+					"name" : "denso_robot_moveit_demo",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_robot_moveit_demo_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_robot_moveit_demo_uninstall-2ae2f38edaa398adfacf.json",
+					"name" : "denso_robot_moveit_demo_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_robot_moveit_pickandplace::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_robot_moveit_pickandplace-a8399bc5ad21d1ffc629.json",
+					"name" : "denso_robot_moveit_pickandplace",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_robot_moveit_pickandplace_scara::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_robot_moveit_pickandplace_scara-e9447d6373e11a73af8d.json",
+					"name" : "denso_robot_moveit_pickandplace_scara",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-8200cf8e51d185939098.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_moveit_demo",
+		"source" : "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_moveit_demo"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

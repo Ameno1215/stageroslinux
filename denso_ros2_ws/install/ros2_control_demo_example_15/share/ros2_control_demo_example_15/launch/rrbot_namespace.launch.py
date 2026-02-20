@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/src/ros2_control_demos/example_15/bringup/launch/rrbot_namespace.launch.py

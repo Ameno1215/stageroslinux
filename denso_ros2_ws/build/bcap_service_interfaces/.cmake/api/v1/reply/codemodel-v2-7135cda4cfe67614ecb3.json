@@ -1,0 +1,233 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-c4c0b07b5037f456c325.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17
+					]
+				},
+				{
+					"build" : "bcap_service_interfaces__py",
+					"jsonFile" : "directory-bcap_service_interfaces__py-afc7bcfb50f969f20a6f.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "/home/antonin/workspace/denso_ros2_ws/build/bcap_service_interfaces/bcap_service_interfaces__py",
+					"targetIndexes" : 
+					[
+						4
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1
+					],
+					"name" : "bcap_service_interfaces",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_bcap_service_interfaces_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_bcap_service_interfaces_egg-51f3e57b0d4c6b2f6f16.json",
+					"name" : "ament_cmake_python_build_bcap_service_interfaces_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_bcap_service_interfaces::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_bcap_service_interfaces-f9f9b43cc2f3f2599aea.json",
+					"name" : "ament_cmake_python_symlink_bcap_service_interfaces",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces-fa871f953e4b5ae500d9.json",
+					"name" : "bcap_service_interfaces",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__cpp-2aa165eab3bbe8f58df7.json",
+					"name" : "bcap_service_interfaces__cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "bcap_service_interfaces__py::@44202ea3be4612846bfe",
+					"jsonFile" : "target-bcap_service_interfaces__py-15c6a44f92c500cb11d9.json",
+					"name" : "bcap_service_interfaces__py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_generator_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_generator_c-cc702208f823b7003eb1.json",
+					"name" : "bcap_service_interfaces__rosidl_generator_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_generator_py::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_generator_py-3fd6c8fd00816785d0fd.json",
+					"name" : "bcap_service_interfaces__rosidl_generator_py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_typesupport_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_typesupport_c-f5b585f744073f2b17f0.json",
+					"name" : "bcap_service_interfaces__rosidl_typesupport_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_typesupport_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_typesupport_c__pyext-b3d2de52db6f1cdaebde.json",
+					"name" : "bcap_service_interfaces__rosidl_typesupport_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_typesupport_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_typesupport_cpp-d3ca1298d3586e8a21e2.json",
+					"name" : "bcap_service_interfaces__rosidl_typesupport_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_typesupport_fastrtps_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_typesupport_fastrtps_c-08bfc4af806bc4f99ece.json",
+					"name" : "bcap_service_interfaces__rosidl_typesupport_fastrtps_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_typesupport_fastrtps_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_typesupport_fastrtps_c__pyext-fa43532b6e84311ab0f9.json",
+					"name" : "bcap_service_interfaces__rosidl_typesupport_fastrtps_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_typesupport_fastrtps_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_typesupport_fastrtps_cpp-ea8677ab5e8bb12450fd.json",
+					"name" : "bcap_service_interfaces__rosidl_typesupport_fastrtps_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_typesupport_introspection_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_typesupport_introspection_c-8ac33b31b5aab092b0e6.json",
+					"name" : "bcap_service_interfaces__rosidl_typesupport_introspection_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_typesupport_introspection_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_typesupport_introspection_c__pyext-7cf6fd922ef40dc20549.json",
+					"name" : "bcap_service_interfaces__rosidl_typesupport_introspection_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces__rosidl_typesupport_introspection_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces__rosidl_typesupport_introspection_cpp-9526a130753d894fbcc3.json",
+					"name" : "bcap_service_interfaces__rosidl_typesupport_introspection_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "bcap_service_interfaces_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-bcap_service_interfaces_uninstall-1c171883269a46fc2276.json",
+					"name" : "bcap_service_interfaces_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-672dcd8f2b9734e007fa.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/antonin/workspace/denso_ros2_ws/build/bcap_service_interfaces",
+		"source" : "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/bcap_service_interfaces"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

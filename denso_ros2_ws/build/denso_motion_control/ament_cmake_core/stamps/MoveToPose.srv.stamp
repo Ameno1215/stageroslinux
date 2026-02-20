@@ -1,0 +1,24 @@
+# REQUÊTE
+float64 x
+float64 y
+float64 z
+
+# Rotation (RPY = r1, r2, r3) ou (Quaternion = r1, r2, r3, r4)
+float64 r1
+float64 r2
+float64 r3
+float64 r4
+
+# Configuration mathématique
+string rotation_format     # "QUAT" ou "RPY"
+string reference_frame     # "WORLD" ou "TOOL"
+
+# Drapeaux de comportement
+bool is_relative           # True = mouvement relatif, False = cible absolue
+bool cartesian_path        # True = ligne droite, False = mouvement articulaire fluide
+bool execute               # True = planifie et bouge, False = planifie seulement
+
+---
+# RÉPONSE
+bool success
+string message

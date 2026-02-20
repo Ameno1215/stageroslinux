@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/build/bcap_service_interfaces/ament_cmake_core/bcap_service_interfacesConfig-version.cmake

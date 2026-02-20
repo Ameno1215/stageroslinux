@@ -1,0 +1,4 @@
+/home/antonin/workspace/denso_ros2_ws/install/bcap_core/lib/libbcap_client.so
+/home/antonin/workspace/denso_ros2_ws/install/bcap_core/lib/libbcap_server.so
+/home/antonin/workspace/denso_ros2_ws/install/bcap_core/lib/librac_string.so
+/home/antonin/workspace/denso_ros2_ws/install/bcap_core/lib/libtpcomm.so

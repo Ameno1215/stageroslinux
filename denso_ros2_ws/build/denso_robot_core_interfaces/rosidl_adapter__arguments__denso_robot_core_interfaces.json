@@ -1,0 +1,14 @@
+{
+  "package_name": "denso_robot_core_interfaces",
+  "non_idl_tuples": [
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_core_interfaces:action/DriveString.action",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_core_interfaces:action/DriveValue.action",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_core_interfaces:action/MoveString.action",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_core_interfaces:action/MoveValue.action",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_core_interfaces:msg/ExJoints.msg",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_core_interfaces:msg/Joints.msg",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_core_interfaces:msg/PoseData.msg",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_core_interfaces:srv/ChangeMode.srv",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/denso_robot_core_interfaces:msg/UserIO.msg"
+  ]
+}

@@ -1,0 +1,4 @@
+source;share/bcap_core/local_setup.bash
+source;share/bcap_core/local_setup.dsv
+source;share/bcap_core/local_setup.sh
+source;share/bcap_core/local_setup.zsh

@@ -1,0 +1,27 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from denso_motion_control/srv/SetScaling.srv
+// generated code does not contain a copyright notice
+
+
+module denso_motion_control {
+  module srv {
+    @verbatim (language="comment", text=
+      "Request")
+    struct SetScaling_Request {
+      @verbatim (language="comment", text=
+        "0..1")
+      double velocity_scale;
+
+      @verbatim (language="comment", text=
+        "0..1")
+      double accel_scale;
+    };
+    @verbatim (language="comment", text=
+      "Response")
+    struct SetScaling_Response {
+      boolean success;
+
+      string message;
+    };
+  };
+};

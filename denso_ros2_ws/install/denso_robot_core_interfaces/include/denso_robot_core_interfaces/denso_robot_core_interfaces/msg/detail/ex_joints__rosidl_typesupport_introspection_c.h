@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_typesupport_introspection_c/denso_robot_core_interfaces/msg/detail/ex_joints__rosidl_typesupport_introspection_c.h

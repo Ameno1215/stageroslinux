@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "denso_robot_core_interfaces__py",
+		"source" : "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/denso_robot_core_interfaces__py"
+	}
+}

@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/build/bcap_service_interfaces/rosidl_typesupport_introspection_cpp/bcap_service_interfaces/msg/detail/variant__rosidl_typesupport_introspection_cpp.hpp

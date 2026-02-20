@@ -1,0 +1,3 @@
+# Request
+float64 velocity_scale   # 0..1
+float64 accel_scale      # 0..1

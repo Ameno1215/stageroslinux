@@ -1,0 +1,14 @@
+package.xml
+setup.cfg
+setup.py
+denso_robot_description_installer/__init__.py
+denso_robot_description_installer/install_robot_description.py
+denso_robot_description_installer/update_joint_limits.py
+denso_robot_description_installer.egg-info/PKG-INFO
+denso_robot_description_installer.egg-info/SOURCES.txt
+denso_robot_description_installer.egg-info/dependency_links.txt
+denso_robot_description_installer.egg-info/entry_points.txt
+denso_robot_description_installer.egg-info/requires.txt
+denso_robot_description_installer.egg-info/top_level.txt
+denso_robot_description_installer.egg-info/zip-safe
+resource/denso_robot_description_installer

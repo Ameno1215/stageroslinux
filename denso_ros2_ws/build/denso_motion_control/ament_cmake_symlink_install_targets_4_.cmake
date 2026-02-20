@@ -1,0 +1,1 @@
+ament_cmake_symlink_install_targets("TARGET_FILES" "/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/denso_motion_server" "TARGETS" "denso_motion_server" "DESTINATION" "lib/denso_motion_control")

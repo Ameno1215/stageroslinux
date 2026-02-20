@@ -1,0 +1,35 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from denso_motion_control/srv/InitRobot.srv
+// generated code does not contain a copyright notice
+
+
+module denso_motion_control {
+  module srv {
+    @verbatim (language="comment", text=
+      "Request")
+    struct InitRobot_Request {
+      @verbatim (language="comment", text=
+        "e.g. \"vs060\", \"cobotta\", \"hsr065\"")
+      string model;
+
+      @verbatim (language="comment", text=
+        "e.g. \"arm\"")
+      string planning_group;
+
+      @verbatim (language="comment", text=
+        "0.0..1.0")
+      double velocity_scale;
+
+      @verbatim (language="comment", text=
+        "0.0..1.0")
+      double accel_scale;
+    };
+    @verbatim (language="comment", text=
+      "Response")
+    struct InitRobot_Response {
+      boolean success;
+
+      string message;
+    };
+  };
+};

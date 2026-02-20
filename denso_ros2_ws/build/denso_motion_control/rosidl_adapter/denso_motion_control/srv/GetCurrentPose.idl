@@ -1,0 +1,36 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from denso_motion_control/srv/GetCurrentPose.srv
+// generated code does not contain a copyright notice
+
+#include "geometry_msgs/msg/PoseStamped.idl"
+
+module denso_motion_control {
+  module srv {
+    @verbatim (language="comment", text=
+      "Request")
+    struct GetCurrentPose_Request {
+      @verbatim (language="comment", text=
+        "Reference frame (e.g., \"world\"). Default if empty: \"world\"")
+      string frame_id;
+
+      @verbatim (language="comment", text=
+        "Target frame (e.g., \"tool_link\"). Default if empty: End-Effector")
+      string child_frame_id;
+    };
+    @verbatim (language="comment", text=
+      "Response")
+    struct GetCurrentPose_Response {
+      boolean success;
+
+      string message;
+
+      @verbatim (language="comment", text=
+        "Standard Pose (Position + Quaternion)")
+      geometry_msgs::msg::PoseStamped pose;
+
+      @verbatim (language="comment", text=
+        "Euler Angles [roll, pitch, yaw] in radians (Fixed XYZ)")
+      sequence<double> euler_rpy;
+    };
+  };
+};

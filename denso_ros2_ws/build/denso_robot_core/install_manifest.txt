@@ -1,0 +1,2 @@
+/home/antonin/workspace/denso_ros2_ws/install/denso_robot_core/lib/libdenso_robot_core.so
+/home/antonin/workspace/denso_ros2_ws/install/denso_robot_core/lib/denso_robot_core/denso_robot_core_exec

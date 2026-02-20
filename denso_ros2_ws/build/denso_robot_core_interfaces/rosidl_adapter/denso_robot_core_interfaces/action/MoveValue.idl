@@ -1,0 +1,23 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from denso_robot_core_interfaces/action/MoveValue.action
+// generated code does not contain a copyright notice
+
+#include "denso_robot_core_interfaces/msg/PoseData.idl"
+
+module denso_robot_core_interfaces {
+  module action {
+    struct MoveValue_Goal {
+      int32 comp;
+
+      denso_robot_core_interfaces::msg::PoseData pose;
+
+      string option;
+    };
+    struct MoveValue_Result {
+      int32 hresult;
+    };
+    struct MoveValue_Feedback {
+      sequence<double> pose;
+    };
+  };
+};

@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_generator_cpp/denso_robot_core_interfaces/srv/detail/change_mode__struct.hpp

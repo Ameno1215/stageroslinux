@@ -1,0 +1,7 @@
+{
+  "package_name": "bcap_service_interfaces",
+  "non_idl_tuples": [
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/bcap_service_interfaces:msg/Variant.msg",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_robot_drivers_ros2/bcap_service_interfaces:srv/Bcap.srv"
+  ]
+}

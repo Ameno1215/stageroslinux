@@ -1,0 +1,22 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from denso_robot_core_interfaces/action/MoveString.action
+// generated code does not contain a copyright notice
+
+
+module denso_robot_core_interfaces {
+  module action {
+    struct MoveString_Goal {
+      int32 comp;
+
+      string pose;
+
+      string option;
+    };
+    struct MoveString_Result {
+      int32 hresult;
+    };
+    struct MoveString_Feedback {
+      sequence<double> pose;
+    };
+  };
+};

@@ -1,0 +1,9 @@
+source;share/denso_robot_description_installer/hook/pythonpath.ps1
+source;share/denso_robot_description_installer/hook/pythonpath.dsv
+source;share/denso_robot_description_installer/hook/pythonpath.sh
+source;share/denso_robot_description_installer/hook/ament_prefix_path.ps1
+source;share/denso_robot_description_installer/hook/ament_prefix_path.dsv
+source;share/denso_robot_description_installer/hook/ament_prefix_path.sh
+source;../../build/denso_robot_description_installer/share/denso_robot_description_installer/hook/pythonpath_develop.ps1
+source;../../build/denso_robot_description_installer/share/denso_robot_description_installer/hook/pythonpath_develop.dsv
+source;../../build/denso_robot_description_installer/share/denso_robot_description_installer/hook/pythonpath_develop.sh

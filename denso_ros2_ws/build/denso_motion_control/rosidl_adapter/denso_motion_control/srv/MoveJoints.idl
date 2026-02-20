@@ -1,0 +1,31 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from denso_motion_control/srv/MoveJoints.srv
+// generated code does not contain a copyright notice
+
+
+module denso_motion_control {
+  module srv {
+    @verbatim (language="comment", text=
+      "REQUÊTE")
+    struct MoveJoints_Request {
+      @verbatim (language="comment", text=
+        "Tableau des valeurs cibles (en radians)")
+      sequence<double> joints;
+
+      @verbatim (language="comment", text=
+        "True = ajoute ces angles aux angles actuels, False = va à ces angles absolus")
+      boolean is_relative;
+
+      @verbatim (language="comment", text=
+        "True = planifie et bouge, False = planifie seulement")
+      boolean execute;
+    };
+    @verbatim (language="comment", text=
+      "RÉPONSE")
+    struct MoveJoints_Response {
+      boolean success;
+
+      string message;
+    };
+  };
+};

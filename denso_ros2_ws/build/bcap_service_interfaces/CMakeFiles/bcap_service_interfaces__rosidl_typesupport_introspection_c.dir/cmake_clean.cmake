@@ -1,0 +1,17 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/bcap_service_interfaces__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/bcap_service_interfaces/msg/detail/variant__type_support.c.o"
+  "CMakeFiles/bcap_service_interfaces__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/bcap_service_interfaces/msg/detail/variant__type_support.c.o.d"
+  "CMakeFiles/bcap_service_interfaces__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/bcap_service_interfaces/srv/detail/bcap__type_support.c.o"
+  "CMakeFiles/bcap_service_interfaces__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/bcap_service_interfaces/srv/detail/bcap__type_support.c.o.d"
+  "libbcap_service_interfaces__rosidl_typesupport_introspection_c.pdb"
+  "libbcap_service_interfaces__rosidl_typesupport_introspection_c.so"
+  "rosidl_typesupport_introspection_c/bcap_service_interfaces/msg/detail/variant__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/bcap_service_interfaces/msg/detail/variant__type_support.c"
+  "rosidl_typesupport_introspection_c/bcap_service_interfaces/srv/detail/bcap__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/bcap_service_interfaces/srv/detail/bcap__type_support.c"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang C)
+  include(CMakeFiles/bcap_service_interfaces__rosidl_typesupport_introspection_c.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

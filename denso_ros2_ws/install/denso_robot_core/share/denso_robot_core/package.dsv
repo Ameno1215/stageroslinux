@@ -1,0 +1,11 @@
+source;share/denso_robot_core/hook/cmake_prefix_path.ps1
+source;share/denso_robot_core/hook/cmake_prefix_path.dsv
+source;share/denso_robot_core/hook/cmake_prefix_path.sh
+source;share/denso_robot_core/hook/ld_library_path_lib.ps1
+source;share/denso_robot_core/hook/ld_library_path_lib.dsv
+source;share/denso_robot_core/hook/ld_library_path_lib.sh
+source;share/denso_robot_core/local_setup.bash
+source;share/denso_robot_core/local_setup.dsv
+source;share/denso_robot_core/local_setup.ps1
+source;share/denso_robot_core/local_setup.sh
+source;share/denso_robot_core/local_setup.zsh

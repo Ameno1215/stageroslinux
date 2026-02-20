@@ -1,0 +1,1 @@
+ament_cmake_symlink_install_targets("TARGET_FILES" "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_control/libdenso_robot_control_plugin.so" "TARGETS" "denso_robot_control_plugin" "DESTINATION" "lib")

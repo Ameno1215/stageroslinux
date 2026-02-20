@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/build/denso_robot_descriptions/ament_cmake_environment_hooks/local_setup.zsh

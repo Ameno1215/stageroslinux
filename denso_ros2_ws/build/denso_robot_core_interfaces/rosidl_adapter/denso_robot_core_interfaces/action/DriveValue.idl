@@ -1,0 +1,23 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from denso_robot_core_interfaces/action/DriveValue.action
+// generated code does not contain a copyright notice
+
+#include "denso_robot_core_interfaces/msg/Joints.idl"
+
+module denso_robot_core_interfaces {
+  module action {
+    struct DriveValue_Goal {
+      sequence<denso_robot_core_interfaces::msg::Joints> pose;
+
+      int32 passflag;
+
+      string option;
+    };
+    struct DriveValue_Result {
+      int32 hresult;
+    };
+    struct DriveValue_Feedback {
+      sequence<double> pose;
+    };
+  };
+};

@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_generator_py/denso_motion_control/srv/_get_current_pose.py

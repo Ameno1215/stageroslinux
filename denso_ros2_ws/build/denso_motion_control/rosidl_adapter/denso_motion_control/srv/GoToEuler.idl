@@ -1,0 +1,55 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from denso_motion_control/srv/GoToEuler.srv
+// generated code does not contain a copyright notice
+
+
+module denso_motion_control {
+  module srv {
+    @verbatim (language="comment", text=
+      "Request")
+    struct GoToEuler_Request {
+      @verbatim (language="comment", text=
+        "The reference frame (e.g., \"world\" or \"base_link\")")
+      string frame_id;
+
+      @verbatim (language="comment", text=
+        "X Position (meters)")
+      double x;
+
+      @verbatim (language="comment", text=
+        "Y Position (meters)")
+      double y;
+
+      @verbatim (language="comment", text=
+        "Z Position (meters)")
+      double z;
+
+      @verbatim (language="comment", text=
+        "Rotation around X (radians) - Roll")
+      double rx;
+
+      @verbatim (language="comment", text=
+        "Rotation around Y (radians) - Pitch")
+      double ry;
+
+      @verbatim (language="comment", text=
+        "Rotation around Z (radians) - Yaw")
+      double rz;
+
+      @verbatim (language="comment", text=
+        "True = Move the robot, False = Plan only")
+      boolean execute;
+    };
+    @verbatim (language="comment", text=
+      "Response")
+    struct GoToEuler_Response {
+      @verbatim (language="comment", text=
+        "True if the operation was successful")
+      boolean success;
+
+      @verbatim (language="comment", text=
+        "Success or error message")
+      string message;
+    };
+  };
+};

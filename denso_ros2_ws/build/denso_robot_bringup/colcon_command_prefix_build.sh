@@ -1,0 +1,10 @@
+# generated from colcon_core/shell/template/command_prefix.sh.em
+. "/home/antonin/workspace/denso_ros2_ws/install/bcap_core/share/bcap_core/package.sh"
+. "/home/antonin/workspace/denso_ros2_ws/install/denso_robot_descriptions/share/denso_robot_descriptions/package.sh"
+. "/home/antonin/workspace/denso_ros2_ws/install/denso_robot_moveit_config/share/denso_robot_moveit_config/package.sh"
+. "/home/antonin/workspace/denso_ros2_ws/install/gazebo_ros2_control/share/gazebo_ros2_control/package.sh"
+. "/home/antonin/workspace/denso_ros2_ws/install/bcap_service_interfaces/share/bcap_service_interfaces/package.sh"
+. "/home/antonin/workspace/denso_ros2_ws/install/bcap_service/share/bcap_service/package.sh"
+. "/home/antonin/workspace/denso_ros2_ws/install/denso_robot_core_interfaces/share/denso_robot_core_interfaces/package.sh"
+. "/home/antonin/workspace/denso_ros2_ws/install/denso_robot_core/share/denso_robot_core/package.sh"
+. "/home/antonin/workspace/denso_ros2_ws/install/denso_robot_control/share/denso_robot_control/package.sh"

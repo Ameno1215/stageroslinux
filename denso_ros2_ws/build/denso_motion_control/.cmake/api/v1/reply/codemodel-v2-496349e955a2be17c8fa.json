@@ -1,0 +1,251 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-ee765ccd3d1712a86db5.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19
+					]
+				},
+				{
+					"build" : "denso_motion_control__py",
+					"jsonFile" : "directory-denso_motion_control__py-175b64b3d01f24e1267f.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/denso_motion_control__py",
+					"targetIndexes" : 
+					[
+						4
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1
+					],
+					"name" : "denso_motion_control",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_denso_motion_control_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_denso_motion_control_egg-bed0e70054c54162896f.json",
+					"name" : "ament_cmake_python_build_denso_motion_control_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_denso_motion_control::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_denso_motion_control-f2407e8c2c1849e90373.json",
+					"name" : "ament_cmake_python_symlink_denso_motion_control",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control-f25501c01330649f1aa4.json",
+					"name" : "denso_motion_control",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__cpp-2e0380ffc6471ae2cef2.json",
+					"name" : "denso_motion_control__cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "denso_motion_control__py::@a6a03411133a78724294",
+					"jsonFile" : "target-denso_motion_control__py-b0c89617201da8f9ca7a.json",
+					"name" : "denso_motion_control__py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_generator_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_generator_c-3843af2acb59b7879e6d.json",
+					"name" : "denso_motion_control__rosidl_generator_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_generator_py::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_generator_py-9017cf389313b14ad130.json",
+					"name" : "denso_motion_control__rosidl_generator_py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_typesupport_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_typesupport_c-1768aac92d329b1894fc.json",
+					"name" : "denso_motion_control__rosidl_typesupport_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_typesupport_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_typesupport_c__pyext-92d21f0fb95e7bea6a79.json",
+					"name" : "denso_motion_control__rosidl_typesupport_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_typesupport_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_typesupport_cpp-56243fa752291ea05b31.json",
+					"name" : "denso_motion_control__rosidl_typesupport_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_typesupport_fastrtps_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_typesupport_fastrtps_c-9ee1145eb577c427349e.json",
+					"name" : "denso_motion_control__rosidl_typesupport_fastrtps_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_typesupport_fastrtps_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_typesupport_fastrtps_c__pyext-1355a154ae13b0c06cbc.json",
+					"name" : "denso_motion_control__rosidl_typesupport_fastrtps_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_typesupport_fastrtps_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_typesupport_fastrtps_cpp-44172c5e749191253323.json",
+					"name" : "denso_motion_control__rosidl_typesupport_fastrtps_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_typesupport_introspection_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_typesupport_introspection_c-7a20cc0bb058aac7c2f3.json",
+					"name" : "denso_motion_control__rosidl_typesupport_introspection_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_typesupport_introspection_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_typesupport_introspection_c__pyext-2e969ecf8902f860fb56.json",
+					"name" : "denso_motion_control__rosidl_typesupport_introspection_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control__rosidl_typesupport_introspection_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control__rosidl_typesupport_introspection_cpp-44cd9ec5c1218b860d6d.json",
+					"name" : "denso_motion_control__rosidl_typesupport_introspection_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_control_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_control_uninstall-759dba02c3195767f290.json",
+					"name" : "denso_motion_control_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "denso_motion_server::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-denso_motion_server-f3334fba841a1fff7d98.json",
+					"name" : "denso_motion_server",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_server_lib::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_server_lib-f6d0d7a1d3b1bfe42cee.json",
+					"name" : "motion_server_lib",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-d66914ac29e0d9caed12.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control",
+		"source" : "/home/antonin/workspace/denso_ros2_ws/src/denso_motion_control"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

@@ -1,0 +1,15 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from denso_robot_core_interfaces/srv/ChangeMode.srv
+// generated code does not contain a copyright notice
+
+
+module denso_robot_core_interfaces {
+  module srv {
+    struct ChangeMode_Request {
+      int32 mode;
+    };
+    struct ChangeMode_Response {
+      int32 hresult;
+    };
+  };
+};

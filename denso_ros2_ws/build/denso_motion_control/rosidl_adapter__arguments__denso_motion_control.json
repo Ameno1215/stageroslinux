@@ -1,0 +1,12 @@
+{
+  "package_name": "denso_motion_control",
+  "non_idl_tuples": [
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_motion_control:srv/InitRobot.srv",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_motion_control:srv/SetScaling.srv",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_motion_control:srv/GetCurrentPose.srv",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_motion_control:srv/GetJointState.srv",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_motion_control:srv/MoveToPose.srv",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_motion_control:srv/MoveJoints.srv",
+    "/home/antonin/workspace/denso_ros2_ws/src/denso_motion_control:srv/MoveWaypoints.srv"
+  ]
+}

@@ -1,0 +1,19 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from denso_robot_core_interfaces/msg/PoseData.msg
+// generated code does not contain a copyright notice
+
+#include "denso_robot_core_interfaces/msg/ExJoints.idl"
+
+module denso_robot_core_interfaces {
+  module msg {
+    struct PoseData {
+      sequence<float> value;
+
+      int32 type;
+
+      int32 passflag;
+
+      denso_robot_core_interfaces::msg::ExJoints exjoints;
+    };
+  };
+};

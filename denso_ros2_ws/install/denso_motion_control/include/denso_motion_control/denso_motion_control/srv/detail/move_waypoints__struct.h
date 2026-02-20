@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_generator_c/denso_motion_control/srv/detail/move_waypoints__struct.h

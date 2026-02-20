@@ -1,0 +1,10 @@
+setup.py
+bcap_service_interfaces/__init__.py
+bcap_service_interfaces.egg-info/PKG-INFO
+bcap_service_interfaces.egg-info/SOURCES.txt
+bcap_service_interfaces.egg-info/dependency_links.txt
+bcap_service_interfaces.egg-info/top_level.txt
+bcap_service_interfaces/msg/__init__.py
+bcap_service_interfaces/msg/_variant.py
+bcap_service_interfaces/srv/__init__.py
+bcap_service_interfaces/srv/_bcap.py

@@ -1,0 +1,43 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/denso_motion_control__cpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/get_current_pose__builder.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/get_current_pose__struct.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/get_current_pose__traits.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/get_current_pose__type_support.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/get_joint_state__builder.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/get_joint_state__struct.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/get_joint_state__traits.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/get_joint_state__type_support.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/init_robot__builder.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/init_robot__struct.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/init_robot__traits.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/init_robot__type_support.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_joints__builder.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_joints__struct.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_joints__traits.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_joints__type_support.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_to_pose__builder.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_to_pose__struct.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_to_pose__traits.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_to_pose__type_support.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_waypoints__builder.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_waypoints__struct.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_waypoints__traits.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/move_waypoints__type_support.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/set_scaling__builder.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/set_scaling__struct.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/set_scaling__traits.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/detail/set_scaling__type_support.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/get_current_pose.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/get_joint_state.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/init_robot.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/move_joints.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/move_to_pose.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/move_waypoints.hpp"
+  "rosidl_generator_cpp/denso_motion_control/srv/set_scaling.hpp"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang )
+  include(CMakeFiles/denso_motion_control__cpp.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

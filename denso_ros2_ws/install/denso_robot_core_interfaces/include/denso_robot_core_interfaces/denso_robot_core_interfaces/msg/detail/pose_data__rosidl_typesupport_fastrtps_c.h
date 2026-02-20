@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_typesupport_fastrtps_c/denso_robot_core_interfaces/msg/detail/pose_data__rosidl_typesupport_fastrtps_c.h

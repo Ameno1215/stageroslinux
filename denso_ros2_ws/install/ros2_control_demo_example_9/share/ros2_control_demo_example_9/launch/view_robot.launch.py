@@ -1,0 +1,1 @@
+/home/antonin/workspace/denso_ros2_ws/src/ros2_control_demos/example_9/description/launch/view_robot.launch.py

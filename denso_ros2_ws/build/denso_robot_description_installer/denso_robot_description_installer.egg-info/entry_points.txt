@@ -1,0 +1,4 @@
+[console_scripts]
+install_robot_description = denso_robot_description_installer.install_robot_description:main
+update_joint_limits = denso_robot_description_installer.update_joint_limits:main
+

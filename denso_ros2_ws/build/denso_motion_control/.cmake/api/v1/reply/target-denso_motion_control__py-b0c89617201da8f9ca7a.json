@@ -1,0 +1,79 @@
+{
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_custom_target"
+		],
+		"files" : 
+		[
+			"/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/denso_motion_control__py/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 34,
+				"parent" : 0
+			}
+		]
+	},
+	"dependencies" : 
+	[
+		{
+			"id" : "denso_motion_control::@6890427a1f51a3e7e1df"
+		}
+	],
+	"id" : "denso_motion_control__py::@a6a03411133a78724294",
+	"name" : "denso_motion_control__py",
+	"paths" : 
+	{
+		"build" : "denso_motion_control__py",
+		"source" : "/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/denso_motion_control__py"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		},
+		{
+			"name" : "CMake Rules",
+			"sourceIndexes" : 
+			[
+				1,
+				2
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"isGenerated" : true,
+			"path" : "/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/denso_motion_control__py/CMakeFiles/denso_motion_control__py",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/denso_motion_control__py/CMakeFiles/denso_motion_control__py.rule",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_generator_py/denso_motion_control/_denso_motion_control_s.ep.rosidl_typesupport_fastrtps_c.c.rule",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "UTILITY"
+}

@@ -1,0 +1,7 @@
+/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_adapter/denso_motion_control:srv/InitRobot.idl
+/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_adapter/denso_motion_control:srv/SetScaling.idl
+/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_adapter/denso_motion_control:srv/GetCurrentPose.idl
+/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_adapter/denso_motion_control:srv/GetJointState.idl
+/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_adapter/denso_motion_control:srv/MoveToPose.idl
+/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_adapter/denso_motion_control:srv/MoveJoints.idl
+/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/rosidl_adapter/denso_motion_control:srv/MoveWaypoints.idl

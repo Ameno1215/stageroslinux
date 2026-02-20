@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "denso_motion_control__py",
+		"source" : "/home/antonin/workspace/denso_ros2_ws/build/denso_motion_control/denso_motion_control__py"
+	}
+}

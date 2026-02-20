@@ -1,0 +1,4 @@
+# generated from rosidl_cmake/cmake/rosidl_cmake-extras.cmake.in
+
+set(denso_motion_control_IDL_FILES "srv/InitRobot.idl;srv/SetScaling.idl;srv/GetCurrentPose.idl;srv/GetJointState.idl;srv/MoveToPose.idl;srv/MoveJoints.idl;srv/MoveWaypoints.idl")
+set(denso_motion_control_INTERFACE_FILES "srv/InitRobot.srv;srv/InitRobot_Request.msg;srv/InitRobot_Response.msg;srv/SetScaling.srv;srv/SetScaling_Request.msg;srv/SetScaling_Response.msg;srv/GetCurrentPose.srv;srv/GetCurrentPose_Request.msg;srv/GetCurrentPose_Response.msg;srv/GetJointState.srv;srv/GetJointState_Request.msg;srv/GetJointState_Response.msg;srv/MoveToPose.srv;srv/MoveToPose_Request.msg;srv/MoveToPose_Response.msg;srv/MoveJoints.srv;srv/MoveJoints_Request.msg;srv/MoveJoints_Response.msg;srv/MoveWaypoints.srv;srv/MoveWaypoints_Request.msg;srv/MoveWaypoints_Response.msg")

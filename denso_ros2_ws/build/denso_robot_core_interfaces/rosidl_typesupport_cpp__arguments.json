@@ -1,0 +1,49 @@
+{
+  "package_name": "denso_robot_core_interfaces",
+  "output_dir": "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_typesupport_cpp/denso_robot_core_interfaces",
+  "template_dir": "/opt/ros/humble/share/rosidl_typesupport_cpp/resource",
+  "idl_tuples": [
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces:action/DriveString.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces:action/DriveValue.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces:action/MoveString.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces:action/MoveValue.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces:msg/ExJoints.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces:msg/Joints.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces:msg/PoseData.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces:srv/ChangeMode.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces:msg/UserIO.idl"
+  ],
+  "ros_interface_dependencies": [
+    "action_msgs:/opt/ros/humble/share/action_msgs/msg/GoalInfo.idl",
+    "action_msgs:/opt/ros/humble/share/action_msgs/msg/GoalStatus.idl",
+    "action_msgs:/opt/ros/humble/share/action_msgs/msg/GoalStatusArray.idl",
+    "action_msgs:/opt/ros/humble/share/action_msgs/srv/CancelGoal.idl",
+    "builtin_interfaces:/opt/ros/humble/share/builtin_interfaces/msg/Duration.idl",
+    "builtin_interfaces:/opt/ros/humble/share/builtin_interfaces/msg/Time.idl",
+    "unique_identifier_msgs:/opt/ros/humble/share/unique_identifier_msgs/msg/UUID.idl"
+  ],
+  "target_dependencies": [
+    "/opt/ros/humble/lib/rosidl_typesupport_cpp/rosidl_typesupport_cpp",
+    "/opt/ros/humble/local/lib/python3.10/dist-packages/rosidl_typesupport_cpp/__init__.py",
+    "/opt/ros/humble/share/rosidl_typesupport_cpp/resource/action__type_support.cpp.em",
+    "/opt/ros/humble/share/rosidl_typesupport_cpp/resource/idl__type_support.cpp.em",
+    "/opt/ros/humble/share/rosidl_typesupport_cpp/resource/msg__type_support.cpp.em",
+    "/opt/ros/humble/share/rosidl_typesupport_cpp/resource/srv__type_support.cpp.em",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces/action/DriveString.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces/action/DriveValue.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces/action/MoveString.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces/action/MoveValue.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces/msg/ExJoints.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces/msg/Joints.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces/msg/PoseData.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces/srv/ChangeMode.idl",
+    "/home/antonin/workspace/denso_ros2_ws/build/denso_robot_core_interfaces/rosidl_adapter/denso_robot_core_interfaces/msg/UserIO.idl",
+    "/opt/ros/humble/share/action_msgs/msg/GoalInfo.idl",
+    "/opt/ros/humble/share/action_msgs/msg/GoalStatus.idl",
+    "/opt/ros/humble/share/action_msgs/msg/GoalStatusArray.idl",
+    "/opt/ros/humble/share/action_msgs/srv/CancelGoal.idl",
+    "/opt/ros/humble/share/builtin_interfaces/msg/Duration.idl",
+    "/opt/ros/humble/share/builtin_interfaces/msg/Time.idl",
+    "/opt/ros/humble/share/unique_identifier_msgs/msg/UUID.idl"
+  ]
+}

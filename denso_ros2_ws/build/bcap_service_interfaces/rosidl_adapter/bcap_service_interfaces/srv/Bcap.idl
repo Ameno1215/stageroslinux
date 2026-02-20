@@ -1,0 +1,20 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from bcap_service_interfaces/srv/Bcap.srv
+// generated code does not contain a copyright notice
+
+#include "bcap_service_interfaces/msg/Variant.idl"
+
+module bcap_service_interfaces {
+  module srv {
+    struct Bcap_Request {
+      int32 func_id;
+
+      sequence<bcap_service_interfaces::msg::Variant> vnt_args;
+    };
+    struct Bcap_Response {
+      int32 hresult;
+
+      bcap_service_interfaces::msg::Variant vnt_ret;
+    };
+  };
+};
