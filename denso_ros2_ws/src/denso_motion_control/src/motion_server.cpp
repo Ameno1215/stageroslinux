@@ -54,6 +54,32 @@ namespace denso_motion_control
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
+    std::string moveitErrorCodeToString(const moveit::core::MoveItErrorCode& code)
+    {
+        switch (code.val) {
+            case moveit::core::MoveItErrorCode::SUCCESS: return "SUCCESS";
+            case moveit::core::MoveItErrorCode::FAILURE: return "FAILURE";
+            case moveit::core::MoveItErrorCode::PLANNING_FAILED: return "PLANNING_FAILED: No path found";
+            case moveit::core::MoveItErrorCode::INVALID_MOTION_PLAN: return "INVALID_MOTION_PLAN: Trajectory contains errors";
+            case moveit::core::MoveItErrorCode::MOTION_PLAN_INVALIDATED_BY_ENVIRONMENT_CHANGE: return "PLAN_INVALIDATED: Environment changed during execution";
+            case moveit::core::MoveItErrorCode::CONTROL_FAILED: return "CONTROL_FAILED: Controller execution failed";
+            case moveit::core::MoveItErrorCode::UNABLE_TO_AQUIRE_SENSOR_DATA: return "UNABLE_TO_AQUIRE_SENSOR_DATA";
+            case moveit::core::MoveItErrorCode::TIMED_OUT: return "TIMED_OUT: Planning took too long";
+            case moveit::core::MoveItErrorCode::PREEMPTED: return "PREEMPTED: Motion interrupted";
+            case moveit::core::MoveItErrorCode::JOINTS_NOT_MOVING: return "JOINTS_NOT_MOVING: Robot is stuck";
+            case moveit::core::MoveItErrorCode::INVALID_OBJECT_NAME: return "INVALID_OBJECT_NAME: Unrecognized frame or object";
+            case moveit::core::MoveItErrorCode::FRAME_TRANSFORM_FAILURE: return "FRAME_TRANSFORM_FAILURE: TF tree error";
+            case moveit::core::MoveItErrorCode::COLLISION_CHECKING_UNAVAILABLE: return "COLLISION_CHECKING_UNAVAILABLE";
+            case moveit::core::MoveItErrorCode::ROBOT_STATE_STALE: return "ROBOT_STATE_STALE: Robot state is too old";
+            case moveit::core::MoveItErrorCode::SENSOR_INFO_STALE: return "SENSOR_INFO_STALE: Sensor data is too old";
+            case moveit::core::MoveItErrorCode::COMMUNICATION_ERROR: return "COMMUNICATION_ERROR: Lost connection with controller";
+            case moveit::core::MoveItErrorCode::CRASH: return "CRASH: Internal MoveIt crash";
+            case moveit::core::MoveItErrorCode::ABORT: return "ABORT: Motion aborted";
+            case moveit::core::MoveItErrorCode::NO_IK_SOLUTION: return "NO_IK_SOLUTION: Position unreachable (Out of workspace or singularity)";
+            default: return "UNKNOWN_ERROR_CODE";
+        }
+    }
+
     bool MotionServer::ensureInitialized(std::string& why) const
         {
         if (!initialized_ || !move_group_) {
@@ -140,20 +166,19 @@ namespace denso_motion_control
         // Plan the motion to the Cartesian pose target
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         auto code = move_group_->plan(plan);
+        if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+            out_msg = "Planning failed: " + moveitErrorCodeToString(code);
+            return false;
+        }
 
         // Always clear pose targets to avoid accidental reuse
         move_group_->clearPoseTargets();
-
-        if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-            out_msg = "Planning failed for pose target";
-            return false;
-        }
 
         // If execute flag is true, execute the planned trajectory
         if (execute) {
             auto exec_code = move_group_->execute(plan);
             if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-            out_msg = "Execution failed for pose target";
+            out_msg = "Execution failed for pose target" + moveitErrorCodeToString(exec_code);
             return false;
             }
             out_msg = "Planned and executed pose target successfully";
@@ -246,7 +271,7 @@ namespace denso_motion_control
         }
         else {
             out_error_msg = "Absolute combination + TOOL marker not supported. Please use WORLD reference for absolute poses";
-            return final_pose; // Retournera 0, à gérer dans l'appelant
+            return final_pose;
         }
 
         tf2::toMsg(result_transform, final_pose.pose);
@@ -433,15 +458,27 @@ namespace denso_motion_control
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
         moveit::planning_interface::MoveGroupInterface::Plan plan;
-        if (move_group_->plan(plan) != moveit::core::MoveItErrorCode::SUCCESS) {
-            res->success = false; res->message = "Failed to plan joint trajectory."; return;
+        moveit::core::MoveItErrorCode plan_code = move_group_->plan(plan);
+        
+        if (plan_code != moveit::core::MoveItErrorCode::SUCCESS) {
+            res->success = false; 
+            res->message = "Failed to plan joint trajectory: " + moveitErrorCodeToString(plan_code); 
+            return;
         }
 
         if (req->execute) {
-            res->success = (move_group_->execute(plan) == moveit::core::MoveItErrorCode::SUCCESS);
-            res->message = res->success ? "Joint trajectory executed successfully." : "Failed to execute joint trajectory.";
+            moveit::core::MoveItErrorCode exec_code = move_group_->execute(plan);
+            
+            if (exec_code == moveit::core::MoveItErrorCode::SUCCESS) {
+                res->success = true;
+                res->message = "Joint trajectory executed successfully.";
+            } else {
+                res->success = false;
+                res->message = "Failed to execute joint trajectory: " + moveitErrorCodeToString(exec_code);
+            }
         } else {
-            res->success = true; res->message = "Joint trajectory planned.";
+            res->success = true; 
+            res->message = "Joint trajectory planned successfully (execute=false).";
         }
     }
 

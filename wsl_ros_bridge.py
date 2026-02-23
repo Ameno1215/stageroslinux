@@ -2,6 +2,9 @@ import threading
 import time
 import math
 from typing import List, Optional, Dict, Any
+import logging
+from logging.handlers import RotatingFileHandler
+import traceback
 
 import rclpy
 from rclpy.node import Node
@@ -9,9 +12,27 @@ from rclpy.node import Node
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-# NOUVEAUX IMPORTS DES SRV
 from denso_motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage
 from geometry_msgs.msg import PoseStamped, Pose
+
+
+
+
+# ----------------------------
+# Logger Configuration
+# ----------------------------
+logger = logging.getLogger("DensoBridge")
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+# log file with rotation (5 MB per file, keep 3 backups)
+file_handler = RotatingFileHandler("robot_system.log", maxBytes=5*1024*1024, backupCount=3)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 
 # ----------------------------
@@ -116,6 +137,7 @@ class DensoMotionRosClient(Node):
         self.cage_cli = self.create_client(SetVirtualCage, "/set_virtual_cage")
 
         # Wait for services
+        logger.info("Waiting for ROS 2 services...")
         for cli, name in [
             (self.init_cli, "/init_robot"),
             (self.scale_cli, "/set_scaling"),
@@ -127,7 +149,8 @@ class DensoMotionRosClient(Node):
             (self.cage_cli, "/set_virtual_cage"),
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
-                self.get_logger().error(f"Service {name} not available. Is motion_server running?")
+                logger.error(f"Service {name} not available. Is motion_server running?")
+        logger.info("All ROS 2 services are connected.")
 
     def _wait_for_future(self, fut, timeout: Optional[float]):
         """
@@ -147,7 +170,7 @@ class DensoMotionRosClient(Node):
         return fut.result()
 
     def call_init(self, req: InitReq) -> Dict[str, Any]:
-        print(f"DEBUG: Init requested ({req.model})")
+        logger.info(f"Initialization request (Model: {req.model}, Group: {req.planning_group})")
         ros_req = InitRobot.Request()
         ros_req.model = str(req.model)
         ros_req.planning_group = str(req.planning_group)
@@ -159,13 +182,20 @@ class DensoMotionRosClient(Node):
         try:
             # 60 seconds for initialization (loading robot model, setting up MoveIt, etc.)
             res = self._wait_for_future(fut, timeout=60.0)
+            if res.success:
+                logger.info(f"Initialization successful: {res.message}")
+            else:
+                logger.error(f"Initialization failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
-            print(f"ERROR Init: {e}")
+            logger.error(f"Critical error during InitRobot call: {e}")
+            logger.debug(traceback.format_exc())
             raise RuntimeError(f"InitRobot failed: {e}")
             
         return {"success": bool(res.success), "message": str(res.message)}
 
     def call_scaling(self, req: ScalingReq) -> Dict[str, Any]:
+        logger.info(f"Scaling change request (Vel: {req.velocity_scale}, Acc: {req.accel_scale})")
         ros_req = SetScaling.Request()
         ros_req.velocity_scale = float(req.velocity_scale)
         ros_req.accel_scale = float(req.accel_scale)
@@ -174,12 +204,18 @@ class DensoMotionRosClient(Node):
         
         try:
             res = self._wait_for_future(fut, timeout=5.0)
+            if res.success:
+                logger.info(f"Scaling change successful: {res.message}")
+            else:
+                logger.error(f"Scaling change failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
+            logger.error(f"Critical error during SetScaling call: {e}")
+            logger.debug(traceback.format_exc())
             raise RuntimeError(f"SetScaling failed: {e}")
 
-        return {"success": bool(res.success), "message": str(res.message)}
-
     def call_move_joints(self, req: JointReq) -> Dict[str, Any]:
+        logger.info(f"Joint movement request: {req.joints} (Relative={req.is_relative}, Execute={req.execute})")
         ros_req = MoveJoints.Request()
         ros_req.joints = [float(x) for x in req.joints]
         ros_req.is_relative = bool(req.is_relative)
@@ -188,11 +224,18 @@ class DensoMotionRosClient(Node):
         fut = self.move_joints_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=None)
+            if res.success:
+                logger.info(f"Joint movement successful: {res.message}")
+            else:
+                logger.error(f"Joint movement failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
+            logger.error(f"Critical error during MoveJoints call: {e}")
+            logger.debug(traceback.format_exc())
             raise RuntimeError(f"MoveJoints failed: {e}")
-        return {"success": bool(res.success), "message": str(res.message)}
 
     def call_move_to_pose(self, req: MoveToPoseReq) -> Dict[str, Any]:
+        logger.info(f"Request for movement received : X={req.x}, Y={req.y}, Z={req.z} (Relative={req.is_relative}, Cartesian={req.cartesian_path}, Execute={req.execute})")
         ros_req = MoveToPose.Request()
         ros_req.x = float(req.x)
         ros_req.y = float(req.y)
@@ -210,11 +253,19 @@ class DensoMotionRosClient(Node):
         fut = self.move_pose_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=None)
+            if res.success:
+                logger.info(f"Successful movement : {res.message}")
+            else:
+                logger.error(f"Failed movement ! Cause returned by MoveIt : {res.message}")
+                
+            return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
+            logger.error(f"Critical error during the MoveToPose call : {e}")
+            logger.debug(traceback.format_exc())
             raise RuntimeError(f"MoveToPose failed: {e}")
-        return {"success": bool(res.success), "message": str(res.message)}
 
     def call_move_waypoints(self, req: MoveWaypointsReq) -> Dict[str, Any]:
+        logger.info(f"Waypoints movement request: {len(req.waypoints)} points (Relative={req.is_relative}, Cartesian={req.cartesian_path}, execute={req.execute})")
         ros_req = MoveWaypoints.Request()
         ros_req.reference_frame = str(req.reference_frame)
         ros_req.is_relative = bool(req.is_relative)
@@ -245,20 +296,34 @@ class DensoMotionRosClient(Node):
         fut = self.move_waypoints_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=None)
+            if res.success:
+                logger.info(f"Waypoints movement successful: {res.message}")
+            else:
+                logger.error(f"Waypoints movement failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
+            logger.error(f"Critical error during MoveWaypoints call: {e}")
+            logger.debug(traceback.format_exc())
             raise RuntimeError(f"MoveWaypoints failed: {e}")
-        return {"success": bool(res.success), "message": str(res.message)}
     
     def call_get_joints(self):
+        logger.info("Joint state read request")
         req = GetJointState.Request()
         fut = self.get_joints_cli.call_async(req)
         try:
             res = self._wait_for_future(fut, timeout=5.0)
+            if res.success:
+                logger.info(f"Joint state read successful. Joints: [{list(res.joints)}]")
+            else:
+                logger.error(f"Joint state read failed: {res.message}")
+            return {"success": res.success, "message": res.message, "joints": list(res.joints)}
         except Exception as e:
+            logger.error(f"Critical error during GetJointState call: {e}")
+            logger.debug(traceback.format_exc())
             raise RuntimeError(f"GetJointState failed: {e}")
-        return {"success": res.success, "message": res.message, "joints": list(res.joints)}
     
     def call_get_pose(self, frame_id: str = "", child_frame_id: str = ""):
+        logger.info(f"Pose read request (frame={frame_id}, child={child_frame_id})")
         req = GetCurrentPose.Request()
         req.frame_id = frame_id # Reference frame for the returned pose (e.g. "base_link"). If empty, the robot's default frame will be used.
         req.child_frame_id = child_frame_id # (Optional) If specified, the service will attempt to return the pose of this child frame. If empty, the end-effector frame will be used.
@@ -266,7 +331,11 @@ class DensoMotionRosClient(Node):
         fut = self.get_pose_cli.call_async(req)
         try:
             res = self._wait_for_future(fut, timeout=5.0)
+            if not res.success:
+                logger.error(f"Pose read failed: {res.message}")
         except Exception as e:
+            logger.error(f"Critical error during GetCurrentPose call: {e}")
+            logger.debug(traceback.format_exc())
             raise RuntimeError(f"GetCurrentPose failed: {e}")
 
         p = res.pose.pose
@@ -277,6 +346,13 @@ class DensoMotionRosClient(Node):
             rx = res.euler_rpy[0]
             ry = res.euler_rpy[1]
             rz = res.euler_rpy[2]
+        
+        logger.info(
+            f"Pose read successful. "
+            f"XYZ: [{p.position.x:.3f}, {p.position.y:.3f}, {p.position.z:.3f}], "
+            f"Quat: [{p.orientation.x:.3f}, {p.orientation.y:.3f}, {p.orientation.z:.3f}, {p.orientation.w:.3f}], "
+            f"RPY: [{rx:.3f}, {ry:.3f}, {rz:.3f}]"
+        )
 
         return {
             "success": res.success,
@@ -300,6 +376,7 @@ class DensoMotionRosClient(Node):
         }
 
     def call_set_virtual_cage(self, req: VirtualCageReq) -> Dict[str, Any]:
+        logger.info(f"Virtual cage modification request (Enable={req.enable})")
         ros_req = SetVirtualCage.Request()
         ros_req.enable = bool(req.enable)
         ros_req.front = float(req.front)
@@ -316,10 +393,15 @@ class DensoMotionRosClient(Node):
         fut = self.cage_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=5.0)
+            if res.success:
+                logger.info(f"Virtual cage modification successful: {res.message}")
+            else:
+                logger.error(f"Virtual cage modification failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
+            logger.error(f"Critical error during SetVirtualCage call: {e}")
+            logger.debug(traceback.format_exc())
             raise RuntimeError(f"SetVirtualCage failed: {e}")
-        return {"success": bool(res.success), "message": str(res.message)}
-
 
 # ----------------------------
 # FastAPI app

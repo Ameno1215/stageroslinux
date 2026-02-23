@@ -52,7 +52,8 @@ namespace denso_motion_control
             std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
             std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-            // Service callbacks
+            std::string moveitErrorCodeToString(const moveit::core::MoveItErrorCode& code);
+
             /**
              * @brief Initializes the MoveIt MoveGroup interface.
              * * This function must be called (via the /init_robot service) before any motion command.

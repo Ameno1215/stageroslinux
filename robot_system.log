@@ -1,0 +1,89 @@
+2026-02-23 12:07:45,563 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.5 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 12:07:52,761 - INFO - Successful movement : Cartesian path executed.
+2026-02-23 12:07:54,600 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.8 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 12:07:54,653 - WARNING - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.838710
+2026-02-23 12:34:45,150 - INFO - Waiting for ROS 2 services...
+2026-02-23 12:34:45,151 - INFO - All ROS 2 services are connected.
+2026-02-23 12:34:57,457 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-23 12:34:57,615 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-23 12:34:59,450 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-23 12:34:59,507 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-23 12:35:01,350 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-23 12:35:01,510 - INFO - Joint movement successful: Joint trajectory executed successfully.
+2026-02-23 12:35:03,364 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-23 12:35:19,876 - INFO - Successful movement : Planned and executed pose target successfully
+2026-02-23 12:35:21,729 - INFO - Waypoints movement request: 2 points (Relative=True, Cartesian=True, execute=True)
+2026-02-23 12:35:27,595 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully.
+2026-02-23 12:35:29,434 - INFO - Virtual cage modification request (Enable=True)
+2026-02-23 12:35:29,487 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-02-23 12:35:33,136 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.5 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 12:35:33,192 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.466667
+2026-02-23 12:35:35,022 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.8 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 12:35:35,073 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.386043
+2026-02-23 12:35:38,722 - INFO - Virtual cage modification request (Enable=False)
+2026-02-23 12:35:38,776 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-02-23 12:35:40,609 - DEBUG - Joint state read request
+2026-02-23 12:35:40,659 - DEBUG - Joint state read successful
+2026-02-23 12:35:46,092 - DEBUG - Pose read request (frame=, child=)
+2026-02-23 12:35:46,142 - DEBUG - Pose read successful
+2026-02-23 12:44:22,406 - INFO - Waiting for ROS 2 services...
+2026-02-23 13:44:01,992 - INFO - Waiting for ROS 2 services...
+2026-02-23 13:44:01,994 - INFO - All ROS 2 services are connected.
+2026-02-23 13:44:36,323 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-23 13:44:36,476 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-23 13:44:38,316 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-23 13:44:38,367 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-23 13:44:40,221 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-23 13:44:40,377 - INFO - Joint movement successful: Joint trajectory executed successfully.
+2026-02-23 13:44:42,239 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-23 13:44:55,342 - INFO - Successful movement : Planned and executed pose target successfully
+2026-02-23 13:44:57,179 - INFO - Waypoints movement request: 2 points (Relative=True, Cartesian=True, execute=True)
+2026-02-23 13:45:06,193 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully.
+2026-02-23 13:45:08,037 - INFO - Virtual cage modification request (Enable=True)
+2026-02-23 13:45:08,091 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-02-23 13:45:11,759 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.5 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 13:45:11,809 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.466667
+2026-02-23 13:45:13,679 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.8 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 13:45:13,730 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.378378
+2026-02-23 13:45:17,370 - INFO - Virtual cage modification request (Enable=False)
+2026-02-23 13:45:17,421 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-02-23 13:45:19,259 - INFO - Joint state read request
+2026-02-23 13:45:19,310 - INFO - Joint state read successful. Joints: [{joints_str}]
+2026-02-23 13:45:21,147 - INFO - Pose read request (frame=, child=)
+2026-02-23 13:45:21,199 - INFO - Pose read successful. XYZ: [0.435, 0.049, 0.080], RPY: [-3.139, 0.830, -2.500]
+2026-02-23 13:48:07,972 - INFO - Waiting for ROS 2 services...
+2026-02-23 13:48:08,978 - INFO - All ROS 2 services are connected.
+2026-02-23 13:48:14,651 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-23 13:48:14,752 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-23 13:48:16,597 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-23 13:48:16,652 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-23 13:48:18,509 - INFO - Virtual cage modification request (Enable=True)
+2026-02-23 13:48:18,560 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-02-23 13:48:22,204 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.5 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 13:48:22,258 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.466667
+2026-02-23 13:48:24,107 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.8 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 13:48:24,160 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.378378
+2026-02-23 13:48:27,806 - INFO - Virtual cage modification request (Enable=False)
+2026-02-23 13:48:27,860 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-02-23 13:48:29,706 - INFO - Joint state read request
+2026-02-23 13:48:29,757 - INFO - Joint state read successful. Joints: [[-0.2636666955187952, 0.7881884685482543, 2.171014856211354, -4.198321973268168, 0.728206015797058, -2.9279245811067156]]
+2026-02-23 13:48:31,612 - INFO - Pose read request (frame=, child=)
+2026-02-23 13:48:31,663 - INFO - Pose read successful. XYZ: [0.435, 0.049, 0.080], Quat: [-0.288, 0.868, 0.126, 0.383], RPY: [-3.139, 0.830, -2.500]
+2026-02-23 13:48:52,538 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-23 13:48:52,639 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-23 13:48:54,466 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-23 13:48:54,517 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-23 13:48:56,356 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-23 13:49:12,650 - INFO - Joint movement successful: Joint trajectory executed successfully.
+2026-02-23 13:49:14,489 - INFO - Virtual cage modification request (Enable=True)
+2026-02-23 13:49:14,540 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-02-23 13:49:18,199 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.5 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 13:49:25,414 - INFO - Successful movement : Cartesian path executed.
+2026-02-23 13:49:27,268 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.8 (Relative=False, Cartesian=True, Execute=True)
+2026-02-23 13:49:27,319 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.838710
+2026-02-23 13:49:30,945 - INFO - Virtual cage modification request (Enable=False)
+2026-02-23 13:49:30,997 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-02-23 13:49:32,830 - INFO - Joint state read request
+2026-02-23 13:49:32,881 - INFO - Joint state read successful. Joints: [[-8.16282397142487e-06, -1.132016743741806, 2.652076325999216, 0.0001647031356384332, 0.049941243202285435, -0.0001645033565198517]]
+2026-02-23 13:49:34,716 - INFO - Pose read request (frame=, child=)
+2026-02-23 13:49:34,768 - INFO - Pose read successful. XYZ: [0.300, -0.000, 0.500], Quat: [-0.000, 0.707, 0.000, 0.707], RPY: [-0.000, 1.570, -0.000]
