@@ -147,9 +147,12 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'robot_controller', default_value='denso_joint_trajectory_controller',
             description='Robot controller to start.'))
+
     declared_arguments.append(
-        DeclareLaunchArgument('tool', default_value='none', description='End-effector tool to attach (e.g., none, effecteur_v1)')
-    )
+        DeclareLaunchArgument('tool', default_value='none', description='End-effector tool to attach (e.g., none, effecteur_v1)'))
+    declared_arguments.append(
+        DeclareLaunchArgument('ik_solver', default_value='pick_ik', choices=['kdl', 'pick_ik'], description='Choice of kinematic solver (kdl or pick_ik)'))
+
 
 # Execution arguments (Rviz and Gazebo)
 # TODO: shall we give the user the choice not to load the rviz graphical environment ??
@@ -182,6 +185,12 @@ def generate_launch_description():
     controllers_file = LaunchConfiguration('controllers_file')
     robot_controller = LaunchConfiguration('robot_controller')
     tool = LaunchConfiguration('tool')
+    ik_solver = LaunchConfiguration('ik_solver')
+
+    from launch.substitutions import PythonExpression
+    kinematics_plugin_name = PythonExpression([
+        "'pick_ik/PickIkPlugin' if '", ik_solver, "' == 'pick_ik' else 'kdl_kinematics_plugin/KDLKinematicsPlugin'"
+    ])
 
     denso_robot_core_pkg = get_package_share_directory('denso_robot_core')
 
@@ -303,7 +312,8 @@ def generate_launch_description():
             moveit_controllers_file,
             occupancy_map_monitor_parameters,
             planning_scene_monitor_parameters,
-            {'use_sim_time': sim}
+            {'use_sim_time': sim},
+            {'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name}
         ])
 
 # --------- Robot Control Node (only if 'sim:=false') ---------
@@ -374,7 +384,8 @@ def generate_launch_description():
             robot_description,
             robot_description_semantic,
             ompl_planning_pipeline_config,
-            robot_description_kinematics
+            robot_description_kinematics,
+            {'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name}
         ])
 
     # Static TF

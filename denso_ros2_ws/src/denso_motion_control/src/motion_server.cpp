@@ -163,9 +163,13 @@ namespace denso_motion_control
 
         // Plan the motion to the Cartesian pose target
         moveit::planning_interface::MoveGroupInterface::Plan plan;
+        auto start_time = std::chrono::high_resolution_clock::now();
         auto code = move_group_->plan(plan);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
+
         if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-            out_msg = "Planning failed: " + moveitErrorCodeToString(code);
+            out_msg = "Planning failed: " + moveitErrorCodeToString(code) + " (took " + std::to_string(planning_duration) + " seconds)";
             return false;
         }
 
@@ -176,14 +180,14 @@ namespace denso_motion_control
         if (execute) {
             auto exec_code = move_group_->execute(plan);
             if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-            out_msg = "Execution failed for pose target" + moveitErrorCodeToString(exec_code);
+            out_msg = "Execution failed for pose target" + moveitErrorCodeToString(exec_code) + " (took " + std::to_string(planning_duration) + " seconds)";
             return false;
             }
-            out_msg = "Planned and executed pose target successfully";
+            out_msg = "Planned and executed pose target successfully (took " + std::to_string(planning_duration) + " seconds)";
             return true;
         }
 
-        out_msg = "Planned pose target successfully (execute=false)";
+        out_msg = "Planned pose target successfully (execute=false) (took " + std::to_string(planning_duration) + " seconds)";
         return true;
     }
 
@@ -406,21 +410,24 @@ namespace denso_motion_control
             const double jump_threshold = 1.5; 
             const double eef_step = 0.01;      
 
+            auto start_time = std::chrono::high_resolution_clock::now();
             double fraction = move_group_->computeCartesianPath(absolute_waypoints, eef_step, jump_threshold, trajectory);
+            auto end_time = std::chrono::high_resolution_clock::now();
+            double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
             if (fraction < 0.95) { 
                 res->success = false;
-                res->message = "Cartesian path impossible or incomplete. Calculated fraction: " + std::to_string(fraction);
+                res->message = "Cartesian path impossible or incomplete. Calculated fraction: " + std::to_string(fraction) + " (took " + std::to_string(planning_duration) + " seconds)";
                 return;
             }
 
             if (req->execute) {
                 auto exec_code = move_group_->execute(trajectory);
                 res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
-                res->message = res->success ? "Trajectory waypoints executed successfully." : "Failed to execute trajectory: " + moveitErrorCodeToString(exec_code);
+                res->message = res->success ? "Trajectory waypoints executed successfully. (took " + std::to_string(planning_duration) + " seconds)" : "Failed to execute trajectory: " + moveitErrorCodeToString(exec_code) + " (took " + std::to_string(planning_duration) + " seconds)";
             } else {
                 res->success = true;
-                res->message = "Trajectory waypoints planned at " + std::to_string(fraction * 100.0) + "%";
+                res->message = "Trajectory waypoints planned at " + std::to_string(fraction * 100.0) + "%" + " (execute=false) (took " + std::to_string(planning_duration) + " seconds)";
             }
         } else {
             res->success = false;
@@ -461,11 +468,16 @@ namespace denso_motion_control
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
         moveit::planning_interface::MoveGroupInterface::Plan plan;
+
+        auto start_time = std::chrono::high_resolution_clock::now();
         moveit::core::MoveItErrorCode plan_code = move_group_->plan(plan);
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+        double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
         
         if (plan_code != moveit::core::MoveItErrorCode::SUCCESS) {
             res->success = false; 
-            res->message = "Failed to plan joint trajectory: " + moveitErrorCodeToString(plan_code); 
+            res->message = "Failed to plan joint trajectory: " + moveitErrorCodeToString(plan_code) + " (took " + std::to_string(planning_duration) + " seconds)"; 
             return;
         }
 
@@ -474,14 +486,14 @@ namespace denso_motion_control
             
             if (exec_code == moveit::core::MoveItErrorCode::SUCCESS) {
                 res->success = true;
-                res->message = "Joint trajectory executed successfully.";
+                res->message = "Joint trajectory executed successfully (took " + std::to_string(planning_duration) + " seconds).";
             } else {
                 res->success = false;
-                res->message = "Failed to execute joint trajectory: " + moveitErrorCodeToString(exec_code);
+                res->message = "Failed to execute joint trajectory: " + moveitErrorCodeToString(exec_code) + " (took " + std::to_string(planning_duration) + " seconds)";
             }
         } else {
             res->success = true; 
-            res->message = "Joint trajectory planned successfully (execute=false).";
+            res->message = "Joint trajectory planned successfully (execute=false) (took " + std::to_string(planning_duration) + " seconds).";
         }
     }
 

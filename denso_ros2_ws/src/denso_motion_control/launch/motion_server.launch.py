@@ -3,7 +3,7 @@ import yaml
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
@@ -40,6 +40,9 @@ def generate_launch_description():
     )
     declared_arguments.append(
         DeclareLaunchArgument("tool", default_value="none", description="End-effector tool to attach (e.g., none, effecteur_v1)")
+    )
+    declared_arguments.append(
+        DeclareLaunchArgument("ik_solver", default_value="pick_ik", choices=['kdl', 'pick_ik'])
     )
 
     declared_arguments.append(
@@ -78,6 +81,10 @@ def generate_launch_description():
     velocity_scale = LaunchConfiguration("velocity_scale")
     accel_scale = LaunchConfiguration("accel_scale")
     tool = LaunchConfiguration("tool")
+    ik_solver = LaunchConfiguration("ik_solver")
+    kinematics_plugin_name = PythonExpression([
+        "'pick_ik/PickIkPlugin' if '", ik_solver, "' == 'pick_ik' else 'kdl_kinematics_plugin/KDLKinematicsPlugin'"
+    ])
 
     description_package = LaunchConfiguration("description_package")
     description_file = LaunchConfiguration("description_file")
@@ -134,6 +141,7 @@ def generate_launch_description():
             robot_description_semantic,
             robot_description_kinematics,
             motion_server_params,
+            {'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name}
         ],
     )
 

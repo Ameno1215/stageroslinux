@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from denso_motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage
 from geometry_msgs.msg import PoseStamped, Pose
+from rcl_interfaces.srv import GetParameters
 
 
 
@@ -135,6 +136,7 @@ class DensoMotionRosClient(Node):
         self.move_joints_cli = self.create_client(MoveJoints, "/move_joints")
         self.move_waypoints_cli = self.create_client(MoveWaypoints, "/move_waypoints")
         self.cage_cli = self.create_client(SetVirtualCage, "/set_virtual_cage")
+        self.param_client = self.create_client(GetParameters, "/denso_motion_server/get_parameters")
 
         # Wait for services
         logger.info("Waiting for ROS 2 services...")
@@ -147,6 +149,7 @@ class DensoMotionRosClient(Node):
             (self.move_joints_cli, "/move_joints"),
             (self.move_waypoints_cli, "/move_waypoints"),
             (self.cage_cli, "/set_virtual_cage"),
+            (self.param_client, "/denso_motion_server/get_parameters")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 logger.error(f"Service {name} not available. Is motion_server running?")
@@ -403,6 +406,40 @@ class DensoMotionRosClient(Node):
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"SetVirtualCage failed: {e}")
 
+    def call_get_solver(self) -> Dict[str, Any]:
+        logger.info("Requesting IK solver info from C++ node...")
+        
+        if not self.param_client.wait_for_service(timeout_sec=2.0):
+            logger.error("Parameter service not available. Is motion_server running?")
+            return {"success": False, "message": "denso_motion_server parameter service not available."}
+        
+        req = GetParameters.Request()
+        req.names = ['robot_description_kinematics.arm.kinematics_solver']
+        
+        fut = self.param_client.call_async(req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            
+            if res.values and len(res.values) > 0:
+                plugin_name = res.values[0].string_value
+                
+                if plugin_name:
+                    short_name = plugin_name.split('/')[0] if '/' in plugin_name else plugin_name
+                    logger.info(f"Current IK solver plugin: {plugin_name} (short name: {short_name})")
+                    
+                    return {
+                        "success": True, 
+                        "solver": short_name, 
+                        "full_plugin_name": plugin_name
+                    }
+                    
+            logger.error("Solver parameter not found or empty in response.")
+            return {"success": False, "message": "Solver parameter is not set in C++ node."}
+            
+        except Exception as e:
+            logger.error(f"Failed to get solver parameter: {e}")
+            return {"success": False, "message": str(e)}
+
 # ----------------------------
 # FastAPI app
 # ----------------------------
@@ -485,3 +522,7 @@ def set_virtual_cage(req: VirtualCageReq):
         return _ros_client.call_set_virtual_cage(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/state/solver")
+def state_solver():
+    return _ros_client.call_get_solver()

@@ -147,3 +147,124 @@
 2026-02-24 08:10:46,464 - INFO - Successful movement : Planned and executed pose target successfully
 2026-02-24 08:10:48,504 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
 2026-02-24 08:10:55,923 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully.
+2026-02-24 08:20:50,891 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 08:20:50,992 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 08:20:53,051 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 08:20:53,101 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 08:20:55,130 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 08:20:55,230 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.027738 seconds).
+2026-02-24 08:20:57,259 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-24 08:21:04,578 - INFO - Successful movement : Planned and executed pose target successfully
+2026-02-24 08:21:06,586 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-24 08:21:14,010 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully.
+2026-02-24 08:23:12,394 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 08:23:12,495 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 08:23:14,517 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 08:23:14,568 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 08:23:16,589 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 08:23:16,690 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.024816 seconds).
+2026-02-24 08:23:18,707 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-24 08:23:26,027 - INFO - Successful movement : Planned and executed pose target successfully
+2026-02-24 08:23:28,120 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-24 08:23:35,547 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.012113 seconds)
+2026-02-24 08:29:17,072 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 08:29:17,174 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 08:29:19,195 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 08:29:19,246 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 08:29:21,317 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 08:29:21,519 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.028117 seconds).
+2026-02-24 08:29:23,611 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-24 08:29:38,004 - INFO - Successful movement : Planned and executed pose target successfully (took 0.053384 seconds)
+2026-02-24 08:29:40,012 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-24 08:29:40,062 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.071429 (took 0.007596 seconds)
+2026-02-24 08:30:22,261 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 08:30:22,361 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 08:30:24,393 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 08:30:24,444 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 08:30:26,540 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 08:30:40,887 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.042727 seconds).
+2026-02-24 08:30:42,937 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-24 08:30:50,257 - INFO - Successful movement : Planned and executed pose target successfully (took 0.042942 seconds)
+2026-02-24 08:30:52,271 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-24 08:30:59,695 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.009641 seconds)
+2026-02-24 08:42:28,698 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 08:42:28,800 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 08:42:30,817 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 08:42:30,868 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 08:42:32,880 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 08:42:32,981 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.031521 seconds).
+2026-02-24 08:42:34,999 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-24 08:42:44,225 - INFO - Successful movement : Planned and executed pose target successfully (took 0.296714 seconds)
+2026-02-24 08:42:46,241 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-24 08:42:53,770 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.141809 seconds)
+2026-02-24 08:43:43,214 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 08:43:43,315 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 08:43:45,328 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 08:43:45,379 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 08:43:47,390 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 08:43:58,530 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.033185 seconds).
+2026-02-24 08:44:00,579 - INFO - Waypoints movement request: 3 points (Cartesian=True, execute=True)
+2026-02-24 08:44:00,680 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.191304 (took 0.084394 seconds)
+2026-02-24 09:52:42,320 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 09:52:42,421 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 09:52:44,498 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 09:52:44,548 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 09:52:57,828 - INFO - Waiting for ROS 2 services...
+2026-02-24 09:52:58,079 - INFO - All ROS 2 services are connected.
+2026-02-24 09:53:04,403 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 09:53:04,455 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 09:53:06,477 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 09:53:06,527 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 09:53:08,557 - INFO - Requesting IK solver info from C++ node...
+2026-02-24 09:53:10,630 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 09:53:10,831 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.039722 seconds).
+2026-02-24 09:53:12,893 - INFO - Waypoints movement request: 3 points (Cartesian=True, execute=True)
+2026-02-24 09:53:13,044 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.229277 (took 0.103015 seconds)
+2026-02-24 09:54:44,908 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 09:54:44,959 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 09:54:46,979 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 09:54:47,030 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 09:54:49,103 - INFO - Requesting IK solver info from C++ node...
+2026-02-24 09:54:51,222 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 09:54:51,323 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.019137 seconds).
+2026-02-24 09:54:53,360 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-24 09:55:05,145 - INFO - Successful movement : Planned and executed pose target successfully (took 0.133770 seconds)
+2026-02-24 09:55:07,180 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-24 09:55:14,852 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.124772 seconds)
+2026-02-24 10:03:30,610 - INFO - Waiting for ROS 2 services...
+2026-02-24 10:03:30,610 - INFO - All ROS 2 services are connected.
+2026-02-24 10:10:07,786 - INFO - Waiting for ROS 2 services...
+2026-02-24 10:10:07,787 - INFO - All ROS 2 services are connected.
+2026-02-24 10:10:16,279 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 10:10:16,380 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 10:10:18,374 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 10:10:18,424 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 10:10:20,427 - INFO - Requesting IK solver info from C++ node...
+2026-02-24 10:10:20,478 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-02-24 10:10:22,471 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 10:10:22,572 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.032028 seconds).
+2026-02-24 10:10:24,604 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-24 10:10:39,384 - INFO - Successful movement : Planned and executed pose target successfully (took 0.198366 seconds)
+2026-02-24 10:10:41,399 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-24 10:10:41,449 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.075000 (took 0.015972 seconds)
+2026-02-24 10:11:26,920 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 10:11:27,071 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 10:11:29,100 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 10:11:29,150 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 10:11:31,165 - INFO - Requesting IK solver info from C++ node...
+2026-02-24 10:11:31,216 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-02-24 10:11:33,709 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 10:11:33,810 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.025400 seconds).
+2026-02-24 10:11:35,823 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
+2026-02-24 10:11:43,141 - INFO - Successful movement : Planned and executed pose target successfully (took 0.040561 seconds)
+2026-02-24 10:11:45,167 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-24 10:11:52,584 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.013905 seconds)
+2026-02-24 10:14:37,709 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-24 10:14:37,809 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-24 10:14:39,815 - INFO - Requesting IK solver info from C++ node...
+2026-02-24 10:14:39,866 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-02-24 10:14:41,887 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-24 10:14:41,937 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-24 10:14:43,952 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-24 10:14:44,203 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.021983 seconds).
+2026-02-24 10:14:46,236 - INFO - Request for movement received : X=0.435, Y=0.0488, Z=0.08 (Relative=False, Cartesian=False, Execute=True)
