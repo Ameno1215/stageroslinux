@@ -1,6 +1,8 @@
 # Request
 # Import du type standard ROS 2
 geometry_msgs/Pose[] waypoints
+bool[] is_relative_list
+string[] reference_frame_list
 
 # Configuration globale pour toute la trajectoire
 string reference_frame     # "WORLD" ou "TOOL"

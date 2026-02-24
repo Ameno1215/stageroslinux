@@ -54,7 +54,7 @@ namespace denso_motion_control
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
-    std::string moveitErrorCodeToString(const moveit::core::MoveItErrorCode& code)
+    std::string MotionServer:: moveitErrorCodeToString(const moveit::core::MoveItErrorCode& code)
     {
         switch (code.val) {
             case moveit::core::MoveItErrorCode::SUCCESS: return "SUCCESS";
@@ -66,13 +66,11 @@ namespace denso_motion_control
             case moveit::core::MoveItErrorCode::UNABLE_TO_AQUIRE_SENSOR_DATA: return "UNABLE_TO_AQUIRE_SENSOR_DATA";
             case moveit::core::MoveItErrorCode::TIMED_OUT: return "TIMED_OUT: Planning took too long";
             case moveit::core::MoveItErrorCode::PREEMPTED: return "PREEMPTED: Motion interrupted";
-            case moveit::core::MoveItErrorCode::JOINTS_NOT_MOVING: return "JOINTS_NOT_MOVING: Robot is stuck";
             case moveit::core::MoveItErrorCode::INVALID_OBJECT_NAME: return "INVALID_OBJECT_NAME: Unrecognized frame or object";
             case moveit::core::MoveItErrorCode::FRAME_TRANSFORM_FAILURE: return "FRAME_TRANSFORM_FAILURE: TF tree error";
             case moveit::core::MoveItErrorCode::COLLISION_CHECKING_UNAVAILABLE: return "COLLISION_CHECKING_UNAVAILABLE";
             case moveit::core::MoveItErrorCode::ROBOT_STATE_STALE: return "ROBOT_STATE_STALE: Robot state is too old";
             case moveit::core::MoveItErrorCode::SENSOR_INFO_STALE: return "SENSOR_INFO_STALE: Sensor data is too old";
-            case moveit::core::MoveItErrorCode::COMMUNICATION_ERROR: return "COMMUNICATION_ERROR: Lost connection with controller";
             case moveit::core::MoveItErrorCode::CRASH: return "CRASH: Internal MoveIt crash";
             case moveit::core::MoveItErrorCode::ABORT: return "ABORT: Motion aborted";
             case moveit::core::MoveItErrorCode::NO_IK_SOLUTION: return "NO_IK_SOLUTION: Position unreachable (Out of workspace or singularity)";
@@ -348,80 +346,85 @@ namespace denso_motion_control
             return;
         }
 
-        // Retrieve the current pose. It will serve as the basis for calculation (Point 0)
+        // --- VERIFY PARALLEL ARRAYS ---
+        if (req->is_relative_list.size() != req->waypoints.size() || 
+            req->reference_frame_list.size() != req->waypoints.size()) 
+        {
+            res->success = false;
+            res->message = "Configuration arrays (is_relative_list, reference_frame_list) must match the waypoints array size.";
+            return;
+        }
+
+        // Initial base point: The current position of the robot
         geometry_msgs::msg::PoseStamped current_pose_msg = move_group_->getCurrentPose();
         tf2::Transform current_base_tf;
         tf2::fromMsg(current_pose_msg.pose, current_base_tf);
 
-        // Vector that will store absolute targets understandable by MoveIt
         std::vector<geometry_msgs::msg::Pose> absolute_waypoints;
 
-        // Conversion loop: Transform each waypoint into an absolute WORLD pose
-        for (const auto& wp : req->waypoints) {
+        // Conversion loop
+        for (size_t i = 0; i < req->waypoints.size(); ++i) {
             tf2::Transform wp_tf;
-            tf2::fromMsg(wp, wp_tf); // Converts the ROS point into a mathematical object
+            tf2::fromMsg(req->waypoints[i], wp_tf); 
             tf2::Transform target_tf;
 
-            if (req->is_relative) {
-                if (req->reference_frame == "TOOL") {
-                    // Post-multiplication: the delta is applied along the current axes of the tool
+            // Retrieve the specific configuration for THIS waypoint
+            bool is_rel = req->is_relative_list[i];
+            std::string ref_frame = req->reference_frame_list[i];
+
+            if (is_rel) {
+                if (ref_frame == "TOOL") {
+                    // Post-multiplication: delta applied along the tool's axes
                     target_tf = current_base_tf * wp_tf;
                 } else { // WORLD
-                    // Pre-multiplication: the delta is applied along the fixed axes of the part
+                    // Pre-multiplication: delta applied along the fixed world axes
                     target_tf.setOrigin(current_base_tf.getOrigin() + wp_tf.getOrigin());
                     target_tf.setRotation(wp_tf.getRotation() * current_base_tf.getRotation());
                     target_tf.getRotation().normalize();
                 }
             } else {
-                // If the coordinates are already absolute, we take them as they are
+                // Absolute point
                 target_tf = wp_tf;
             }
 
-            // The point we just calculated becomes the new starting point
-            // for the next point (only useful if is_relative is True)
+            // THE SECRET LIES HERE: The point we just calculated becomes the 
+            // new reference base for the next point!
             current_base_tf = target_tf;
 
-            // Convert it back to ROS format and store it
             geometry_msgs::msg::Pose abs_pose;
             tf2::toMsg(target_tf, abs_pose);
             absolute_waypoints.push_back(abs_pose);
         }
 
-        // Speed ​​application
+        // Apply velocity and acceleration scaling factors
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        // Route planning
+        // Cartesian path planning
         if (req->cartesian_path) {
-            // Cartesian mode: Drawing in pure straight lines between each point
             moveit_msgs::msg::RobotTrajectory trajectory;
-            const double jump_threshold = 1.5; // Disables joint "jumps"
-            const double eef_step = 0.01;      // A point calculated every 1 cm
+            const double jump_threshold = 1.5; 
+            const double eef_step = 0.01;      
 
             double fraction = move_group_->computeCartesianPath(absolute_waypoints, eef_step, jump_threshold, trajectory);
 
-            if (fraction < 0.95) { // If MoveIt gets stuck along the way (zone boundary, etc.)
+            if (fraction < 0.95) { 
                 res->success = false;
-                res->message = "Cartesian path impossible or incomplete. Calculated fraction:" + std::to_string(fraction);
+                res->message = "Cartesian path impossible or incomplete. Calculated fraction: " + std::to_string(fraction);
                 return;
             }
 
             if (req->execute) {
                 auto exec_code = move_group_->execute(trajectory);
                 res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
-                res->message = res->success ? "Trajectory waypoints executed successfully." : "Failed to execute trajectory.";
+                res->message = res->success ? "Trajectory waypoints executed successfully." : "Failed to execute trajectory: " + moveitErrorCodeToString(exec_code);
             } else {
                 res->success = true;
                 res->message = "Trajectory waypoints planned at " + std::to_string(fraction * 100.0) + "%";
             }
         } else {
-            // Non-Cartesian mode (Fluid Joint Space):
-            //  MoveIt (with the standard OMPL planner) does not easily handle uninterrupted transitions
-            // through a series of strict poses without creating straight lines.
-            // To maintain a robust system, an alert is sent.
             res->success = false;
-            res->message = "Joint space tracking (cartesian_path=false) is not natively supported. Please use cartesian_path=true.";
-            return;
+            res->message = "Joint space tracking (cartesian_path=false) is not supported for waypoints. Please use cartesian_path=true.";
         }
     }
 

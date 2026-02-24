@@ -95,12 +95,12 @@ class WaypointItem(BaseModel):
     r2: float
     r3: float
     r4: float = 0.0
+    is_relative: bool = False
+    reference_frame: str = "WORLD"
+    rotation_format: str = "RPY"
 
 class MoveWaypointsReq(BaseModel):
     waypoints: List[WaypointItem]
-    rotation_format: str = "RPY"
-    reference_frame: str = "WORLD"
-    is_relative: bool = False
     cartesian_path: bool = True
     execute: bool = True
 
@@ -265,10 +265,8 @@ class DensoMotionRosClient(Node):
             raise RuntimeError(f"MoveToPose failed: {e}")
 
     def call_move_waypoints(self, req: MoveWaypointsReq) -> Dict[str, Any]:
-        logger.info(f"Waypoints movement request: {len(req.waypoints)} points (Relative={req.is_relative}, Cartesian={req.cartesian_path}, execute={req.execute})")
+        logger.info(f"Waypoints movement request: {len(req.waypoints)} points (Cartesian={req.cartesian_path}, execute={req.execute})")
         ros_req = MoveWaypoints.Request()
-        ros_req.reference_frame = str(req.reference_frame)
-        ros_req.is_relative = bool(req.is_relative)
         ros_req.cartesian_path = bool(req.cartesian_path)
         ros_req.execute = bool(req.execute)
 
@@ -279,7 +277,7 @@ class DensoMotionRosClient(Node):
             p.position.y = float(wp.y)
             p.position.z = float(wp.z)
             
-            if req.rotation_format == "RPY":
+            if wp.rotation_format == "RPY": # We convert RPY to quaternion for the Pose message
                 qx, qy, qz, qw = euler_to_quaternion(wp.r1, wp.r2, wp.r3)
                 p.orientation.x = qx
                 p.orientation.y = qy
@@ -292,6 +290,8 @@ class DensoMotionRosClient(Node):
                 p.orientation.w = float(wp.r4)
             
             ros_req.waypoints.append(p)
+            ros_req.is_relative_list.append(bool(wp.is_relative))
+            ros_req.reference_frame_list.append(str(wp.reference_frame))
 
         fut = self.move_waypoints_cli.call_async(ros_req)
         try:
@@ -305,7 +305,7 @@ class DensoMotionRosClient(Node):
             logger.error(f"Critical error during MoveWaypoints call: {e}")
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"MoveWaypoints failed: {e}")
-    
+
     def call_get_joints(self):
         logger.info("Joint state read request")
         req = GetJointState.Request()
