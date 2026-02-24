@@ -28,6 +28,7 @@
 #include "denso_motion_control/srv/move_joints.hpp"
 #include "denso_motion_control/srv/move_waypoints.hpp"
 #include "denso_motion_control/srv/set_virtual_cage.hpp"
+#include "denso_motion_control/srv/manage_box.hpp"
 
 
 namespace denso_motion_control
@@ -190,6 +191,10 @@ namespace denso_motion_control
                 const std::shared_ptr<srv::SetVirtualCage::Request> req,
                 std::shared_ptr<srv::SetVirtualCage::Response> res);
 
+            void onManageBox(
+                const std::shared_ptr<srv::ManageBox::Request> req,
+                std::shared_ptr<srv::ManageBox::Response> res);
+
 
             // Internal helpers
             // Checks if the MoveGroup interface is initialized before processing motion commands
@@ -216,6 +221,7 @@ namespace denso_motion_control
             rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_;
             rclcpp::Service<srv::MoveWaypoints>::SharedPtr srv_move_waypoints_;
             rclcpp::Service<srv::SetVirtualCage>::SharedPtr srv_virtual_cage_;
+            rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;
     };
 
 }  // namespace denso_motion_control

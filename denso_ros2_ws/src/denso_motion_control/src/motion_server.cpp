@@ -51,6 +51,10 @@ namespace denso_motion_control
             "set_virtual_cage",
             std::bind(&MotionServer::onSetVirtualCage, this, std::placeholders::_1, std::placeholders::_2));
 
+        srv_manage_box_ = this->create_service<srv::ManageBox>(
+            "manage_box",
+            std::bind(&MotionServer::onManageBox, this, std::placeholders::_1, std::placeholders::_2));
+
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
@@ -680,6 +684,69 @@ namespace denso_motion_control
 
         res->success = true;
         res->message = "Virtual cage successfully activated";
+    }
+
+    void MotionServer::onManageBox(
+        const std::shared_ptr<srv::ManageBox::Request> req,
+        std::shared_ptr<srv::ManageBox::Response> res)
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        std::string why;
+        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+
+        moveit_msgs::msg::CollisionObject obj;
+        obj.header.frame_id = "world";
+        obj.id = req->box_id;
+
+        if (req->action == "REMOVE") {
+            obj.operation = obj.REMOVE;
+        } else {
+            obj.operation = obj.ADD;
+
+            // Convert to Quaternion
+            tf2::Quaternion q;
+            if (req->rotation_format == "RPY") {
+                q.setRPY(req->r1, req->r2, req->r3);
+            } else {
+                q = tf2::Quaternion(req->r1, req->r2, req->r3, req->r4);
+                q.normalize();
+            }
+
+            // Extract Z vector easily with tf2
+            tf2::Matrix3x3 m(q);
+            tf2::Vector3 z_vec = m.getColumn(2);
+
+            // Calculate Center (Move FORWARD into the object by half its Z-size)
+            double offset = req->size_z / 2.0;
+            double cx = req->x + (offset * z_vec.x());
+            double cy = req->y + (offset * z_vec.y());
+            double cz = req->z + (offset * z_vec.z());
+
+            shape_msgs::msg::SolidPrimitive primitive;
+            primitive.type = primitive.BOX;
+            primitive.dimensions = {req->size_x, req->size_y, req->size_z};
+
+            geometry_msgs::msg::Pose pose;
+            pose.position.x = cx;
+            pose.position.y = cy;
+            pose.position.z = cz;
+            pose.orientation.x = q.x();
+            pose.orientation.y = q.y();
+            pose.orientation.z = q.z();
+            pose.orientation.w = q.w();
+
+            obj.primitives.push_back(primitive);
+            obj.primitive_poses.push_back(pose);
+        }
+
+        // Apply to the planning scene
+        std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+        collision_objects.push_back(obj);
+        planning_scene_->applyCollisionObjects(collision_objects);
+
+        res->success = true;
+        res->message = "Box '" + req->box_id + "' action '" + req->action + "' applied.";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 
 

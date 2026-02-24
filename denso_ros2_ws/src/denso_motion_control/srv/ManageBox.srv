@@ -1,0 +1,16 @@
+string box_id
+float64 x
+float64 y
+float64 z
+float64 r1
+float64 r2
+float64 r3
+float64 r4
+string rotation_format
+float64 size_x
+float64 size_y
+float64 size_z
+string action
+---
+bool success
+string message

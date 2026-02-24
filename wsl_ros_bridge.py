@@ -12,9 +12,11 @@ from rclpy.node import Node
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from denso_motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage
+from denso_motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox
 from geometry_msgs.msg import PoseStamped, Pose
 from rcl_interfaces.srv import GetParameters
+from moveit_msgs.msg import PlanningScene, CollisionObject, ObjectColor
+from shape_msgs.msg import SolidPrimitive
 
 
 
@@ -105,6 +107,19 @@ class MoveWaypointsReq(BaseModel):
     cartesian_path: bool = True
     execute: bool = True
 
+class MoveApproachReq(BaseModel):
+    x: float
+    y: float
+    z: float
+    r1: float
+    r2: float
+    r3: float
+    r4: float = 0.0
+    rotation_format: str = "RPY"
+    z_offset: float = 0.1
+    cartesian_path: bool = False
+    execute: bool = True
+
 class VirtualCageReq(BaseModel):
     enable: bool
     front: float = 1.0
@@ -118,6 +133,21 @@ class VirtualCageReq(BaseModel):
     g: float = 0.6
     b: float = 1.0
     a: float = 0.15
+
+class ManageBoxReq(BaseModel):
+    box_id: str
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+    r1: float = 0.0
+    r2: float = 0.0
+    r3: float = 0.0
+    r4: float = 0.0
+    rotation_format: str = "RPY"
+    size_x: float = 0.1
+    size_y: float = 0.1
+    size_z: float = 0.1
+    action: str = "ADD" # Can be "ADD" or "REMOVE"
 
 
 # ----------------------------
@@ -137,6 +167,8 @@ class DensoMotionRosClient(Node):
         self.move_waypoints_cli = self.create_client(MoveWaypoints, "/move_waypoints")
         self.cage_cli = self.create_client(SetVirtualCage, "/set_virtual_cage")
         self.param_client = self.create_client(GetParameters, "/denso_motion_server/get_parameters")
+        self.manage_box_cli = self.create_client(ManageBox, "/manage_box")
+        
 
         # Wait for services
         logger.info("Waiting for ROS 2 services...")
@@ -149,7 +181,8 @@ class DensoMotionRosClient(Node):
             (self.move_joints_cli, "/move_joints"),
             (self.move_waypoints_cli, "/move_waypoints"),
             (self.cage_cli, "/set_virtual_cage"),
-            (self.param_client, "/denso_motion_server/get_parameters")
+            (self.param_client, "/denso_motion_server/get_parameters"),
+            (self.manage_box_cli, "/manage_box")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 logger.error(f"Service {name} not available. Is motion_server running?")
@@ -167,7 +200,7 @@ class DensoMotionRosClient(Node):
                 fut.cancel()
                 raise RuntimeError("Timeout waiting for ROS service response")
             
-            time.sleep(0.05)
+            time.sleep(0.005)
         
         # Once finished, we retrieve the result
         return fut.result()
@@ -440,6 +473,99 @@ class DensoMotionRosClient(Node):
             logger.error(f"Failed to get solver parameter: {e}")
             return {"success": False, "message": str(e)}
 
+    def call_move_approach(self, req: MoveApproachReq):
+        import math
+        logger.info(f"Calculating approach pose: target=({req.x:.3f}, {req.y:.3f}, {req.z:.3f}), z_offset={req.z_offset}m")
+        
+        # Convert RPY to Quaternion if necessary
+        if req.rotation_format.upper() == "RPY":
+            roll, pitch, yaw = req.r1, req.r2, req.r3
+            cy = math.cos(yaw * 0.5)
+            sy = math.sin(yaw * 0.5)
+            cp = math.cos(pitch * 0.5)
+            sp = math.sin(pitch * 0.5)
+            cr = math.cos(roll * 0.5)
+            sr = math.sin(roll * 0.5)
+            qw = cr * cp * cy + sr * sp * sy
+            qx = sr * cp * cy - cr * sp * sy
+            qy = cr * sp * cy + sr * cp * sy
+            qz = cr * cp * sy - sr * sp * cy
+        else:
+            qx, qy, qz, qw = req.r1, req.r2, req.r3, req.r4
+
+        # Extract the local Z-vector (the direction the tool is pointing)
+        vx = 2.0 * (qx * qz + qw * qy)
+        vy = 2.0 * (qy * qz - qw * qx)
+        vz = 1.0 - 2.0 * (qx * qx + qy * qy)
+
+        # Calculate the approach position by backing up along the Z-vector
+        app_x = req.x - (req.z_offset * vx)
+        app_y = req.y - (req.z_offset * vy)
+        app_z = req.z - (req.z_offset * vz)
+
+        logger.info(f"Approach position computed: x={app_x:.3f}, y={app_y:.3f}, z={app_z:.3f}")
+
+        # Directly create the ROS request for the C++ node
+        ros_req = MoveToPose.Request()
+        ros_req.x = float(app_x)
+        ros_req.y = float(app_y)
+        ros_req.z = float(app_z)
+        ros_req.r1 = float(qx)
+        ros_req.r2 = float(qy)
+        ros_req.r3 = float(qz)
+        ros_req.r4 = float(qw)
+        ros_req.rotation_format = "QUAT"   # Force quaternion format
+        ros_req.reference_frame = "WORLD"  # Absolute position
+        ros_req.is_relative = False
+        ros_req.cartesian_path = req.cartesian_path
+        ros_req.execute = req.execute
+
+        logger.info("Sending approach request to ROS C++ node...")
+        fut = self.move_pose_cli.call_async(ros_req)
+        
+        try:
+            # Wait for the result (long timeout if execute=True)
+            res = self._wait_for_future(fut, timeout=120.0)
+            
+            if res.success:
+                logger.info(f"Approach movement successful: {res.message}")
+            else:
+                logger.error(f"Approach movement failed: {res.message}")
+                
+            return {"success": res.success, "message": res.message}
+            
+        except Exception as e:
+            logger.error(f"Error during approach movement: {e}")
+            return {"success": False, "message": str(e)}
+
+    def call_manage_box(self, req: ManageBoxReq):
+        logger.info(f"Sending {req.action} for box {req.box_id} to C++ node...")
+        if not self.manage_box_cli.wait_for_service(timeout_sec=2.0):
+            return {"success": False, "message": "Service manage_box unavailable."}
+
+        ros_req = ManageBox.Request()
+        ros_req.box_id = req.box_id
+        ros_req.x = float(req.x)
+        ros_req.y = float(req.y)
+        ros_req.z = float(req.z)
+        ros_req.r1 = float(req.r1)
+        ros_req.r2 = float(req.r2)
+        ros_req.r3 = float(req.r3)
+        ros_req.r4 = float(req.r4)
+        ros_req.rotation_format = req.rotation_format
+        ros_req.size_x = float(req.size_x)
+        ros_req.size_y = float(req.size_y)
+        ros_req.size_z = float(req.size_z)
+        ros_req.action = req.action
+
+        fut = self.manage_box_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            return {"success": res.success, "message": res.message}
+        except Exception as e:
+            logger.error(f"Failed to manage box: {e}")
+            return {"success": False, "message": str(e)}
+
 # ----------------------------
 # FastAPI app
 # ----------------------------
@@ -526,3 +652,17 @@ def set_virtual_cage(req: VirtualCageReq):
 @app.get("/state/solver")
 def state_solver():
     return _ros_client.call_get_solver()
+
+@app.post("/move_approach")
+def move_approach(req: MoveApproachReq):
+    try:
+        return _ros_client.call_move_approach(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/manage_box")
+def manage_box(req: ManageBoxReq):
+    try:
+        return _ros_client.call_manage_box(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
