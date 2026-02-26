@@ -20,18 +20,18 @@
 #include <moveit/robot_trajectory/robot_trajectory.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
-#include "denso_motion_control/srv/init_robot.hpp"
-#include "denso_motion_control/srv/set_scaling.hpp"
-#include "denso_motion_control/srv/get_joint_state.hpp"
-#include "denso_motion_control/srv/get_current_pose.hpp"
-#include "denso_motion_control/srv/move_to_pose.hpp"
-#include "denso_motion_control/srv/move_joints.hpp"
-#include "denso_motion_control/srv/move_waypoints.hpp"
-#include "denso_motion_control/srv/set_virtual_cage.hpp"
-#include "denso_motion_control/srv/manage_box.hpp"
+#include "motion_control/srv/init_robot.hpp"
+#include "motion_control/srv/set_scaling.hpp"
+#include "motion_control/srv/get_joint_state.hpp"
+#include "motion_control/srv/get_current_pose.hpp"
+#include "motion_control/srv/move_to_pose.hpp"
+#include "motion_control/srv/move_joints.hpp"
+#include "motion_control/srv/move_waypoints.hpp"
+#include "motion_control/srv/set_virtual_cage.hpp"
+#include "motion_control/srv/manage_box.hpp"
 
 
-namespace denso_motion_control
+namespace motion_control
 {
     /**
      * @brief Main motion server for the Denso robot.
@@ -99,8 +99,8 @@ namespace denso_motion_control
              * @param res Returns the success status and informational messages.
              */
             void onMoveToPose(
-                const std::shared_ptr<denso_motion_control::srv::MoveToPose::Request> req,
-                std::shared_ptr<denso_motion_control::srv::MoveToPose::Response> res);
+                const std::shared_ptr<motion_control::srv::MoveToPose::Request> req,
+                std::shared_ptr<motion_control::srv::MoveToPose::Response> res);
 
             /**
              * @brief Service callback to command a movement in the joint space.
@@ -110,8 +110,8 @@ namespace denso_motion_control
              * @param res Returns the success status of the planning and execution.
              */
             void onMoveJoints(
-                const std::shared_ptr<denso_motion_control::srv::MoveJoints::Request> req,
-                std::shared_ptr<denso_motion_control::srv::MoveJoints::Response> res);
+                const std::shared_ptr<motion_control::srv::MoveJoints::Request> req,
+                std::shared_ptr<motion_control::srv::MoveJoints::Response> res);
 
             /**
              * @brief Service callback to follow a continuous multi-point trajectory (Waypoints).
@@ -122,8 +122,8 @@ namespace denso_motion_control
              * @param res Returns the success status and the completion percentage of the path.
              */
             void onMoveWaypoints(
-                const std::shared_ptr<denso_motion_control::srv::MoveWaypoints::Request> req,
-                std::shared_ptr<denso_motion_control::srv::MoveWaypoints::Response> res);
+                const std::shared_ptr<motion_control::srv::MoveWaypoints::Request> req,
+                std::shared_ptr<motion_control::srv::MoveWaypoints::Response> res);
 
             /**
              * @brief Helper function to interface with MoveIt logic.
@@ -172,8 +172,8 @@ namespace denso_motion_control
              * @param res Returns the PoseStamped, the Euler angles array, and success status.
              */
             void onGetCurrentPose(
-                const std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Request> req,
-                std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Response> res);
+                const std::shared_ptr<motion_control::srv::GetCurrentPose::Request> req,
+                std::shared_ptr<motion_control::srv::GetCurrentPose::Response> res);
 
             /**
              * @brief Service callback to dynamically generate a virtual collision cage around the robot.
@@ -224,4 +224,4 @@ namespace denso_motion_control
             rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;
     };
 
-}  // namespace denso_motion_control
+}  // namespace motion_control

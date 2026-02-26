@@ -1,8 +1,8 @@
-#include "denso_motion_control/motion_server.hpp"
+#include "motion_control/motion_server.hpp"
 
 #include <sstream>
 
-namespace denso_motion_control
+namespace motion_control
 {
 
     MotionServer::MotionServer(const rclcpp::NodeOptions& options)
@@ -285,8 +285,8 @@ namespace denso_motion_control
     }
 
     void MotionServer::onMoveToPose(
-        const std::shared_ptr<denso_motion_control::srv::MoveToPose::Request> req,
-        std::shared_ptr<denso_motion_control::srv::MoveToPose::Response> res)
+        const std::shared_ptr<motion_control::srv::MoveToPose::Request> req,
+        std::shared_ptr<motion_control::srv::MoveToPose::Response> res)
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string error_msg;
@@ -341,8 +341,8 @@ namespace denso_motion_control
     }
 
     void MotionServer::onMoveWaypoints(
-        const std::shared_ptr<denso_motion_control::srv::MoveWaypoints::Request> req,
-        std::shared_ptr<denso_motion_control::srv::MoveWaypoints::Response> res)
+        const std::shared_ptr<motion_control::srv::MoveWaypoints::Request> req,
+        std::shared_ptr<motion_control::srv::MoveWaypoints::Response> res)
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
@@ -440,8 +440,8 @@ namespace denso_motion_control
     }
 
     void MotionServer::onMoveJoints(
-        const std::shared_ptr<denso_motion_control::srv::MoveJoints::Request> req,
-        std::shared_ptr<denso_motion_control::srv::MoveJoints::Response> res)
+        const std::shared_ptr<motion_control::srv::MoveJoints::Request> req,
+        std::shared_ptr<motion_control::srv::MoveJoints::Response> res)
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
@@ -525,8 +525,8 @@ namespace denso_motion_control
         }
 
     void MotionServer::onGetCurrentPose(
-        const std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Request> req,
-        std::shared_ptr<denso_motion_control::srv::GetCurrentPose::Response> res)
+        const std::shared_ptr<motion_control::srv::GetCurrentPose::Request> req,
+        std::shared_ptr<motion_control::srv::GetCurrentPose::Response> res)
     {
         // Thread-safety: Protect MoveIt access
         std::lock_guard<std::mutex> lock(mtx_);
@@ -751,7 +751,7 @@ namespace denso_motion_control
 
 
 
-}  // namespace denso_motion_control
+}  // namespace motion_control
 
 
 

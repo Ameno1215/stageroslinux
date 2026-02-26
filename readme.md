@@ -16,7 +16,7 @@ The communication flow between the Windows host and the WSL simulation is as fol
 > **Windows (Python)** > → HTTP (`requests`) 
 > → **WSL Ubuntu** > → FastAPI / Uvicorn (Bridge) 
 > → ROS 2 Humble 
-> → `denso_motion_control` (C++ / MoveIt 2) 
+> → `motion_control` (C++ / MoveIt 2) 
 > → Gazebo / RViz Simulation
 
 ---
@@ -30,7 +30,7 @@ The communication flow between the Windows host and the WSL simulation is as fol
 - Packages:
   - `denso_robot_bringup`
   - `denso_robot_moveit_config`
-  - `denso_motion_control`
+  - `motion_control`
 - Python 3.10
 - Virtual environment (`venv`)
 - Python modules: `requests`, `numpy`, `uvicorn`, `fastapi`
@@ -154,7 +154,7 @@ ros2 launch denso_robot_bringup denso_robot_bringup.launch.py model:=vs060 sim:=
 
 #### WSL Terminal #2: Launch Motion Server
 ```bash
-ros2 launch denso_motion_control motion_server.launch.py model:=vs060 sim:=true tool:=effecteur_v1 ik_solver:=kdl
+ros2 launch motion_control motion_server.launch.py model:=vs060 sim:=true tool:=effecteur_v1 ik_solver:=kdl
 ```
 
 #### WSL Terminal #3: Launch HTTP Bridge (FastAPI)

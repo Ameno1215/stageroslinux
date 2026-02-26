@@ -12,7 +12,7 @@ from rclpy.node import Node
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from denso_motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox
+from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox
 from geometry_msgs.msg import PoseStamped, Pose
 from rcl_interfaces.srv import GetParameters
 from moveit_msgs.msg import PlanningScene, CollisionObject, ObjectColor
@@ -24,7 +24,7 @@ from shape_msgs.msg import SolidPrimitive
 # ----------------------------
 # Logger Configuration
 # ----------------------------
-logger = logging.getLogger("DensoBridge")
+logger = logging.getLogger("MotionBridge")
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
@@ -154,9 +154,9 @@ class ManageBoxReq(BaseModel):
 # ROS2 client node
 # ----------------------------
 
-class DensoMotionRosClient(Node):
+class MotionRosClient(Node):
     def __init__(self):
-        super().__init__("denso_motion_http_bridge")
+        super().__init__("motion_http_bridge")
 
         self.init_cli = self.create_client(InitRobot, "/init_robot")
         self.scale_cli = self.create_client(SetScaling, "/set_scaling")
@@ -166,7 +166,7 @@ class DensoMotionRosClient(Node):
         self.move_joints_cli = self.create_client(MoveJoints, "/move_joints")
         self.move_waypoints_cli = self.create_client(MoveWaypoints, "/move_waypoints")
         self.cage_cli = self.create_client(SetVirtualCage, "/set_virtual_cage")
-        self.param_client = self.create_client(GetParameters, "/denso_motion_server/get_parameters")
+        self.param_client = self.create_client(GetParameters, "/motion_server/get_parameters")
         self.manage_box_cli = self.create_client(ManageBox, "/manage_box")
         
 
@@ -181,7 +181,7 @@ class DensoMotionRosClient(Node):
             (self.move_joints_cli, "/move_joints"),
             (self.move_waypoints_cli, "/move_waypoints"),
             (self.cage_cli, "/set_virtual_cage"),
-            (self.param_client, "/denso_motion_server/get_parameters"),
+            (self.param_client, "/motion_server/get_parameters"),
             (self.manage_box_cli, "/manage_box")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
@@ -444,7 +444,7 @@ class DensoMotionRosClient(Node):
         
         if not self.param_client.wait_for_service(timeout_sec=2.0):
             logger.error("Parameter service not available. Is motion_server running?")
-            return {"success": False, "message": "denso_motion_server parameter service not available."}
+            return {"success": False, "message": "motion_server parameter service not available."}
         
         req = GetParameters.Request()
         req.names = ['robot_description_kinematics.arm.kinematics_solver']
@@ -570,15 +570,15 @@ class DensoMotionRosClient(Node):
 # FastAPI app
 # ----------------------------
 
-app = FastAPI(title="Denso Motion HTTP Bridge", version="1.0")
+app = FastAPI(title="Motion HTTP Bridge", version="1.0")
 
-_ros_client: Optional[DensoMotionRosClient] = None
+_ros_client: Optional[MotionRosClient] = None
 
 @app.on_event("startup")
 def on_startup():
     global _ros_client
     rclpy.init(args=None)
-    _ros_client = DensoMotionRosClient()
+    _ros_client = MotionRosClient()
 
     # Thread for running ROS
     def _spin():

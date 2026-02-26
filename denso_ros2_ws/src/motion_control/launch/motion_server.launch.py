@@ -133,7 +133,7 @@ def generate_launch_description():
     }
 
     motion_server_node = Node(
-        package="denso_motion_control",
+        package="motion_control",
         executable="denso_motion_server",
         output="screen",
         parameters=[

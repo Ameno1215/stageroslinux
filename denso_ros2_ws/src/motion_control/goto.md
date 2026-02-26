@@ -1,6 +1,6 @@
-# Test du package `denso_motion_control` en simulation (VS060)
+# Test du package `motion_control` en simulation (VS060)
 
-Ce document décrit **pas à pas** comment tester le package **denso_motion_control**
+Ce document décrit **pas à pas** comment tester le package **motion_control**
 en **simulation** avec un robot **DENSO VS060**, en utilisant **ROS 2 Humble** et **MoveIt 2**.
 
 ---
@@ -13,7 +13,7 @@ en **simulation** avec un robot **DENSO VS060**, en utilisant **ROS 2 Humble** e
   - `denso_robot_bringup`
   - `denso_robot_descriptions`
   - `denso_robot_moveit_config`
-  - `denso_motion_control`
+  - `motion_control`
 - RViz et MoveIt fonctionnels
 
 Workspace utilisé dans cet exemple :
@@ -62,7 +62,7 @@ Attendre :
 ### Terminal 2
 
 ```bash
-ros2 launch denso_motion_control motion_server.launch.py model:=vs060 sim:=true
+ros2 launch motion_control motion_server.launch.py model:=vs060 sim:=true
 ```
 
 Message attendu :
@@ -84,7 +84,7 @@ ros2 service list | grep -E "init_robot|goto_joint|goto_cartesian"
 ## 6. Initialisation du robot
 
 ```bash
-ros2 service call /init_robot denso_motion_control/srv/InitRobot \
+ros2 service call /init_robot motion_control/srv/InitRobot \
 "{model: 'vs060', planning_group: 'arm', velocity_scale: 0.1, accel_scale: 0.1}"
 ```
 
@@ -93,7 +93,7 @@ ros2 service call /init_robot denso_motion_control/srv/InitRobot \
 ## 7. Mouvement articulaire
 
 ```bash
-ros2 service call /goto_joint denso_motion_control/srv/GoToJoint \
+ros2 service call /goto_joint motion_control/srv/GoToJoint \
 "{joints: [1.57, 0.0, 1.57, 0.0, 1.57, 0.0], execute: true}"
 ```
 
@@ -102,7 +102,7 @@ ros2 service call /goto_joint denso_motion_control/srv/GoToJoint \
 ## 8. Mouvement cartésien
 
 ```bash
-ros2 service call /goto_cartesian denso_motion_control/srv/GoToPose \
+ros2 service call /goto_cartesian motion_control/srv/GoToPose \
 "{
   target: {
     header: { frame_id: 'base_link' },
@@ -120,7 +120,7 @@ ros2 service call /goto_cartesian denso_motion_control/srv/GoToPose \
 ## 9. Mise à jour de la vitesse et de l'accélération
 
 ```bash
-ros2 service call /set_scaling denso_motion_control/srv/SetScaling "{velocity_scale: 0.5, accel_scale: 0.5}"
+ros2 service call /set_scaling motion_control/srv/SetScaling "{velocity_scale: 0.5, accel_scale: 0.5}"
 ```
 
 ---
