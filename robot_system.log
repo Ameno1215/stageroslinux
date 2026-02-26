@@ -1981,3 +1981,65 @@
 2026-02-25 11:48:45,850 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
 2026-02-25 11:48:47,754 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
 2026-02-25 11:48:49,671 - INFO - Sending REMOVE for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-02-25 16:56:59,452 - INFO - Waiting for ROS 2 services...
+2026-02-25 16:56:59,454 - INFO - All ROS 2 services are connected.
+2026-02-25 16:57:06,360 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-02-25 16:57:06,597 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-02-25 16:57:08,646 - INFO - Requesting IK solver info from C++ node...
+2026-02-25 16:57:08,654 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-02-25 16:57:10,725 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-02-25 16:57:10,732 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-02-25 16:57:12,778 - INFO - Sending ADD for box box1 to C++ node...
+2026-02-25 16:57:14,851 - INFO - Sending ADD for box box2 to C++ node...
+2026-02-25 16:57:17,036 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-02-25 16:57:19,121 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-02-25 16:57:21,217 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-02-25 16:57:23,285 - INFO - Virtual cage modification request (Enable=True)
+2026-02-25 16:57:23,293 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-02-25 16:57:27,361 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-25 16:57:27,675 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.074016 seconds).
+2026-02-25 16:57:29,731 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-25 16:57:39,463 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.055779 seconds)
+2026-02-25 16:57:41,733 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-02-25 16:57:47,626 - INFO - Successful movement : Cartesian path executed.
+2026-02-25 16:57:49,700 - INFO - Calculating approach pose: target=(0.488, 0.086, 0.121), z_offset=0.12m
+2026-02-25 16:57:49,702 - INFO - Approach position computed: x=0.488, y=0.086, z=0.241
+2026-02-25 16:57:49,702 - INFO - Sending approach request to ROS C++ node...
+2026-02-25 16:57:55,140 - INFO - Approach movement successful: Cartesian path executed.
+2026-02-25 16:57:57,208 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-02-25 16:57:59,883 - INFO - Successful movement : Cartesian path executed.
+2026-02-25 16:58:01,950 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-02-25 16:58:04,627 - INFO - Successful movement : Cartesian path executed.
+2026-02-25 16:58:06,936 - INFO - Calculating approach pose: target=(0.435, 0.044, 0.086), z_offset=0.12m
+2026-02-25 16:58:06,937 - INFO - Approach position computed: x=0.363, y=-0.015, z=0.161
+2026-02-25 16:58:06,938 - INFO - Sending approach request to ROS C++ node...
+2026-02-25 16:58:15,942 - INFO - Approach movement successful: Cartesian path executed.
+2026-02-25 16:58:17,983 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-02-25 16:58:21,509 - INFO - Successful movement : Cartesian path executed.
+2026-02-25 16:58:23,566 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-02-25 16:58:28,014 - INFO - Successful movement : Cartesian path executed.
+2026-02-25 16:58:30,098 - INFO - Calculating approach pose: target=(0.509, -0.155, 0.057), z_offset=0.12m
+2026-02-25 16:58:30,098 - INFO - Approach position computed: x=0.509, y=-0.155, z=0.177
+2026-02-25 16:58:30,098 - INFO - Sending approach request to ROS C++ node...
+2026-02-25 16:58:38,610 - INFO - Approach movement successful: Cartesian path executed.
+2026-02-25 16:58:40,671 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-02-25 16:58:43,568 - INFO - Successful movement : Cartesian path executed.
+2026-02-25 16:58:45,628 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-02-25 16:58:48,406 - INFO - Successful movement : Cartesian path executed.
+2026-02-25 16:58:50,474 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-02-25 16:59:03,661 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.056803 seconds)
+2026-02-25 16:59:05,724 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-02-25 16:59:11,201 - INFO - Successful movement : Cartesian path executed.
+2026-02-25 16:59:13,634 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-02-25 16:59:17,535 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.033690 seconds).
+2026-02-25 16:59:19,577 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.5 (Relative=False, Cartesian=False, Execute=True)
+2026-02-25 16:59:30,174 - INFO - Successful movement : Planned and executed pose target successfully (took 0.071035 seconds)
+2026-02-25 16:59:32,226 - INFO - Request for movement received : X=1.0, Y=0.0, Z=0.0 (Relative=True, Cartesian=True, Execute=True)
+2026-02-25 16:59:32,256 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.250000
+2026-02-25 16:59:36,319 - INFO - Virtual cage modification request (Enable=False)
+2026-02-25 16:59:36,328 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-02-25 16:59:38,377 - INFO - Sending REMOVE for box box1 to C++ node...
+2026-02-25 16:59:40,443 - INFO - Sending REMOVE for box box2 to C++ node...
+2026-02-25 16:59:42,492 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-02-25 16:59:44,549 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-02-25 16:59:46,606 - INFO - Sending REMOVE for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
