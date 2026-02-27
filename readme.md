@@ -91,8 +91,11 @@ You should see the talker publishing messages and the listener receiving them.
 ### 4. Getting the Code & Compilation
 #### Modification in rosdep to correct certificates problem on WSL
 
-find in your wsl file usr/lib/python/sit-packages/rosdep2/url_utils.py
-or if your using a venv YOUR_VENV_PATH/lib/python/sit-packages/rosdep2/url_utils.py
+Use :  `which rosdep`    
+to find `/usr/bin/rosdep`    
+find in your wsl file `usr/lib/python/sit-packages/rosdep2/url_utils.py`    
+or if your using a venv `YOUR_VENV_PATH/lib/python/sit-packages/rosdep2/url_utils.py`
+
 JUST BEFORE the function : 
 ```python
 def urlopen_gzip(url, **kwargs):
