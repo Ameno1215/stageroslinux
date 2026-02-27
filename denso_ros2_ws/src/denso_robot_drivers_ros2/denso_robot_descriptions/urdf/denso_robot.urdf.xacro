@@ -24,60 +24,26 @@
      send_format="$(arg send_format)"
      recv_format="$(arg recv_format)" />
 
-   <xacro:if value="${'$(arg tool)' == 'effecteur_v1'}">
-     <link name="$(arg namespace)tool_link">
-      <visual>
-        <origin xyz="0 0 -0.207" rpy="0 0 0" />
-        <geometry>
-          <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurV1.STL" scale="0.001 0.001 0.001"/>
-        </geometry>
-        <material name="grey">
-          <color rgba="0.5 0.5 0.5 1.0"/>
-        </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 -0.207" rpy="0 0 0" />
-        <geometry>
-          <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurV1.STL" scale="0.001 0.001 0.001"/>
-        </geometry>
-      </collision>
-      <inertial>
-         <mass value="0.5" /> <origin xyz="0 0 0.1" rpy="0 0 0" /> <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
-      </inertial>
-     </link>
+   <!-- <xacro:unless value="${'$(arg tool)' == 'none'}">
+     <xacro:include filename="$(find denso_robot_descriptions)/tools/$(arg tool)/$(arg tool).xacro"/>
+     
+     <xacro:call macro="$(arg tool)" namespace="$(arg namespace)" parent_link="$(arg namespace)J6" />
+   </xacro:unless>
+    -->
 
-     <joint name="$(arg namespace)tool_joint" type="fixed">
-      <parent link="$(arg namespace)J6" /> 
-      <child link="$(arg namespace)tool_link" />
-      <origin xyz="0 0 0.207" rpy="0 0 0" /> 
-     </joint>
+   <xacro:property name="tool_parent_link" value="$(arg namespace)J6" />
+
+   <xacro:if value="${'$(arg model)' == 'hsr065a1_n32'}">
+     <xacro:property name="tool_parent_link" value="$(arg namespace)J4" />
    </xacro:if>
 
-   <xacro:if value="${'$(arg tool)' == 'effecteur_test'}">
-     <link name="$(arg namespace)tool_link">
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0" /> <geometry>
-          <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurTest.STL" scale="0.001 0.001 0.001"/>
-        </geometry>
-        <material name="blue">
-          <color rgba="0.0 0.0 0.8 1.0"/> </material>
-      </visual>
-      <collision>
-        <origin xyz="0 0 0.0" rpy="0 0 0" /> <geometry>
-          <mesh filename="file://$(find denso_robot_descriptions)/robots/$(arg model)/meshes/EffecteurTest.STL" scale="0.001 0.001 0.001"/>
-        </geometry>
-      </collision>
-      <inertial>
-         <mass value="0.8" /> 
-         <origin xyz="0 0 0.05" rpy="0 0 0" /> 
-         <inertia ixx="0.002" ixy="0.0" ixz="0.0" iyy="0.002" iyz="0.0" izz="0.002" />
-      </inertial>
-     </link>
+   <!-- <xacro:if value="${'$(arg model)' == 'nom_de_votre_robot_5_axes'}">
+     <xacro:property name="tool_parent_link" value="$(arg namespace)J5" />
+   </xacro:if> -->
 
-     <joint name="$(arg namespace)tool_joint" type="fixed">
-      <parent link="$(arg namespace)J6" /> 
-      <child link="$(arg namespace)tool_link" />
-      <origin xyz="0 0 0.0" rpy="0 0 0" /> </joint>
-   </xacro:if>
-
+   <xacro:unless value="${'$(arg tool)' == 'none'}">
+     <xacro:include filename="$(find denso_robot_descriptions)/tools/$(arg tool)/$(arg tool).xacro"/>
+     
+     <xacro:call macro="$(arg tool)" namespace="$(arg namespace)" parent_link="${tool_parent_link}" />
+   </xacro:unless>
 </robot>
