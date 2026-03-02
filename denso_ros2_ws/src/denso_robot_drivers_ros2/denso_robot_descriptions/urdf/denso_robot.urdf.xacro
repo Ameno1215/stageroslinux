@@ -37,9 +37,9 @@
      <xacro:property name="tool_parent_link" value="$(arg namespace)J4" />
    </xacro:if>
 
-   <!-- <xacro:if value="${'$(arg model)' == 'nom_de_votre_robot_5_axes'}">
+   <xacro:if value="${'$(arg model)' == 'vp5243'}">
      <xacro:property name="tool_parent_link" value="$(arg namespace)J5" />
-   </xacro:if> -->
+   </xacro:if>
 
    <xacro:unless value="${'$(arg tool)' == 'none'}">
      <xacro:include filename="$(find denso_robot_descriptions)/tools/$(arg tool)/$(arg tool).xacro"/>
