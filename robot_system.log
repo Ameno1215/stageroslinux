@@ -2269,3 +2269,60 @@
 2026-02-27 14:19:15,545 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
 2026-02-27 14:19:27,310 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.021960 seconds)
 2026-02-27 14:19:29,155 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-03-02 15:40:35,119 - INFO - Waiting for ROS 2 services...
+2026-03-02 15:41:08,217 - ERROR - Service /motion_server/get_parameters not available. Is motion_server running?
+2026-03-02 15:41:08,217 - INFO - All ROS 2 services are connected.
+2026-03-02 15:41:21,626 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-02 15:41:21,749 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-02 15:41:23,734 - INFO - Requesting IK solver info from C++ node...
+2026-03-02 15:41:25,738 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-02 15:41:27,720 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-02 15:41:27,726 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-02 15:43:04,821 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-02 15:43:04,888 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-02 15:43:06,853 - INFO - Requesting IK solver info from C++ node...
+2026-03-02 15:43:08,856 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-02 15:43:10,835 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-02 15:43:10,841 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-02 15:43:39,268 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-02 15:43:39,335 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-02 15:43:41,321 - INFO - Requesting IK solver info from C++ node...
+2026-03-02 15:43:43,324 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-02 15:43:45,393 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-02 15:43:45,398 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-02 15:44:44,874 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-02 15:44:44,931 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-02 15:44:46,895 - INFO - Requesting IK solver info from C++ node...
+2026-03-02 15:44:48,899 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-02 15:44:50,874 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-02 15:44:50,880 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-02 15:44:53,980 - INFO - Joint movement request: [0.0, -0.7853981633974483, 0.0, -1.5707963267948966, 0.0, 0.0] (Relative=False, Execute=True)
+2026-03-02 15:44:53,986 - ERROR - Joint movement failed: Incorrect joint size. Expected: 5
+2026-03-02 15:44:55,958 - INFO - Joint movement request: [0.0, 0.0, 1.5707963267948966, 1.5707963267948966, 0.0, 0.0] (Relative=True, Execute=True)
+2026-03-02 15:44:55,963 - ERROR - Joint movement failed: Incorrect joint size. Expected: 5
+2026-03-02 15:44:57,945 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.4 (Relative=False, Cartesian=True, Execute=True)
+2026-03-02 15:45:05,726 - INFO - Successful movement : Cartesian path executed.
+2026-03-02 15:45:39,243 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-02 15:45:39,284 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-02 15:45:41,248 - INFO - Requesting IK solver info from C++ node...
+2026-03-02 15:45:43,251 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-02 15:45:45,211 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-02 15:45:45,217 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-02 15:45:47,206 - INFO - Joint movement request: [0.0, -0.7853981633974483, 0.0, -1.5707963267948966, 0.0] (Relative=False, Execute=True)
+2026-03-02 15:45:56,742 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.027086 seconds).
+2026-03-02 15:45:58,732 - INFO - Joint movement request: [0.0, 0.0, 1.5707963267948966, 1.5707963267948966, 0.0] (Relative=True, Execute=True)
+2026-03-02 15:46:06,423 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.020375 seconds).
+2026-03-02 15:46:08,421 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.4 (Relative=False, Cartesian=True, Execute=True)
+2026-03-02 15:46:14,107 - INFO - Successful movement : Cartesian path executed.
+2026-03-02 15:46:36,164 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-02 15:46:36,216 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-02 15:46:38,206 - INFO - Requesting IK solver info from C++ node...
+2026-03-02 15:46:40,210 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-02 15:46:42,202 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-02 15:46:42,208 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-02 15:46:44,186 - INFO - Joint movement request: [0.0, -0.7853981633974483, 0.0, -1.5707963267948966, 0.0] (Relative=False, Execute=True)
+2026-03-02 15:46:53,716 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.021572 seconds).
+2026-03-02 15:46:55,693 - INFO - Joint movement request: [0.0, 0.0, 1.5707963267948966, 1.5707963267948966, 0.0] (Relative=False, Execute=True)
+2026-03-02 15:47:08,193 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.029108 seconds).
+2026-03-02 15:47:10,164 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.4 (Relative=False, Cartesian=True, Execute=True)
+2026-03-02 15:47:17,938 - INFO - Successful movement : Cartesian path executed.
