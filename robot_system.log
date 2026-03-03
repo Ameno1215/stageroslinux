@@ -2326,3 +2326,427 @@
 2026-03-02 15:47:08,193 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.029108 seconds).
 2026-03-02 15:47:10,164 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.4 (Relative=False, Cartesian=True, Execute=True)
 2026-03-02 15:47:17,938 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:31:44,023 - INFO - Waiting for ROS 2 services...
+2026-03-03 09:32:14,618 - ERROR - Service /motion_server/get_parameters not available. Is motion_server running?
+2026-03-03 09:32:14,619 - INFO - All ROS 2 services are connected.
+2026-03-03 09:32:39,335 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 09:32:39,412 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 09:32:41,404 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 09:32:43,407 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 09:32:45,403 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 09:32:45,409 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 09:32:47,403 - INFO - Joint movement request: [0.0, -0.7853981633974483, 0.0, -1.5707963267948966, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:32:47,409 - ERROR - Joint movement failed: Incorrect joint size. Expected: 6
+2026-03-03 09:32:49,407 - INFO - Joint movement request: [0.0, 0.0, 1.5707963267948966, 1.5707963267948966, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:32:49,413 - ERROR - Joint movement failed: Incorrect joint size. Expected: 6
+2026-03-03 09:32:51,420 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.4 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 09:32:59,555 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:33:32,692 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 09:33:32,764 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 09:33:34,760 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 09:33:36,763 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 09:33:38,756 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 09:33:38,761 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 09:33:40,756 - INFO - Joint movement request: [0.0, -0.7853981633974483, 0.0, -1.5707963267948966, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:33:50,280 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.033606 seconds).
+2026-03-03 09:33:52,283 - INFO - Joint movement request: [0.0, 0.0, 1.5707963267948966, 1.5707963267948966, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:34:04,327 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.025128 seconds).
+2026-03-03 09:34:06,332 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.4 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 09:34:14,116 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:48:37,194 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 09:48:37,283 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 09:48:39,292 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 09:48:41,295 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 09:48:43,288 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 09:48:43,294 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 09:48:45,757 - INFO - Joint movement request: [0.0, -0.7853981633974483, 0.0, -1.5707963267948966, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:48:53,043 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.028523 seconds).
+2026-03-03 09:48:55,047 - INFO - Joint movement request: [0.0, 0.0, 1.5707963267948966, 1.5707963267948966, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:49:02,372 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.019777 seconds).
+2026-03-03 09:49:04,384 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.4 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 09:49:10,762 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:50:51,937 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 09:50:51,989 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 09:50:53,996 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 09:50:56,000 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 09:50:58,449 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 09:50:58,454 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 09:51:00,475 - INFO - Sending ADD for box box1 to C++ node...
+2026-03-03 09:51:02,488 - INFO - Sending ADD for box box2 to C++ node...
+2026-03-03 09:51:04,491 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 09:51:06,492 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 09:51:08,511 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 09:51:10,524 - INFO - Virtual cage modification request (Enable=True)
+2026-03-03 09:51:10,535 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-03 09:51:14,494 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:51:14,500 - ERROR - Joint movement failed: Incorrect joint size. Expected: 5
+2026-03-03 09:51:16,511 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-03-03 09:51:16,522 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.000000 (took 0.007748 seconds)
+2026-03-03 09:51:18,530 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 09:51:18,541 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.000000
+2026-03-03 09:51:20,547 - INFO - Calculating approach pose: target=(0.488, 0.086, 0.121), z_offset=0.12m
+2026-03-03 09:51:20,547 - INFO - Approach position computed: x=0.488, y=0.086, z=0.241
+2026-03-03 09:51:20,547 - INFO - Sending approach request to ROS C++ node...
+2026-03-03 09:51:20,558 - ERROR - Approach movement failed: Impossible Cartesian path (collision or singularity) Fraction: 0.000000
+2026-03-03 09:51:22,559 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:51:26,478 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:51:28,494 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:51:32,607 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:51:34,620 - INFO - Calculating approach pose: target=(0.435, 0.044, 0.086), z_offset=0.12m
+2026-03-03 09:51:34,621 - INFO - Approach position computed: x=0.363, y=-0.015, z=0.161
+2026-03-03 09:51:34,621 - INFO - Sending approach request to ROS C++ node...
+2026-03-03 09:51:34,631 - ERROR - Approach movement failed: Impossible Cartesian path (collision or singularity) Fraction: 0.000000
+2026-03-03 09:51:36,644 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:51:40,549 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:51:42,552 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:51:46,443 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:51:48,466 - INFO - Calculating approach pose: target=(0.509, -0.155, 0.057), z_offset=0.12m
+2026-03-03 09:51:48,466 - INFO - Approach position computed: x=0.509, y=-0.155, z=0.177
+2026-03-03 09:51:48,466 - INFO - Sending approach request to ROS C++ node...
+2026-03-03 09:51:48,477 - ERROR - Approach movement failed: Impossible Cartesian path (collision or singularity) Fraction: 0.000000
+2026-03-03 09:51:50,484 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:51:54,390 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:51:56,395 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:52:00,265 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:52:02,716 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-03-03 09:52:02,726 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.000000 (took 0.008104 seconds)
+2026-03-03 09:52:04,749 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 09:52:04,759 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.000000
+2026-03-03 09:52:06,795 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:52:06,801 - ERROR - Joint movement failed: Incorrect joint size. Expected: 5
+2026-03-03 09:52:08,821 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.5 (Relative=False, Cartesian=False, Execute=True)
+2026-03-03 09:52:11,828 - INFO - Successful movement : Planned and executed pose target successfully (took 0.083308 seconds)
+2026-03-03 09:52:13,818 - INFO - Request for movement received : X=1.0, Y=0.0, Z=0.0 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:52:13,839 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.178218
+2026-03-03 09:52:17,794 - INFO - Virtual cage modification request (Enable=False)
+2026-03-03 09:52:17,799 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-03 09:52:19,799 - INFO - Sending REMOVE for box box1 to C++ node...
+2026-03-03 09:52:21,798 - INFO - Sending REMOVE for box box2 to C++ node...
+2026-03-03 09:52:23,810 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 09:52:25,823 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 09:52:27,850 - INFO - Sending REMOVE for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 09:53:21,157 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 09:53:21,204 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 09:53:23,215 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 09:53:25,218 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 09:53:27,216 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 09:53:27,221 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 09:53:29,221 - INFO - Sending ADD for box box1 to C++ node...
+2026-03-03 09:53:31,230 - INFO - Sending ADD for box box2 to C++ node...
+2026-03-03 09:53:33,247 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 09:53:35,245 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 09:53:37,260 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 09:53:39,275 - INFO - Virtual cage modification request (Enable=True)
+2026-03-03 09:53:39,281 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-03 09:55:34,094 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 09:55:34,146 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 09:55:36,162 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 09:55:38,166 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 09:55:40,169 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 09:55:40,174 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 09:55:42,182 - INFO - Sending ADD for box box1 to C++ node...
+2026-03-03 09:55:44,184 - INFO - Sending ADD for box box2 to C++ node...
+2026-03-03 09:55:46,189 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 09:55:48,208 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 09:55:50,215 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 09:55:52,663 - INFO - Virtual cage modification request (Enable=True)
+2026-03-03 09:55:52,668 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-03 09:55:56,658 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:56:01,618 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.021975 seconds).
+2026-03-03 09:56:03,629 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-03-03 09:56:03,640 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.011111 (took 0.008258 seconds)
+2026-03-03 09:56:05,654 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 09:56:05,664 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.022222
+2026-03-03 09:56:07,669 - INFO - Calculating approach pose: target=(0.488, 0.086, 0.121), z_offset=0.12m
+2026-03-03 09:56:07,670 - INFO - Approach position computed: x=0.488, y=0.086, z=0.241
+2026-03-03 09:56:07,670 - INFO - Sending approach request to ROS C++ node...
+2026-03-03 09:56:07,685 - ERROR - Approach movement failed: Impossible Cartesian path (collision or singularity) Fraction: 0.241379
+2026-03-03 09:56:09,679 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:56:12,843 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:56:14,838 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:56:18,003 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:56:20,020 - INFO - Calculating approach pose: target=(0.435, 0.044, 0.086), z_offset=0.12m
+2026-03-03 09:56:20,020 - INFO - Approach position computed: x=0.363, y=-0.015, z=0.161
+2026-03-03 09:56:20,020 - INFO - Sending approach request to ROS C++ node...
+2026-03-03 09:56:20,031 - ERROR - Approach movement failed: Impossible Cartesian path (collision or singularity) Fraction: 0.000000
+2026-03-03 09:56:22,056 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:56:25,466 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:56:27,477 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:56:30,644 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:56:32,657 - INFO - Calculating approach pose: target=(0.509, -0.155, 0.057), z_offset=0.12m
+2026-03-03 09:56:32,657 - INFO - Approach position computed: x=0.509, y=-0.155, z=0.177
+2026-03-03 09:56:32,658 - INFO - Sending approach request to ROS C++ node...
+2026-03-03 09:56:32,668 - ERROR - Approach movement failed: Impossible Cartesian path (collision or singularity) Fraction: 0.000000
+2026-03-03 09:56:34,697 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:56:37,862 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:56:39,875 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:56:43,041 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 09:56:45,050 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-03-03 09:56:45,061 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.011111 (took 0.006092 seconds)
+2026-03-03 09:56:47,074 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 09:56:47,090 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.022222
+2026-03-03 09:56:49,092 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 09:56:49,164 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.016438 seconds).
+2026-03-03 09:56:51,192 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.5 (Relative=False, Cartesian=False, Execute=True)
+2026-03-03 09:56:56,810 - INFO - Successful movement : Planned and executed pose target successfully (took 0.485035 seconds)
+2026-03-03 09:56:58,831 - INFO - Request for movement received : X=1.0, Y=0.0, Z=0.0 (Relative=True, Cartesian=True, Execute=True)
+2026-03-03 09:56:58,847 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.150000
+2026-03-03 09:57:02,839 - INFO - Virtual cage modification request (Enable=False)
+2026-03-03 09:57:02,845 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-03 09:57:04,867 - INFO - Sending REMOVE for box box1 to C++ node...
+2026-03-03 09:57:06,887 - INFO - Sending REMOVE for box box2 to C++ node...
+2026-03-03 09:57:08,907 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 09:57:10,935 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 09:57:12,954 - INFO - Sending REMOVE for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 11:20:44,386 - INFO - Initialization request (Model: vp524, Group: arm)
+2026-03-03 11:20:44,474 - INFO - Initialization successful: Initialized with model=vp524, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 11:20:46,497 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 11:20:48,501 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 11:20:50,556 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 11:20:50,562 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 11:20:52,614 - INFO - Sending ADD for box box1 to C++ node...
+2026-03-03 11:20:54,686 - INFO - Sending ADD for box box2 to C++ node...
+2026-03-03 11:20:56,743 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 11:20:58,800 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 11:21:00,843 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 11:21:02,872 - INFO - Virtual cage modification request (Enable=True)
+2026-03-03 11:21:02,878 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-03 11:21:53,007 - INFO - Initialization request (Model: vp524, Group: arm)
+2026-03-03 11:21:53,080 - INFO - Initialization successful: Initialized with model=vp524, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 11:21:55,143 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 11:21:57,147 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 11:21:59,187 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 11:21:59,192 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 11:22:01,226 - INFO - Sending ADD for box box1 to C++ node...
+2026-03-03 11:22:03,269 - INFO - Sending ADD for box box2 to C++ node...
+2026-03-03 11:22:05,289 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 11:22:07,317 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 11:22:09,353 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 11:22:11,378 - INFO - Virtual cage modification request (Enable=False)
+2026-03-03 11:22:11,383 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-03 11:56:21,349 - INFO - Initialization request (Model: vp524, Group: arm)
+2026-03-03 11:56:21,417 - INFO - Initialization successful: Initialized with model=vp524, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 11:56:23,465 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 11:56:25,470 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 11:56:27,513 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 11:56:27,518 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 11:56:29,550 - INFO - Sending ADD for box box1 to C++ node...
+2026-03-03 11:56:31,591 - INFO - Sending ADD for box box2 to C++ node...
+2026-03-03 11:56:33,621 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 11:56:35,656 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 11:56:37,685 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 11:56:39,719 - INFO - Virtual cage modification request (Enable=True)
+2026-03-03 11:56:39,724 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-03 11:56:43,733 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=False, Execute=True)
+2026-03-03 11:56:48,757 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 5.016930 seconds)
+2026-03-03 11:56:50,823 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.033 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 11:56:51,849 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 11:56:53,898 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 11:56:53,919 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.770370
+2026-03-03 11:57:41,069 - INFO - Initialization request (Model: vp524, Group: arm)
+2026-03-03 11:57:41,111 - INFO - Initialization successful: Initialized with model=vp524, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 11:57:43,138 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 11:57:45,142 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 11:57:47,172 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 11:57:47,177 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 11:57:49,201 - INFO - Sending ADD for box box1 to C++ node...
+2026-03-03 11:57:51,224 - INFO - Sending ADD for box box2 to C++ node...
+2026-03-03 11:57:53,245 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 11:57:55,323 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 11:57:57,401 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 11:57:59,477 - INFO - Virtual cage modification request (Enable=True)
+2026-03-03 11:57:59,482 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-03 11:58:49,198 - INFO - Initialization request (Model: vp524, Group: arm)
+2026-03-03 11:58:49,245 - INFO - Initialization successful: Initialized with model=vp524, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 11:58:51,261 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 11:58:53,265 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 11:58:55,292 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 11:58:55,298 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 11:58:57,337 - INFO - Sending ADD for box box1 to C++ node...
+2026-03-03 11:58:59,404 - INFO - Sending ADD for box box2 to C++ node...
+2026-03-03 11:59:01,485 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-03 11:59:03,561 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-03 11:59:05,614 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-03 11:59:07,653 - INFO - Virtual cage modification request (Enable=True)
+2026-03-03 11:59:07,659 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-03 11:59:11,681 - INFO - Joint movement request: [] (Relative=False, Execute=True)
+2026-03-03 11:59:11,688 - ERROR - Joint movement failed: Incorrect joint size. Expected: 5
+2026-03-03 11:59:13,731 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.233 (Relative=False, Cartesian=False, Execute=True)
+2026-03-03 11:59:17,936 - INFO - Successful movement : Planned and executed pose target successfully (took 0.357431 seconds)
+2026-03-03 11:59:19,956 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.033 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 11:59:24,051 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 11:59:26,067 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.233 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 11:59:30,164 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 14:29:54,377 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 14:30:54,384 - ERROR - Critical error during InitRobot call: Timeout waiting for ROS service response
+2026-03-03 14:30:54,390 - DEBUG - Traceback (most recent call last):
+  File "/home/antonin/workspace/wsl_ros_bridge.py", line 220, in call_init
+    res = self._wait_for_future(fut, timeout=60.0)
+  File "/home/antonin/workspace/wsl_ros_bridge.py", line 201, in _wait_for_future
+    raise RuntimeError("Timeout waiting for ROS service response")
+RuntimeError: Timeout waiting for ROS service response
+
+2026-03-03 14:31:03,870 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 14:31:03,948 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:31:05,985 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:31:07,989 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:31:10,009 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:31:10,015 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:31:12,047 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:31:12,053 - ERROR - Joint movement failed: Incorrect joint size. Expected: 6
+2026-03-03 14:31:14,062 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 14:31:19,103 - ERROR - Waypoints movement failed: Planning failed at waypoint 1: FAILURE
+2026-03-03 14:31:39,516 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 14:31:39,557 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:31:41,597 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:31:43,601 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:31:45,610 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:31:45,616 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:31:47,632 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:31:47,709 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.021033 seconds).
+2026-03-03 14:31:49,740 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 14:31:54,763 - ERROR - Waypoints movement failed: Planning failed at waypoint 1: FAILURE
+2026-03-03 14:32:31,937 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 14:32:31,978 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:32:34,018 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:32:36,023 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:32:38,050 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:32:38,056 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:32:40,114 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:32:40,191 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.020045 seconds).
+2026-03-03 14:32:42,207 - INFO - Waypoints movement request: 5 points (Cartesian=True, execute=True)
+2026-03-03 14:32:42,228 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.128889 (took 0.014788 seconds)
+2026-03-03 14:34:50,463 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 14:34:50,509 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:34:52,524 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:34:54,528 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:34:56,549 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:34:56,554 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:34:58,595 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:34:58,677 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.023173 seconds).
+2026-03-03 14:35:00,695 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.5 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 14:35:07,665 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 14:35:09,725 - INFO - Waypoints movement request: 5 points (Cartesian=True, execute=True)
+2026-03-03 14:35:09,737 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.010000 (took 0.006452 seconds)
+2026-03-03 14:35:24,347 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 14:35:24,399 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:35:26,429 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:35:28,434 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:35:30,445 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:35:30,450 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:35:32,475 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:35:38,900 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.031743 seconds).
+2026-03-03 14:35:40,981 - INFO - Request for movement received : X=0.3, Y=0.0, Z=0.5 (Relative=False, Cartesian=True, Execute=True)
+2026-03-03 14:35:44,132 - INFO - Successful movement : Cartesian path executed.
+2026-03-03 14:35:46,184 - INFO - Waypoints movement request: 5 points (Cartesian=True, execute=True)
+2026-03-03 14:35:46,205 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.142222 (took 0.016251 seconds)
+2026-03-03 14:36:32,168 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 14:36:32,210 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:36:34,236 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:36:36,240 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:36:38,256 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:36:38,262 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:36:40,296 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:36:43,502 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.022913 seconds).
+2026-03-03 14:36:45,574 - INFO - Waypoints movement request: 5 points (Cartesian=True, execute=True)
+2026-03-03 14:36:45,590 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.527778 (took 0.014087 seconds)
+2026-03-03 14:41:08,807 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 14:41:08,849 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:41:10,896 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:41:12,900 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:41:14,934 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:41:14,940 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:41:16,980 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:41:17,058 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.018904 seconds).
+2026-03-03 14:41:19,073 - INFO - Waypoints movement request: 5 points (Cartesian=True, execute=True)
+2026-03-03 14:41:39,043 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.051459 seconds)
+2026-03-03 14:42:23,731 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 14:42:23,778 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:42:25,795 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:42:27,799 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:42:29,822 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:42:29,828 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:42:31,833 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:42:35,878 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.022114 seconds).
+2026-03-03 14:42:37,926 - INFO - Waypoints movement request: 5 points (Cartesian=True, execute=True)
+2026-03-03 14:43:01,272 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.094417 seconds)
+2026-03-03 14:43:16,827 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-03 14:43:16,879 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:43:18,923 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:43:20,927 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:43:22,961 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:43:22,967 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:43:24,982 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:43:29,044 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.024083 seconds).
+2026-03-03 14:43:31,077 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 14:44:31,488 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.266342s)
+2026-03-03 14:46:03,277 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 14:46:03,354 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:46:05,388 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:46:07,392 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:46:09,425 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:46:09,431 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:46:11,440 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:46:11,446 - ERROR - Joint movement failed: Incorrect joint size. Expected: 5
+2026-03-03 14:46:13,471 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 14:46:18,911 - ERROR - Waypoints movement failed: Planning failed at waypoint 2: FAILURE
+2026-03-03 14:46:33,296 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 14:46:33,359 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:46:35,380 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:46:37,384 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:46:39,427 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:46:39,432 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:46:41,465 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:46:41,542 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.017859 seconds).
+2026-03-03 14:46:43,567 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 14:46:52,078 - ERROR - Waypoints movement failed: Planning failed at waypoint 2: FAILURE
+2026-03-03 14:47:19,540 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 14:47:19,597 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:47:21,605 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:47:23,609 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:47:25,621 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:47:25,626 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:47:27,668 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:47:27,746 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.019294 seconds).
+2026-03-03 14:47:29,824 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 14:47:36,453 - ERROR - Waypoints movement failed: Planning failed at waypoint 2: FAILURE
+2026-03-03 14:48:32,431 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 14:48:32,484 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:48:34,571 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:48:36,575 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:48:38,622 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:48:38,628 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:48:40,672 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:48:40,755 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.024483 seconds).
+2026-03-03 14:48:42,805 - INFO - Waypoints movement request: 5 points (Cartesian=True, execute=True)
+2026-03-03 14:48:42,821 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.000000 (took 0.010151 seconds)
+2026-03-03 14:49:28,413 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 14:49:28,465 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 14:49:30,475 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 14:49:32,479 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 14:49:34,506 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 14:49:34,512 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 14:49:36,565 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 14:49:36,643 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.021778 seconds).
+2026-03-03 14:49:38,737 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 14:49:46,801 - ERROR - Waypoints movement failed: Planning failed at waypoint 2: FAILURE
+2026-03-03 15:00:29,237 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 15:00:29,289 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 15:00:31,325 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 15:00:33,329 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 15:00:35,377 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 15:00:35,383 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 15:00:37,400 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 15:00:37,482 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.024414 seconds).
+2026-03-03 15:00:39,538 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 15:01:22,214 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (5.501025s)
+2026-03-03 15:03:47,530 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 15:03:47,582 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 15:03:49,617 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 15:03:51,621 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 15:03:53,634 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 15:03:53,640 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 15:03:55,675 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 15:03:58,781 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.018839 seconds).
+2026-03-03 15:04:00,825 - INFO - Waypoints movement request: 5 points (Cartesian=True, execute=True)
+2026-03-03 15:04:00,836 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.000000 (took 0.007819 seconds)

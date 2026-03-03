@@ -395,8 +395,7 @@ namespace motion_control
                 target_tf = wp_tf;
             }
 
-            // THE SECRET LIES HERE: The point we just calculated becomes the 
-            // new reference base for the next point!
+            // The point we just calculated becomes the new reference base for the next point!
             current_base_tf = target_tf;
 
             geometry_msgs::msg::Pose abs_pose;
@@ -434,8 +433,86 @@ namespace motion_control
                 res->message = "Trajectory waypoints planned at " + std::to_string(fraction * 100.0) + "%" + " (execute=false) (took " + std::to_string(planning_duration) + " seconds)";
             }
         } else {
-            res->success = false;
-            res->message = "Joint space tracking (cartesian_path=false) is not supported for waypoints. Please use cartesian_path=true.";
+            moveit_msgs::msg::RobotTrajectory combined_trajectory;
+            combined_trajectory.joint_trajectory.joint_names = move_group_->getJointNames();
+            
+            // Get the current state to use as the starting point for the first segment
+            moveit::core::RobotStatePtr current_start_state = move_group_->getCurrentState();
+            
+            int32_t acc_sec = 0;
+            uint32_t acc_nanosec = 0;
+            auto start_time = std::chrono::high_resolution_clock::now();
+            
+            for (size_t i = 0; i < absolute_waypoints.size(); ++i) {
+                // Set the starting state for this segment
+                move_group_->setStartState(*current_start_state);
+                
+                // Set the target
+                move_group_->setPoseTarget(absolute_waypoints[i]);
+                
+                // Plan the segment
+                moveit::planning_interface::MoveGroupInterface::Plan segment_plan;
+                auto code = move_group_->plan(segment_plan);
+                
+                if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+                    res->success = false;
+                    res->message = "Planning failed at waypoint " + std::to_string(i+1) + ": " + moveitErrorCodeToString(code);
+                    move_group_->setStartStateToCurrentState(); // Safety reset
+                    return;
+                }
+                
+                // Assemble the trajectory and adjust timing
+                int32_t segment_duration_sec = 0;
+                uint32_t segment_duration_nanosec = 0;
+                
+                // Skip the first point of subsequent segments to avoid a full stop at each waypoint
+                size_t start_index = (i == 0) ? 0 : 1; 
+                
+                for (size_t j = start_index; j < segment_plan.trajectory_.joint_trajectory.points.size(); ++j) {
+                    auto pt = segment_plan.trajectory_.joint_trajectory.points[j];
+                    
+                    segment_duration_sec = pt.time_from_start.sec;
+                    segment_duration_nanosec = pt.time_from_start.nanosec;
+                    
+                    uint32_t total_nanosec = pt.time_from_start.nanosec + acc_nanosec;
+                    int32_t total_sec = pt.time_from_start.sec + acc_sec + (total_nanosec / 1000000000);
+                    total_nanosec = total_nanosec % 1000000000;
+                    
+                    pt.time_from_start.sec = total_sec;
+                    pt.time_from_start.nanosec = total_nanosec;
+                    
+                    combined_trajectory.joint_trajectory.points.push_back(pt);
+                }
+                
+                // Accumulate time for the next segment
+                acc_sec += segment_duration_sec;
+                acc_nanosec += segment_duration_nanosec;
+                if (acc_nanosec >= 1000000000) {
+                    acc_sec += (acc_nanosec / 1000000000);
+                    acc_nanosec = acc_nanosec % 1000000000;
+                }
+                
+                // Update the start state for the next segment calculation
+                std::vector<double> last_positions = segment_plan.trajectory_.joint_trajectory.points.back().positions;
+                current_start_state->setJointGroupPositions(planning_group_, last_positions);
+            }
+            
+            // Restore normal state
+            move_group_->setStartStateToCurrentState();
+            
+            auto end_time = std::chrono::high_resolution_clock::now();
+            double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
+            
+            // Execute
+            if (req->execute) {
+                auto exec_code = move_group_->execute(combined_trajectory);
+                res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
+                res->message = res->success ? "Waypoint sequence executed successfully (" + std::to_string(planning_duration) + "s)" 
+                                            : "Execution failed: " + moveitErrorCodeToString(exec_code);
+            } else {
+                res->success = true;
+                res->message = "Sequence planned successfully (execute=false).";
+            }
         }
     }
 
