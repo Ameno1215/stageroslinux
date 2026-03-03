@@ -68,7 +68,7 @@ ros2 launch motion_control motion_server.launch.py model:=vs060 sim:=true
 Message attendu :
 
 ```
-[denso_motion_server] MotionServer ready. Call /init_robot first.
+[motion_server] MotionServer ready. Call /init_robot first.
 ```
 
 ---

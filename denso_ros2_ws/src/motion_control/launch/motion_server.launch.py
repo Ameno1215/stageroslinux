@@ -134,7 +134,7 @@ def generate_launch_description():
 
     motion_server_node = Node(
         package="motion_control",
-        executable="denso_motion_server",
+        executable="motion_server",
         output="screen",
         parameters=[
             robot_description,

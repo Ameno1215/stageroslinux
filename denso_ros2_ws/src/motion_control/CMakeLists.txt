@@ -51,11 +51,11 @@ rosidl_get_typesupport_target(cpp_typesupport_target
 target_link_libraries(motion_server_lib "${cpp_typesupport_target}")
 
 
-add_executable(denso_motion_server
+add_executable(motion_server
   src/motion_server_node.cpp
 )
-target_link_libraries(denso_motion_server motion_server_lib)
-ament_target_dependencies(denso_motion_server
+target_link_libraries(motion_server motion_server_lib)
+ament_target_dependencies(motion_server
   rclcpp
 )
 
@@ -67,7 +67,7 @@ install(TARGETS
 )
 
 install(TARGETS
-  denso_motion_server
+  motion_server
   DESTINATION lib/${PROJECT_NAME}
 )
 

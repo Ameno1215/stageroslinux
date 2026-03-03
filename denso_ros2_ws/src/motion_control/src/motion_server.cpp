@@ -6,7 +6,7 @@ namespace motion_control
 {
 
     MotionServer::MotionServer(const rclcpp::NodeOptions& options)
-    : rclcpp::Node("denso_motion_server", options)
+    : rclcpp::Node("motion_server", options)
     {
         // Declare parameters for convenient launch-time configuration
         this->declare_parameter<std::string>("model", "vs060");

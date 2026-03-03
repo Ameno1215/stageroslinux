@@ -2750,3 +2750,50 @@ RuntimeError: Timeout waiting for ROS service response
 2026-03-03 15:03:58,781 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.018839 seconds).
 2026-03-03 15:04:00,825 - INFO - Waypoints movement request: 5 points (Cartesian=True, execute=True)
 2026-03-03 15:04:00,836 - ERROR - Waypoints movement failed: Cartesian path impossible or incomplete. Calculated fraction: 0.000000 (took 0.007819 seconds)
+2026-03-03 15:09:51,379 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 15:09:51,462 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 15:09:53,488 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 15:09:55,492 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 15:09:57,501 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 15:09:57,507 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 15:09:59,515 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 15:09:59,742 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.018799 seconds).
+2026-03-03 15:10:01,752 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 15:10:50,992 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (9.444973s)
+2026-03-03 15:13:16,137 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 15:13:16,190 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 15:13:18,290 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 15:13:20,295 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 15:13:22,347 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 15:13:22,353 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 15:13:24,428 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 15:13:26,432 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 15:13:28,465 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 15:13:31,580 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.018825 seconds).
+2026-03-03 15:13:33,603 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 15:14:15,691 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (3.776704s)
+2026-03-03 15:15:13,783 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 15:15:13,830 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 15:15:15,832 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 15:15:17,836 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 15:15:19,857 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 15:15:19,863 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 15:15:21,872 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 15:15:23,876 - ERROR - Parameter service not available. Is motion_server running?
+2026-03-03 15:15:25,956 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 15:15:29,082 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.019480 seconds).
+2026-03-03 15:15:31,125 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-03 15:16:05,081 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (1.606060s)
+2026-03-03 15:34:28,027 - INFO - Waiting for ROS 2 services...
+2026-03-03 15:34:28,040 - INFO - All ROS 2 services are connected.
+2026-03-03 15:34:51,467 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-03 15:34:51,540 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, planning_frame=world, ee_link=tool_link
+2026-03-03 15:34:53,599 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 15:34:53,605 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-03 15:34:55,651 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-03 15:34:55,657 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-03 15:34:57,692 - INFO - Requesting IK solver info from C++ node...
+2026-03-03 15:34:57,697 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-03 15:34:59,722 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-03 15:34:59,958 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.026690 seconds).
+2026-03-03 15:35:01,987 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
