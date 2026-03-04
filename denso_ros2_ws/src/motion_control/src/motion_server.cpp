@@ -119,12 +119,15 @@ namespace motion_control
             move_group_->setMaxVelocityScalingFactor(vel_scale_);
             move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-            // TODO configurable at launch
             // Find best parameters for fast and reliable planning. These can be tuned based on the robot's performance and environment complexity.
-            move_group_->setPlanningTime(5.0); // Maximum time (in seconds) allowed for planning.
-            move_group_->setNumPlanningAttempts(10); //Number of attempts simultaneously launched by MoveIt to find a valid plan (with different random seeds).
-            move_group_->allowReplanning(true); // If true, MoveIt will automatically try to replan if the current plan fails during execution (e.g., due to a new obstacle).
-
+            double p_time = req->planning_time > 0.0 ? req->planning_time : 5.0;
+            int p_attempts = req->planning_attempts > 0 ? req->planning_attempts : 10;
+            bool a_replan = req->allow_replanning;
+            
+            move_group_->setPlanningTime(p_time); // Maximum time (in seconds) allowed for planning.
+            move_group_->setNumPlanningAttempts(p_attempts);  //Number of attempts simultaneously launched by MoveIt to find a valid plan (with different random seeds).
+            move_group_->allowReplanning(a_replan); // If true, MoveIt will automatically try to replan if the current plan fails during execution (e.g., due to a new obstacle).
+        
             // Log available joints and links
             auto names = move_group_->getRobotModel()->getLinkModelNames();
             RCLCPP_INFO(this->get_logger(), "--- Links available for this robot ---");
@@ -138,6 +141,9 @@ namespace motion_control
                 << ", group=" << planning_group_
                 << ", vel_scale=" << vel_scale_
                 << ", accel_scale=" << accel_scale_
+                << ", plan_time=" << p_time
+                << ", plan_attempts=" << p_attempts
+                << ", replan=" << (a_replan ? "true" : "false")
                 << ", planning_frame=" << move_group_->getPlanningFrame()
                 << ", ee_link=" << move_group_->getEndEffectorLink();
 

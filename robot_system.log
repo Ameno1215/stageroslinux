@@ -2797,3 +2797,24 @@ RuntimeError: Timeout waiting for ROS service response
 2026-03-03 15:34:59,722 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
 2026-03-03 15:34:59,958 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.026690 seconds).
 2026-03-03 15:35:01,987 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 09:15:07,394 - INFO - Waiting for ROS 2 services...
+2026-03-04 09:15:07,396 - INFO - All ROS 2 services are connected.
+2026-03-04 09:15:33,873 - INFO - Initialization request (Model: vp5243, Group: arm)
+2026-03-04 09:15:33,951 - INFO - Initialization successful: Initialized with model=vp5243, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true, planning_frame=world, ee_link=tool_link
+2026-03-04 09:15:35,988 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 09:15:35,994 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-04 09:15:38,021 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 09:15:38,027 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 09:15:40,078 - INFO - Joint movement request: [0.0, 0.0, 1.57, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 09:15:40,083 - ERROR - Joint movement failed: Incorrect joint size. Expected: 6
+2026-03-04 09:15:42,117 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 09:15:42,369 - ERROR - Waypoints movement failed: Execution failed: CONTROL_FAILED: Controller execution failed
+2026-03-04 09:16:10,221 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 09:16:10,267 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true, planning_frame=world, ee_link=tool_link
+2026-03-04 09:16:12,294 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 09:16:12,300 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-04 09:16:14,339 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 09:16:14,344 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 09:16:16,373 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 09:16:16,461 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.028281 seconds).
+2026-03-04 09:16:18,493 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)

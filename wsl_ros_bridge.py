@@ -66,6 +66,9 @@ class InitReq(BaseModel):
     planning_group: str = "arm"
     velocity_scale: float = 0.1
     accel_scale: float = 0.1
+    planning_time: float = 5.0
+    planning_attempts: int = 10
+    allow_replanning: bool = True
 
 class ScalingReq(BaseModel):
     velocity_scale: float = Field(ge=0.0, le=1.0)
@@ -212,6 +215,9 @@ class MotionRosClient(Node):
         ros_req.planning_group = str(req.planning_group)
         ros_req.velocity_scale = float(req.velocity_scale)
         ros_req.accel_scale = float(req.accel_scale)
+        ros_req.planning_time = float(req.planning_time)
+        ros_req.planning_attempts = int(req.planning_attempts)
+        ros_req.allow_replanning = bool(req.allow_replanning)
 
         fut = self.init_cli.call_async(ros_req)
         
