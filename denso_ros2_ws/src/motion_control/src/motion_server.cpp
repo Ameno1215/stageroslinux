@@ -123,11 +123,13 @@ namespace motion_control
             double p_time = req->planning_time > 0.0 ? req->planning_time : 5.0;
             int p_attempts = req->planning_attempts > 0 ? req->planning_attempts : 10;
             bool a_replan = req->allow_replanning;
+            std::string planner_id = req->planner_id.empty() ? "PRMstar" : req->planner_id;
             
             move_group_->setPlanningTime(p_time); // Maximum time (in seconds) allowed for planning.
             move_group_->setNumPlanningAttempts(p_attempts);  //Number of attempts simultaneously launched by MoveIt to find a valid plan (with different random seeds).
             move_group_->allowReplanning(a_replan); // If true, MoveIt will automatically try to replan if the current plan fails during execution (e.g., due to a new obstacle).
-        
+            move_group_->setPlannerId(planner_id);
+
             // Log available joints and links
             auto names = move_group_->getRobotModel()->getLinkModelNames();
             RCLCPP_INFO(this->get_logger(), "--- Links available for this robot ---");
@@ -144,6 +146,7 @@ namespace motion_control
                 << ", plan_time=" << p_time
                 << ", plan_attempts=" << p_attempts
                 << ", replan=" << (a_replan ? "true" : "false")
+                << ",planner_id=" << planner_id
                 << ", planning_frame=" << move_group_->getPlanningFrame()
                 << ", ee_link=" << move_group_->getEndEffectorLink();
 

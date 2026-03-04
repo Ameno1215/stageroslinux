@@ -69,6 +69,7 @@ class InitReq(BaseModel):
     planning_time: float = 5.0
     planning_attempts: int = 10
     allow_replanning: bool = True
+    planner_id: str = "PRMstar"
 
 class ScalingReq(BaseModel):
     velocity_scale: float = Field(ge=0.0, le=1.0)
@@ -218,6 +219,7 @@ class MotionRosClient(Node):
         ros_req.planning_time = float(req.planning_time)
         ros_req.planning_attempts = int(req.planning_attempts)
         ros_req.allow_replanning = bool(req.allow_replanning)
+        ros_req.planner_id = str(req.planner_id)
 
         fut = self.init_cli.call_async(ros_req)
         
