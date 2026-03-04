@@ -141,3 +141,370 @@
 2026-03-04 11:52:39,950 - INFO - Approach movement successful: Cartesian path executed.
 2026-03-04 11:52:41,988 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
 2026-03-04 11:52:45,058 - INFO - Successful movement : Cartesian path executed.
+2026-03-04 11:52:47,099 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-04 11:52:50,207 - INFO - Successful movement : Cartesian path executed.
+2026-03-04 11:52:52,263 - INFO - Calculating approach pose: target=(0.509, -0.155, 0.057), z_offset=0.12m
+2026-03-04 11:52:52,264 - INFO - Approach position computed: x=0.509, y=-0.155, z=0.177
+2026-03-04 11:52:52,264 - INFO - Sending approach request to ROS C++ node...
+2026-03-04 11:52:58,980 - INFO - Approach movement successful: Cartesian path executed.
+2026-03-04 11:53:01,039 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-04 11:53:03,351 - INFO - Successful movement : Cartesian path executed.
+2026-03-04 11:53:05,415 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-04 11:53:07,733 - INFO - Successful movement : Cartesian path executed.
+2026-03-04 11:53:09,777 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-03-04 11:53:20,576 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.034466 seconds)
+2026-03-04 11:53:22,618 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-03-04 11:53:27,725 - INFO - Successful movement : Cartesian path executed.
+2026-03-04 11:53:29,753 - INFO - Joint movement request: [] (Relative=False, Execute=True)
+2026-03-04 11:53:29,759 - ERROR - Joint movement failed: Incorrect joint size. Expected: 6
+2026-03-04 11:53:31,799 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.5 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 11:53:42,081 - INFO - Successful movement : Planned and executed pose target successfully (took 0.100938 seconds)
+2026-03-04 11:53:44,118 - INFO - Request for movement received : X=1.0, Y=0.0, Z=0.0 (Relative=True, Cartesian=True, Execute=True)
+2026-03-04 11:53:44,139 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.257426
+2026-03-04 11:53:48,157 - INFO - Virtual cage modification request (Enable=False)
+2026-03-04 11:53:48,163 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-04 11:53:50,180 - INFO - Sending REMOVE for box box1 to C++ node...
+2026-03-04 11:53:52,208 - INFO - Sending REMOVE for box box2 to C++ node...
+2026-03-04 11:53:54,248 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-04 11:53:56,280 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-04 11:53:58,308 - INFO - Sending REMOVE for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-04 11:57:22,810 - INFO - Waiting for ROS 2 services...
+2026-03-04 11:57:22,812 - INFO - All ROS 2 services are connected.
+2026-03-04 11:57:32,234 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 11:57:32,286 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=PRMstar, planning_frame=world, ee_link=tool_link
+2026-03-04 11:57:34,358 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 11:57:34,364 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-04 11:57:36,408 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 11:57:36,413 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 11:57:38,451 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 11:57:50,428 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.043321 seconds).
+2026-03-04 11:57:52,472 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 11:58:54,326 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.276628s)
+2026-03-04 11:59:03,798 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 11:59:03,861 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 11:59:05,888 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 11:59:05,894 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-04 11:59:07,963 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 11:59:07,969 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 11:59:10,005 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 11:59:14,974 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.035830 seconds).
+2026-03-04 11:59:17,008 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 12:00:00,590 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.356166s)
+2026-03-04 14:46:01,463 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 14:46:01,551 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 14:46:03,579 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 14:46:03,585 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-04 14:46:05,614 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 14:46:05,620 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 14:46:07,668 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 14:46:07,756 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.029517 seconds).
+2026-03-04 14:46:09,813 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 14:46:56,240 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.244471s)
+2026-03-04 14:47:54,737 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 14:47:54,815 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 14:47:56,854 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 14:47:56,860 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 14:47:58,889 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 14:47:58,895 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 14:48:00,932 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 14:48:01,122 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.031114 seconds).
+2026-03-04 14:48:03,155 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 14:49:13,133 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.541914s)
+2026-03-04 14:51:46,666 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 14:51:46,745 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 14:51:48,779 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 14:51:48,785 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 14:51:50,809 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 14:51:50,815 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 14:51:52,847 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 14:51:52,930 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.023346 seconds).
+2026-03-04 14:51:54,960 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 14:52:59,704 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.677637s)
+2026-03-04 14:54:44,276 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 14:54:44,354 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 14:54:46,410 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 14:54:46,417 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 14:54:48,492 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 14:54:48,497 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 14:54:50,581 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 14:55:01,799 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.050407 seconds).
+2026-03-04 14:55:03,840 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 14:55:50,355 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (1.056688s)
+2026-03-04 16:13:25,223 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:14:25,228 - ERROR - Critical error during InitRobot call: Timeout waiting for ROS service response
+2026-03-04 16:14:25,231 - DEBUG - Traceback (most recent call last):
+  File "/home/antonin/workspace/wsl_ros_bridge.py", line 228, in call_init
+    res = self._wait_for_future(fut, timeout=60.0)
+  File "/home/antonin/workspace/wsl_ros_bridge.py", line 205, in _wait_for_future
+    raise RuntimeError("Timeout waiting for ROS service response")
+RuntimeError: Timeout waiting for ROS service response
+
+2026-03-04 16:15:00,175 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:15:00,268 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:15:02,304 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:15:02,310 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 16:15:04,369 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:15:04,375 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:15:06,415 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:15:06,519 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.040024 seconds).
+2026-03-04 16:15:08,546 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 16:15:50,642 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.250011s)
+2026-03-04 16:17:01,485 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:17:01,580 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:17:03,661 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:17:03,668 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-04 16:17:05,725 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:17:05,731 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:17:07,777 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:17:07,865 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.027958 seconds).
+2026-03-04 16:17:09,907 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 16:17:37,263 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.261602s)
+2026-03-04 16:18:10,782 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:18:10,871 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:18:12,918 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:18:12,924 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 16:18:14,980 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:18:14,986 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:18:17,026 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:18:17,114 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.027691 seconds).
+2026-03-04 16:18:19,150 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-04 16:19:02,595 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.612993s)
+2026-03-04 16:21:17,374 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:21:17,421 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:21:19,493 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:21:19,499 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 16:21:21,573 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:21:21,579 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:21:23,613 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:21:31,415 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.035575 seconds).
+2026-03-04 16:21:33,443 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:21:37,866 - INFO - Successful movement : Planned and executed pose target successfully (took 0.092629 seconds)
+2026-03-04 16:21:39,901 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:21:39,907 - INFO - Pose read successful. XYZ: [0.200, 0.100, 0.100], Quat: [0.000, 1.000, -0.000, 0.001], RPY: [-3.141, 0.002, 3.141]
+2026-03-04 16:21:41,925 - INFO - Joint state read request
+2026-03-04 16:21:41,931 - INFO - Joint state read successful. Joints: [[0.4649426689327827, 0.2593566754253409, 2.4113548276122394, -0.0027574744822018715, 0.46952529723732805, 0.468127639342951]]
+2026-03-04 16:21:43,958 - INFO - Request for movement received : X=0.3, Y=0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:21:46,939 - INFO - Successful movement : Planned and executed pose target successfully (took 0.049010 seconds)
+2026-03-04 16:21:48,947 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:21:48,953 - INFO - Pose read successful. XYZ: [0.300, 0.100, 0.200], Quat: [-0.000, 1.000, 0.000, 0.001], RPY: [3.141, 0.001, -3.142]
+2026-03-04 16:21:51,049 - INFO - Joint state read request
+2026-03-04 16:21:51,055 - INFO - Joint state read successful. Joints: [[0.3219604078392262, 0.21724300461079338, 1.972015025035926, -0.0001537506594004867, 0.951307683724286, 0.3219730489411514]]
+2026-03-04 16:21:53,132 - INFO - Request for movement received : X=0.3, Y=-0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:22:00,998 - INFO - Successful movement : Planned and executed pose target successfully (took 0.062557 seconds)
+2026-03-04 16:22:03,033 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:22:03,039 - INFO - Pose read successful. XYZ: [0.300, -0.100, 0.100], Quat: [0.000, 1.000, 0.000, 0.001], RPY: [3.141, 0.002, 3.141]
+2026-03-04 16:22:05,063 - INFO - Joint state read request
+2026-03-04 16:22:05,068 - INFO - Joint state read successful. Joints: [[-0.3226987996677959, 0.4640632775458453, 2.070720294669714, -3.140225249384369, -0.6053327238166082, 2.818143296609385]]
+2026-03-04 16:22:07,097 - INFO - Request for movement received : X=0.2, Y=-0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:22:10,809 - INFO - Successful movement : Planned and executed pose target successfully (took 0.080256 seconds)
+2026-03-04 16:22:12,827 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:22:12,833 - INFO - Pose read successful. XYZ: [0.200, -0.100, 0.200], Quat: [0.000, 1.000, 0.000, 0.001], RPY: [3.141, 0.001, 3.141]
+2026-03-04 16:22:14,868 - INFO - Joint state read request
+2026-03-04 16:22:14,874 - INFO - Joint state read successful. Joints: [[-0.46415938252386635, -0.0742094685620458, 2.289101026018832, -3.140676730454256, -0.9255365144513314, 2.67759568721479]]
+2026-03-04 16:22:16,894 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:22:24,771 - INFO - Successful movement : Planned and executed pose target successfully (took 0.070526 seconds)
+2026-03-04 16:22:26,826 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:22:26,832 - INFO - Pose read successful. XYZ: [0.200, 0.100, 0.100], Quat: [0.000, 1.000, 0.000, 0.001], RPY: [3.141, 0.002, 3.141]
+2026-03-04 16:22:28,885 - INFO - Joint state read request
+2026-03-04 16:22:28,890 - INFO - Joint state read successful. Joints: [[0.4645950314793099, 0.2592652841552123, 2.411886222490031, -0.0017716486792060948, 0.4684618139947805, 0.46678874500198564]]
+2026-03-04 16:23:12,104 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:23:12,192 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:23:14,215 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:23:14,221 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-04 16:23:16,252 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:23:16,258 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:23:18,271 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:23:18,461 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.029788 seconds).
+2026-03-04 16:23:20,463 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:23:28,278 - INFO - Successful movement : Planned and executed pose target successfully (took 0.043554 seconds)
+2026-03-04 16:23:30,344 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:23:30,350 - INFO - Pose read successful. XYZ: [0.200, 0.100, 0.100], Quat: [0.000, 1.000, 0.000, 0.001], RPY: [3.142, 0.002, 3.142]
+2026-03-04 16:23:32,405 - INFO - Joint state read request
+2026-03-04 16:23:32,411 - INFO - Joint state read successful. Joints: [[0.464601730745251, 0.25862903820349903, 2.4119744376471726, 3.1397629823750535, -0.4691565062834231, -2.6753121665843596]]
+2026-03-04 16:23:34,456 - INFO - Request for movement received : X=0.3, Y=0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:23:42,312 - INFO - Successful movement : Planned and executed pose target successfully (took 0.051098 seconds)
+2026-03-04 16:23:44,339 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:23:44,344 - INFO - Pose read successful. XYZ: [0.300, 0.100, 0.200], Quat: [0.000, 1.000, 0.000, 0.001], RPY: [3.142, 0.001, 3.141]
+2026-03-04 16:23:46,362 - INFO - Joint state read request
+2026-03-04 16:23:46,367 - INFO - Joint state read successful. Joints: [[0.32184037844009783, 0.21707047543547997, 1.9720873869584015, -0.00036433674547176054, 0.9513589724426268, 0.32300028240396195]]
+2026-03-04 16:23:48,389 - INFO - Request for movement received : X=0.3, Y=-0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:23:52,054 - INFO - Successful movement : Planned and executed pose target successfully (took 0.037431 seconds)
+2026-03-04 16:23:54,074 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:23:54,080 - INFO - Pose read successful. XYZ: [0.300, -0.100, 0.100], Quat: [-0.000, 1.000, 0.000, 0.000], RPY: [3.141, 0.001, -3.141]
+2026-03-04 16:23:56,091 - INFO - Joint state read request
+2026-03-04 16:23:56,097 - INFO - Joint state read successful. Joints: [[-0.322761351732618, 0.4650110923650601, 2.069561646290193, 0.001787329238077895, 0.6066705374964947, -0.32443294765538333]]
+2026-03-04 16:23:58,125 - INFO - Request for movement received : X=0.2, Y=-0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:24:05,970 - INFO - Successful movement : Planned and executed pose target successfully (took 0.070858 seconds)
+2026-03-04 16:24:08,011 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:24:08,017 - INFO - Pose read successful. XYZ: [0.200, -0.100, 0.200], Quat: [0.000, 1.000, -0.000, 0.001], RPY: [-3.141, 0.002, 3.141]
+2026-03-04 16:24:10,042 - INFO - Joint state read request
+2026-03-04 16:24:10,048 - INFO - Joint state read successful. Joints: [[-0.4639373015160331, -0.07532102523598994, 2.289848936776579, -3.141156629724674, -0.9250916614448217, -3.605034498413147]]
+2026-03-04 16:24:12,071 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:24:23,107 - INFO - Successful movement : Planned and executed pose target successfully (took 0.044375 seconds)
+2026-03-04 16:24:25,111 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:24:25,117 - INFO - Pose read successful. XYZ: [0.200, 0.100, 0.100], Quat: [-0.000, 1.000, -0.000, 0.001], RPY: [-3.141, 0.001, -3.141]
+2026-03-04 16:24:27,124 - INFO - Joint state read request
+2026-03-04 16:24:27,130 - INFO - Joint state read successful. Joints: [[0.4649987956911792, 0.25960238542277203, 2.410944655270505, 3.139675807124803, -0.47017645739763214, -2.6754387612509345]]
+2026-03-04 16:26:37,447 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:26:37,530 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:26:39,572 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:26:39,578 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-04 16:26:41,658 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:26:41,664 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:26:43,750 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:26:43,828 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.016093 seconds).
+2026-03-04 16:26:45,872 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:26:55,901 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 10.026086 seconds)
+2026-03-04 16:26:57,919 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:26:57,924 - INFO - Pose read successful. XYZ: [0.267, 0.000, 0.950], Quat: [0.000, 0.707, 0.000, 0.707], RPY: [0.000, 1.570, 0.000]
+2026-03-04 16:26:59,961 - INFO - Joint state read request
+2026-03-04 16:26:59,967 - INFO - Joint state read successful. Joints: [[-3.3646001540432735e-09, 4.323478973056183e-06, -2.6457670416313306e-05, 4.066003533864659e-09, 1.570196436961111, 1.802034077513781e-09]]
+2026-03-04 16:27:01,989 - INFO - Request for movement received : X=0.3, Y=0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:27:09,634 - INFO - Successful movement : Planned and executed pose target successfully (took 0.047158 seconds)
+2026-03-04 16:27:11,700 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:27:11,705 - INFO - Pose read successful. XYZ: [0.300, 0.100, 0.200], Quat: [-0.000, 1.000, -0.000, 0.000], RPY: [-3.141, 0.001, -3.141]
+2026-03-04 16:27:13,803 - INFO - Joint state read request
+2026-03-04 16:27:13,809 - INFO - Joint state read successful. Joints: [[-2.818727532060799, -0.21785823976913044, -1.9049218685442648, -0.0012503301167923198, -1.0181787255793893, -2.8188696920765066]]
+2026-03-04 16:27:15,894 - INFO - Request for movement received : X=0.3, Y=-0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:27:26,678 - INFO - Successful movement : Planned and executed pose target successfully (took 0.053102 seconds)
+2026-03-04 16:27:28,699 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:27:28,705 - INFO - Pose read successful. XYZ: [0.300, -0.100, 0.100], Quat: [-0.000, 1.000, -0.000, 0.000], RPY: [-3.141, 0.001, -3.141]
+2026-03-04 16:27:30,723 - INFO - Joint state read request
+2026-03-04 16:27:30,729 - INFO - Joint state read successful. Joints: [[2.8202416880092294, -0.4641836626421032, -2.00353772737153, -0.0004913551808796157, -0.6728767190189382, -3.463018457470867]]
+2026-03-04 16:27:32,778 - INFO - Request for movement received : X=0.2, Y=-0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:27:42,811 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 10.026515 seconds)
+2026-03-04 16:27:44,873 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:27:44,878 - INFO - Pose read successful. XYZ: [0.300, -0.100, 0.100], Quat: [-0.000, 1.000, -0.000, 0.000], RPY: [-3.141, 0.001, -3.141]
+2026-03-04 16:27:46,967 - INFO - Joint state read request
+2026-03-04 16:27:46,973 - INFO - Joint state read successful. Joints: [[2.8202417004919536, -0.46418402090552746, -2.0035375604163477, -0.0004912932552540994, -0.6728764904806512, -3.4630184930021994]]
+2026-03-04 16:27:49,043 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:32:45,647 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:32:45,730 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:32:47,762 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:32:47,768 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 16:32:49,797 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:32:49,802 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:32:51,814 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:32:51,902 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.026474 seconds).
+2026-03-04 16:32:53,930 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:33:03,964 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 10.028238 seconds)
+2026-03-04 16:33:05,978 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:33:05,985 - INFO - Pose read successful. XYZ: [0.300, -0.000, 0.383], Quat: [-0.000, 1.000, -0.000, 0.001], RPY: [-3.142, 0.002, -3.142]
+2026-03-04 16:33:08,060 - INFO - Joint state read request
+2026-03-04 16:33:08,066 - INFO - Joint state read successful. Joints: [[5.325873964068251e-09, -3.6378794563418637e-06, 1.5704887809847543, -1.577142683117927e-08, 1.5695155536394472, 2.4838904266744066e-09]]
+2026-03-04 16:33:10,132 - INFO - Request for movement received : X=0.3, Y=0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:33:20,153 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 10.016785 seconds)
+2026-03-04 16:33:22,166 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:33:22,171 - INFO - Pose read successful. XYZ: [0.300, -0.000, 0.383], Quat: [-0.000, 1.000, -0.000, 0.001], RPY: [-3.142, 0.002, -3.142]
+2026-03-04 16:33:24,233 - INFO - Joint state read request
+2026-03-04 16:33:24,239 - INFO - Joint state read successful. Joints: [[1.0471359779273826e-08, -3.5503609536746694e-06, 1.5704884019647958, -6.606790137198004e-08, 1.5695159079707919, 8.192264644435454e-09]]
+2026-03-04 16:33:26,251 - INFO - Request for movement received : X=0.3, Y=-0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:33:36,269 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 10.011790 seconds)
+2026-03-04 16:33:38,288 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:33:38,294 - INFO - Pose read successful. XYZ: [0.300, -0.000, 0.383], Quat: [-0.000, 1.000, -0.000, 0.001], RPY: [-3.142, 0.002, -3.142]
+2026-03-04 16:33:40,359 - INFO - Joint state read request
+2026-03-04 16:33:40,365 - INFO - Joint state read successful. Joints: [[1.0471359779273826e-08, -3.5503609536746694e-06, 1.5704884019647967, -6.606790137198004e-08, 1.56951590797079, 8.192264644435454e-09]]
+2026-03-04 16:33:42,422 - INFO - Request for movement received : X=0.2, Y=-0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:33:51,244 - INFO - Successful movement : Planned and executed pose target successfully (took 5.065168 seconds)
+2026-03-04 16:33:53,264 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:33:53,269 - INFO - Pose read successful. XYZ: [0.200, -0.100, 0.200], Quat: [0.000, 1.000, 0.000, 0.001], RPY: [3.141, 0.002, 3.141]
+2026-03-04 16:33:55,294 - INFO - Joint state read request
+2026-03-04 16:33:55,299 - INFO - Joint state read successful. Joints: [[-0.4658401802950225, -0.0743482981937813, 2.289047521149458, 0.002031421559695268, 0.925866616571323, -0.46617032428185645]]
+2026-03-04 16:33:57,314 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:34:10,018 - INFO - Successful movement : Planned and executed pose target successfully (took 8.334947 seconds)
+2026-03-04 16:34:12,071 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:34:12,076 - INFO - Pose read successful. XYZ: [0.200, 0.100, 0.100], Quat: [-0.000, 1.000, 0.000, 0.000], RPY: [3.141, 0.001, -3.141]
+2026-03-04 16:34:14,144 - INFO - Joint state read request
+2026-03-04 16:34:14,150 - INFO - Joint state read successful. Joints: [[0.46369545908643595, 0.2594784148777398, 2.4108669439597, 0.00024981903131315875, 0.47040013133652625, 0.46318498238691674]]
+2026-03-04 16:34:23,542 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:34:23,590 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:34:25,633 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:34:25,639 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 16:34:27,658 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:34:27,664 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:34:29,668 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:34:34,026 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.029580 seconds).
+2026-03-04 16:34:36,049 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:34:46,065 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 10.011907 seconds)
+2026-03-04 16:34:48,117 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:34:48,122 - INFO - Pose read successful. XYZ: [0.300, -0.000, 0.383], Quat: [0.000, 1.000, -0.000, 0.001], RPY: [-3.142, 0.001, 3.141]
+2026-03-04 16:34:50,176 - INFO - Joint state read request
+2026-03-04 16:34:50,182 - INFO - Joint state read successful. Joints: [[-7.696929199862979e-05, 7.912226097683828e-05, 1.5700352985377366, -6.485356840180145e-05, 1.570036726403763, 8.994955445729147e-05]]
+2026-03-04 16:34:52,217 - INFO - Request for movement received : X=0.3, Y=0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:35:02,237 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 10.016180 seconds)
+2026-03-04 16:35:11,368 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:35:11,415 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=100, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:35:13,426 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:35:13,432 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 16:35:15,474 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:35:15,480 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:35:17,587 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:35:17,671 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.023652 seconds).
+2026-03-04 16:35:19,724 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:35:30,732 - INFO - Successful movement : Planned and executed pose target successfully (took 3.202225 seconds)
+2026-03-04 16:35:32,756 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:35:32,762 - INFO - Pose read successful. XYZ: [0.200, 0.100, 0.100], Quat: [-0.000, 1.000, 0.000, 0.001], RPY: [3.141, 0.002, -3.141]
+2026-03-04 16:35:34,772 - INFO - Joint state read request
+2026-03-04 16:35:34,777 - INFO - Joint state read successful. Joints: [[0.4638108770386289, 0.25907560013563025, 2.411914313321775, -3.141589999993526, -0.46864848400821657, -2.6781138787665233]]
+2026-03-04 16:35:36,797 - INFO - Request for movement received : X=0.3, Y=0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:35:48,136 - INFO - Successful movement : Planned and executed pose target successfully (took 0.330247 seconds)
+2026-03-04 16:35:50,231 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:35:50,236 - INFO - Pose read successful. XYZ: [0.300, 0.100, 0.200], Quat: [-0.000, 1.000, -0.000, 0.001], RPY: [-3.141, 0.002, -3.141]
+2026-03-04 16:35:52,298 - INFO - Joint state read request
+2026-03-04 16:35:52,304 - INFO - Joint state read successful. Joints: [[0.323427272812852, 0.21650581709903616, 1.9732006020524082, 3.1394982615785185, -0.9498443572830588, 3.465574186442391]]
+2026-03-04 16:35:54,346 - INFO - Request for movement received : X=0.3, Y=-0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:36:13,662 - INFO - Successful movement : Planned and executed pose target successfully (took 10.172494 seconds)
+2026-03-04 16:36:15,683 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:36:15,689 - INFO - Pose read successful. XYZ: [0.300, -0.100, 0.100], Quat: [-0.000, 1.000, -0.000, 0.001], RPY: [-3.142, 0.001, -3.141]
+2026-03-04 16:36:17,710 - INFO - Joint state read request
+2026-03-04 16:36:17,716 - INFO - Joint state read successful. Joints: [[2.819502042427837, -0.46414107573763985, -2.003997477801798, 0.00061598369175897, -0.6722650433251882, -3.4647029480546334]]
+2026-03-04 16:36:19,722 - INFO - Request for movement received : X=0.2, Y=-0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:36:37,640 - INFO - Successful movement : Planned and executed pose target successfully (took 8.774089 seconds)
+2026-03-04 16:36:39,661 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:36:39,667 - INFO - Pose read successful. XYZ: [0.200, -0.100, 0.200], Quat: [0.000, 1.000, -0.000, 0.001], RPY: [-3.141, 0.001, 3.141]
+2026-03-04 16:36:41,699 - INFO - Joint state read request
+2026-03-04 16:36:41,705 - INFO - Joint state read successful. Joints: [[-0.4641166275050459, -0.07383722126315284, 2.289024015622058, -3.141044764239929, -0.9252415988308558, -3.605171862538896]]
+2026-03-04 16:36:43,723 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:37:08,378 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 24.650312 seconds)
+2026-03-04 16:37:10,395 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:37:10,401 - INFO - Pose read successful. XYZ: [0.200, -0.100, 0.200], Quat: [0.000, 1.000, -0.000, 0.001], RPY: [-3.141, 0.001, 3.141]
+2026-03-04 16:37:12,430 - INFO - Joint state read request
+2026-03-04 16:37:12,436 - INFO - Joint state read successful. Joints: [[-0.46411661471650945, -0.07383729895170532, 2.2890243506342305, -3.1410446924522333, -0.9252413021379979, -3.605171892838943]]
+2026-03-04 16:41:58,204 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-04 16:41:58,266 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=100, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=world, ee_link=tool_link
+2026-03-04 16:42:00,275 - INFO - Requesting IK solver info from C++ node...
+2026-03-04 16:42:00,281 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-04 16:42:02,320 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-04 16:42:02,326 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-04 16:42:04,358 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-04 16:42:12,187 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.036322 seconds).
+2026-03-04 16:42:14,231 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:42:38,676 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 24.440122 seconds)
+2026-03-04 16:42:40,693 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:42:40,699 - INFO - Pose read successful. XYZ: [0.300, -0.000, 0.383], Quat: [-0.000, 1.000, -0.000, 0.001], RPY: [-3.142, 0.002, -3.141]
+2026-03-04 16:42:42,707 - INFO - Joint state read request
+2026-03-04 16:42:42,712 - INFO - Joint state read successful. Joints: [[-1.0699375874168027e-06, -2.2025673974468418e-05, 1.5701005527067542, -8.782812992880196e-05, 1.569995875955649, -9.702497450803094e-05]]
+2026-03-04 16:42:44,746 - INFO - Request for movement received : X=0.3, Y=0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:43:05,771 - INFO - Successful movement : Planned and executed pose target successfully (took 13.243556 seconds)
+2026-03-04 16:43:07,793 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:43:07,799 - INFO - Pose read successful. XYZ: [0.300, 0.100, 0.200], Quat: [-0.000, 1.000, 0.000, 0.001], RPY: [3.141, 0.001, -3.141]
+2026-03-04 16:43:09,811 - INFO - Joint state read request
+2026-03-04 16:43:09,817 - INFO - Joint state read successful. Joints: [[0.3215187960579158, 0.217012038255465, 1.9724026000999224, -3.1415899856912484, -0.9510806672769725, 3.4622970846333754]]
+2026-03-04 16:43:11,825 - INFO - Request for movement received : X=0.3, Y=-0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:43:17,120 - INFO - Successful movement : Planned and executed pose target successfully (took 1.667653 seconds)
+2026-03-04 16:43:19,139 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:43:19,145 - INFO - Pose read successful. XYZ: [0.300, -0.100, 0.100], Quat: [-0.000, 1.000, 0.000, 0.000], RPY: [3.141, 0.001, -3.141]
+2026-03-04 16:43:21,230 - INFO - Joint state read request
+2026-03-04 16:43:21,235 - INFO - Joint state read successful. Joints: [[-0.32214096321314045, 0.46468787215856366, 2.069838165412941, -3.1403124088002983, -0.6064324445047102, 2.8182277226602817]]
+2026-03-04 16:43:23,298 - INFO - Request for movement received : X=0.2, Y=-0.1, Z=0.2 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:43:42,637 - INFO - Successful movement : Planned and executed pose target successfully (took 11.537870 seconds)
+2026-03-04 16:43:44,692 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:43:44,698 - INFO - Pose read successful. XYZ: [0.200, -0.100, 0.200], Quat: [0.000, 1.000, -0.000, 0.000], RPY: [-3.142, 0.001, 3.141]
+2026-03-04 16:43:46,697 - INFO - Joint state read request
+2026-03-04 16:43:46,703 - INFO - Joint state read successful. Joints: [[-0.46387451992649176, -0.07363465578036799, 2.288515855607306, 0.0004150244885803289, 0.9259202502311359, -0.46335538099212004]]
+2026-03-04 16:43:48,724 - INFO - Request for movement received : X=0.2, Y=0.1, Z=0.1 (Relative=False, Cartesian=False, Execute=True)
+2026-03-04 16:44:12,506 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE (took 23.779575 seconds)
+2026-03-04 16:44:14,535 - INFO - Pose read request (frame=, child=)
+2026-03-04 16:44:14,540 - INFO - Pose read successful. XYZ: [0.200, -0.100, 0.200], Quat: [0.000, 1.000, -0.000, 0.000], RPY: [-3.142, 0.001, 3.141]
+2026-03-04 16:44:16,586 - INFO - Joint state read request
+2026-03-04 16:44:16,591 - INFO - Joint state read successful. Joints: [[-0.46387451992649265, -0.0736346557803671, 2.288515855607306, 0.0004150244885803289, 0.925920250231135, -0.46335538099212004]]
