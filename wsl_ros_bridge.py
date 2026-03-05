@@ -77,6 +77,7 @@ class ScalingReq(BaseModel):
 
 class JointReq(BaseModel):
     joints: List[float]
+    angle_format: str = "RAD"
     is_relative: bool = False
     execute: bool = True
 
@@ -88,6 +89,7 @@ class MoveToPoseReq(BaseModel):
     r2: float
     r3: float
     r4: float = 0.0
+    angle_format: str = "RAD"
     rotation_format: str = "RPY"
     reference_frame: str = "WORLD"
     is_relative: bool = False
@@ -105,6 +107,7 @@ class WaypointItem(BaseModel):
     is_relative: bool = False
     reference_frame: str = "WORLD"
     rotation_format: str = "RPY"
+    angle_format: str = "RAD"
 
 class MoveWaypointsReq(BaseModel):
     waypoints: List[WaypointItem]
@@ -261,7 +264,12 @@ class MotionRosClient(Node):
     def call_move_joints(self, req: JointReq) -> Dict[str, Any]:
         logger.info(f"Joint movement request: {req.joints} (Relative={req.is_relative}, Execute={req.execute})")
         ros_req = MoveJoints.Request()
-        ros_req.joints = [float(x) for x in req.joints]
+
+        if req.angle_format.upper() == "DEG":
+            ros_req.joints = [math.radians(float(x)) for x in req.joints]
+        else:
+            ros_req.joints = [float(x) for x in req.joints]
+            
         ros_req.is_relative = bool(req.is_relative)
         ros_req.execute = bool(req.execute)
 
@@ -284,9 +292,15 @@ class MotionRosClient(Node):
         ros_req.x = float(req.x)
         ros_req.y = float(req.y)
         ros_req.z = float(req.z)
-        ros_req.r1 = float(req.r1)
-        ros_req.r2 = float(req.r2)
-        ros_req.r3 = float(req.r3)
+        
+        r1, r2, r3 = float(req.r1), float(req.r2), float(req.r3)
+        
+        if req.rotation_format.upper() == "RPY" and req.angle_format.upper() == "DEG":
+            r1, r2, r3 = math.radians(r1), math.radians(r2), math.radians(r3)
+            
+        ros_req.r1 = r1
+        ros_req.r2 = r2
+        ros_req.r3 = r3
         ros_req.r4 = float(req.r4)
         ros_req.rotation_format = str(req.rotation_format)
         ros_req.reference_frame = str(req.reference_frame)
@@ -322,6 +336,11 @@ class MotionRosClient(Node):
             p.position.z = float(wp.z)
             
             if wp.rotation_format == "RPY": # We convert RPY to quaternion for the Pose message
+                r1, r2, r3 = float(wp.r1), float(wp.r2), float(wp.r3)
+                
+                if wp.angle_format.upper() == "DEG":
+                    r1, r2, r3 = math.radians(r1), math.radians(r2), math.radians(r3)
+
                 qx, qy, qz, qw = euler_to_quaternion(wp.r1, wp.r2, wp.r3)
                 p.orientation.x = qx
                 p.orientation.y = qy
