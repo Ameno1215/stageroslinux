@@ -556,3 +556,80 @@ RuntimeError: Timeout waiting for ROS service response
 2026-03-05 09:55:37,347 - INFO - All ROS 2 services are connected.
 2026-03-05 09:56:17,182 - INFO - Waiting for ROS 2 services...
 2026-03-05 09:56:18,437 - INFO - All ROS 2 services are connected.
+2026-03-05 15:47:39,230 - INFO - Waiting for ROS 2 services...
+2026-03-05 15:47:39,230 - INFO - All ROS 2 services are connected.
+2026-03-05 15:54:25,660 - INFO - Waiting for ROS 2 services...
+2026-03-05 15:54:25,663 - INFO - All ROS 2 services are connected.
+2026-03-05 15:57:07,539 - INFO - Waiting for ROS 2 services...
+2026-03-05 15:57:07,540 - INFO - All ROS 2 services are connected.
+2026-03-05 16:00:04,406 - INFO - Initialization request (Model: vs060, Group: arm)
+2026-03-05 16:00:04,499 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect, planning_frame=world, ee_link=tool_link
+2026-03-05 16:00:06,530 - INFO - Requesting IK solver info from C++ node...
+2026-03-05 16:00:06,536 - INFO - Current IK solver plugin: kdl_kinematics_plugin/KDLKinematicsPlugin (short name: kdl_kinematics_plugin)
+2026-03-05 16:00:08,572 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-05 16:00:08,577 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-05 16:00:10,593 - INFO - Sending ADD for box box1 to C++ node...
+2026-03-05 16:00:12,629 - INFO - Sending ADD for box box2 to C++ node...
+2026-03-05 16:00:14,668 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-05 16:00:16,711 - INFO - Sending ADD for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-05 16:00:18,764 - INFO - Sending ADD for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-05 16:00:20,823 - INFO - Virtual cage modification request (Enable=True)
+2026-03-05 16:00:20,829 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-05 16:00:24,883 - INFO - Joint movement request: [] (Relative=False, Execute=True)
+2026-03-05 16:00:24,889 - ERROR - Joint movement failed: Incorrect joint size. Expected: 6
+2026-03-05 16:00:26,915 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-03-05 16:00:35,064 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.021264 seconds)
+2026-03-05 16:00:37,104 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-03-05 16:00:41,780 - INFO - Successful movement : Cartesian path executed.
+2026-03-05 16:00:43,810 - INFO - Calculating approach pose: target=(0.488, 0.086, 0.121), z_offset=0.12m
+2026-03-05 16:00:43,810 - INFO - Approach position computed: x=0.488, y=0.086, z=0.241
+2026-03-05 16:00:43,810 - INFO - Sending approach request to ROS C++ node...
+2026-03-05 16:00:48,077 - INFO - Approach movement successful: Cartesian path executed.
+2026-03-05 16:00:50,117 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-05 16:00:52,480 - INFO - Successful movement : Cartesian path executed.
+2026-03-05 16:00:54,505 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-05 16:00:56,864 - INFO - Successful movement : Cartesian path executed.
+2026-03-05 16:00:58,895 - INFO - Calculating approach pose: target=(0.435, 0.044, 0.086), z_offset=0.12m
+2026-03-05 16:00:58,896 - INFO - Approach position computed: x=0.363, y=-0.015, z=0.161
+2026-03-05 16:00:58,896 - INFO - Sending approach request to ROS C++ node...
+2026-03-05 16:01:05,817 - INFO - Approach movement successful: Cartesian path executed.
+2026-03-05 16:01:07,838 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-05 16:01:10,941 - INFO - Successful movement : Cartesian path executed.
+2026-03-05 16:01:12,970 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-05 16:01:16,064 - INFO - Successful movement : Cartesian path executed.
+2026-03-05 16:01:18,102 - INFO - Calculating approach pose: target=(0.509, -0.155, 0.057), z_offset=0.12m
+2026-03-05 16:01:18,102 - INFO - Approach position computed: x=0.509, y=-0.155, z=0.177
+2026-03-05 16:01:18,102 - INFO - Sending approach request to ROS C++ node...
+2026-03-05 16:01:23,956 - INFO - Approach movement successful: Cartesian path executed.
+2026-03-05 16:01:26,000 - INFO - Request for movement received : X=0.0, Y=0.0, Z=0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-05 16:01:28,312 - INFO - Successful movement : Cartesian path executed.
+2026-03-05 16:01:30,329 - INFO - Request for movement received : X=0.0, Y=0.0, Z=-0.12 (Relative=True, Cartesian=True, Execute=True)
+2026-03-05 16:01:32,642 - INFO - Successful movement : Cartesian path executed.
+2026-03-05 16:01:34,671 - INFO - Waypoints movement request: 2 points (Cartesian=True, execute=True)
+2026-03-05 16:01:44,723 - INFO - Waypoints movement successful: Trajectory waypoints executed successfully. (took 0.026715 seconds)
+2026-03-05 16:01:46,751 - INFO - Request for movement received : X=0.2581, Y=0.136, Z=0.33299999999999996 (Relative=False, Cartesian=True, Execute=True)
+2026-03-05 16:01:51,470 - INFO - Successful movement : Cartesian path executed.
+2026-03-05 16:01:53,501 - INFO - Joint movement request: [] (Relative=False, Execute=True)
+2026-03-05 16:01:53,506 - ERROR - Joint movement failed: Incorrect joint size. Expected: 6
+2026-03-05 16:01:55,535 - INFO - Request for movement received : X=0.4, Y=0.0, Z=0.5 (Relative=False, Cartesian=False, Execute=True)
+2026-03-05 16:02:03,360 - INFO - Successful movement : Planned and executed pose target successfully (took 0.066063 seconds)
+2026-03-05 16:02:05,385 - INFO - Request for movement received : X=1.0, Y=0.0, Z=0.0 (Relative=True, Cartesian=True, Execute=True)
+2026-03-05 16:02:05,406 - ERROR - Failed movement ! Cause returned by MoveIt : Impossible Cartesian path (collision or singularity) Fraction: 0.257426
+2026-03-05 16:02:09,433 - INFO - Virtual cage modification request (Enable=False)
+2026-03-05 16:02:09,439 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-05 16:02:11,493 - INFO - Sending REMOVE for box box1 to C++ node...
+2026-03-05 16:02:13,525 - INFO - Sending REMOVE for box box2 to C++ node...
+2026-03-05 16:02:15,575 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna top (Glass): center to C++ node...
+2026-03-05 16:02:17,601 - INFO - Sending REMOVE for box DESKO GmbH SmartCard Reader 0_Antenna front (PVC): center to C++ node...
+2026-03-05 16:02:19,630 - INFO - Sending REMOVE for box ACS ACR1251 1S CL Reader PICC 0_Center to C++ node...
+2026-03-06 11:25:59,668 - INFO - Waiting for ROS 2 services...
+2026-03-06 11:26:29,719 - ERROR - Service /init_robot not available. Is motion_server running?
+2026-03-06 11:26:48,030 - INFO - Waiting for ROS 2 services...
+2026-03-06 11:26:48,030 - INFO - All ROS 2 services are connected.
+2026-03-06 11:51:12,195 - INFO - Waiting for ROS 2 services...
+2026-03-06 11:51:12,449 - INFO - All ROS 2 services are connected.
+2026-03-06 11:54:51,897 - INFO - Waiting for ROS 2 services...
+2026-03-06 11:54:52,899 - INFO - All ROS 2 services are connected.
+2026-03-06 12:03:54,209 - INFO - Waiting for ROS 2 services...
+2026-03-06 12:03:54,216 - INFO - All ROS 2 services are connected.
+2026-03-06 12:04:57,506 - ERROR - Validation Error on POST /init - [body -> planning_group]: Input should be 'arm' or 'manipulator'

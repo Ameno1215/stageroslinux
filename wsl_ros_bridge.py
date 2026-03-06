@@ -1,7 +1,7 @@
 import threading
 import time
 import math
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 import logging
 from logging.handlers import RotatingFileHandler
 import traceback
@@ -17,6 +17,10 @@ from geometry_msgs.msg import PoseStamped, Pose
 from rcl_interfaces.srv import GetParameters
 from moveit_msgs.msg import PlanningScene, CollisionObject, ObjectColor
 from shape_msgs.msg import SolidPrimitive
+
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi import Request
 
 
 
@@ -61,15 +65,23 @@ def euler_to_quaternion(roll, pitch, yaw):
 # Pydantic models (HTTP I/O)
 # ----------------------------
 
+SupportedModels = Literal["vs060", "cobotta", "hsr065a1_n32", "vp5243", "staubli_tx2_60l"]
+SupportedAngleFormat = Literal["RAD", "DEG"]
+SupportedRotationFormat = Literal["RPY", "QUAT"]
+SupportedReferenceFrame = Literal["WORLD", "TOOL"]
+SupportedPPlannerId = Literal["RRTstar", "PRMstar", "FMT", "RRTConnect", "BiTRRT"]
+SupportedPlanningGroup = Literal["arm", "manipulator"]
+SupportedBoxAction = Literal["ADD", "REMOVE"]
+
 class InitReq(BaseModel):
-    model: str = "vs060"
-    planning_group: str = "arm"
+    model: SupportedModels = "vs060"
+    planning_group: SupportedPlanningGroup = "arm"
     velocity_scale: float = 0.1
     accel_scale: float = 0.1
     planning_time: float = 5.0
     planning_attempts: int = 10
     allow_replanning: bool = True
-    planner_id: str = "PRMstar"
+    planner_id: SupportedPPlannerId = "PRMstar"
 
 class ScalingReq(BaseModel):
     velocity_scale: float = Field(ge=0.0, le=1.0)
@@ -77,37 +89,37 @@ class ScalingReq(BaseModel):
 
 class JointReq(BaseModel):
     joints: List[float]
-    angle_format: str = "RAD"
+    angle_format: SupportedAngleFormat = "RAD"
     is_relative: bool = False
     execute: bool = True
 
 class MoveToPoseReq(BaseModel):
-    x: float
-    y: float
-    z: float
-    r1: float
-    r2: float
-    r3: float
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+    r1: float = 0.0
+    r2: float = 0.0
+    r3: float = 0.0
     r4: float = 0.0
-    angle_format: str = "RAD"
-    rotation_format: str = "RPY"
-    reference_frame: str = "WORLD"
+    angle_format: SupportedAngleFormat = "RAD"
+    rotation_format: SupportedRotationFormat = "RPY"
+    reference_frame: SupportedReferenceFrame = "WORLD"
     is_relative: bool = False
     cartesian_path: bool = False
     execute: bool = True
 
 class WaypointItem(BaseModel):
-    x: float
-    y: float
-    z: float
-    r1: float
-    r2: float
-    r3: float
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+    r1: float = 0.0
+    r2: float = 0.0
+    r3: float = 0.0
     r4: float = 0.0
     is_relative: bool = False
-    reference_frame: str = "WORLD"
-    rotation_format: str = "RPY"
-    angle_format: str = "RAD"
+    reference_frame: SupportedReferenceFrame = "WORLD"
+    rotation_format: SupportedRotationFormat = "RPY"
+    angle_format: SupportedAngleFormat = "RAD"
 
 class MoveWaypointsReq(BaseModel):
     waypoints: List[WaypointItem]
@@ -115,20 +127,20 @@ class MoveWaypointsReq(BaseModel):
     execute: bool = True
 
 class MoveApproachReq(BaseModel):
-    x: float
-    y: float
-    z: float
-    r1: float
-    r2: float
-    r3: float
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+    r1: float = 0.0
+    r2: float = 0.0
+    r3: float = 0.0
     r4: float = 0.0
-    rotation_format: str = "RPY"
+    rotation_format: SupportedRotationFormat = "RPY"
     z_offset: float = 0.1
     cartesian_path: bool = False
     execute: bool = True
 
 class VirtualCageReq(BaseModel):
-    enable: bool
+    enable: bool = False
     front: float = 1.0
     back: float = 1.0
     left: float = 1.0
@@ -150,11 +162,11 @@ class ManageBoxReq(BaseModel):
     r2: float = 0.0
     r3: float = 0.0
     r4: float = 0.0
-    rotation_format: str = "RPY"
+    rotation_format: SupportedRotationFormat = "RPY"
     size_x: float = 0.1
     size_y: float = 0.1
     size_z: float = 0.1
-    action: str = "ADD" # Can be "ADD" or "REMOVE"
+    action: SupportedBoxAction = "ADD"
 
 
 # ----------------------------
@@ -598,6 +610,35 @@ class MotionRosClient(Node):
 # ----------------------------
 
 app = FastAPI(title="Motion HTTP Bridge", version="1.0")
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Intercepte toutes les erreurs de type / de Literal générées par Pydantic.
+    Écrit l'erreur dans le logger et renvoie une erreur 422 propre au client.
+    """
+    error_details = []
+    for error in exc.errors():
+        # Exemple: error['loc'] contiendra ('body', 'rotation_format')
+        field_name = " -> ".join([str(loc) for loc in error['loc']]) 
+        error_msg = error['msg']
+        error_details.append(f"[{field_name}]: {error_msg}")
+    
+    full_error_string = " | ".join(error_details)
+    
+    # ÉCRITURE DANS TON LOGGER ICI
+    logger.error(f"Validation Error on {request.method} {request.url.path} - {full_error_string}")
+    
+    # Renvoie la réponse au client
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False, 
+            "message": "Invalid parameters sent by client.", 
+            "details": error_details
+        },
+    )
+
 
 _ros_client: Optional[MotionRosClient] = None
 
