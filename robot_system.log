@@ -689,3 +689,15 @@ RuntimeError: Timeout waiting for ROS service response
 2026-03-06 15:30:28,845 - INFO - All ROS 2 services are connected.
 2026-03-06 15:45:55,451 - INFO - Waiting for ROS 2 services...
 2026-03-06 15:45:55,451 - INFO - All ROS 2 services are connected.
+2026-03-09 10:09:35,725 - INFO - Waiting for ROS 2 services...
+2026-03-09 10:09:35,726 - INFO - All ROS 2 services are connected.
+2026-03-09 10:10:14,370 - INFO - Initialization request (Model: staubli_tx2_60l, Group: manipulator)
+2026-03-09 10:10:14,446 - INFO - Initialization successful: Initialized with model=staubli_tx2_60l, group=manipulator, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTstar, planning_frame=base_link, ee_link=tool0
+2026-03-09 10:10:16,540 - INFO - Requesting IK solver info from C++ node...
+2026-03-09 10:10:16,546 - ERROR - Solver parameter not found or empty in response.
+2026-03-09 10:10:18,592 - INFO - Scaling change request (Vel: 1.0, Acc: 1.0)
+2026-03-09 10:10:18,598 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-09 10:10:20,638 - INFO - Joint movement request: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Execute=True)
+2026-03-09 10:10:23,283 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.050191 seconds).
+2026-03-09 10:10:25,299 - INFO - Waypoints movement request: 5 points (Cartesian=False, execute=True)
+2026-03-09 10:10:44,632 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (0.295221s)
