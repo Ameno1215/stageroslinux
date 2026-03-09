@@ -12,7 +12,7 @@ from rclpy.node import Node
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox
+from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox, ManageMesh
 from geometry_msgs.msg import PoseStamped, Pose
 from rcl_interfaces.srv import GetParameters
 from moveit_msgs.msg import PlanningScene, CollisionObject, ObjectColor
@@ -166,8 +166,31 @@ class ManageBoxReq(BaseModel):
     size_x: float = 0.1
     size_y: float = 0.1
     size_z: float = 0.1
+    r: float = 0.8
+    g: float = 0.8
+    b: float = 0.8
+    a: float = 1.0
     action: SupportedBoxAction = "ADD"
-
+    
+class ManageMeshReq(BaseModel):
+    mesh_id: str
+    mesh_path: str
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+    r1: float = 0.0
+    r2: float = 0.0
+    r3: float = 0.0
+    r4: float = 0.0
+    rotation_format: SupportedRotationFormat = "RPY"
+    scale_x: float = 1.0
+    scale_y: float = 1.0
+    scale_z: float = 1.0
+    r: float = 0.8
+    g: float = 0.8
+    b: float = 0.8
+    a: float = 1.0
+    action: SupportedBoxAction = "ADD"
 
 # ----------------------------
 # ROS2 client node
@@ -187,6 +210,7 @@ class MotionRosClient(Node):
         self.cage_cli = self.create_client(SetVirtualCage, "/set_virtual_cage")
         self.param_client = self.create_client(GetParameters, "/motion_server/get_parameters")
         self.manage_box_cli = self.create_client(ManageBox, "/manage_box")
+        self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
         
 
         # Wait for services
@@ -201,7 +225,8 @@ class MotionRosClient(Node):
             (self.move_waypoints_cli, "/move_waypoints"),
             (self.cage_cli, "/set_virtual_cage"),
             (self.param_client, "/motion_server/get_parameters"),
-            (self.manage_box_cli, "/manage_box")
+            (self.manage_box_cli, "/manage_box"),
+            (self.manage_mesh_cli, "/manage_mesh")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 logger.error(f"Service {name} not available. Is motion_server running?")
@@ -595,6 +620,10 @@ class MotionRosClient(Node):
         ros_req.size_x = float(req.size_x)
         ros_req.size_y = float(req.size_y)
         ros_req.size_z = float(req.size_z)
+        ros_req.r = float(req.r)
+        ros_req.g = float(req.g)
+        ros_req.b = float(req.b)
+        ros_req.a = float(req.a)
         ros_req.action = req.action
 
         fut = self.manage_box_cli.call_async(ros_req)
@@ -603,6 +632,39 @@ class MotionRosClient(Node):
             return {"success": res.success, "message": res.message}
         except Exception as e:
             logger.error(f"Failed to manage box: {e}")
+            return {"success": False, "message": str(e)}
+
+    def call_manage_mesh(self, req: ManageMeshReq):
+        logger.info(f"Sending {req.action} for mesh {req.mesh_id} (Path: {req.mesh_path})...")
+        if not self.manage_mesh_cli.wait_for_service(timeout_sec=2.0):
+            return {"success": False, "message": "Service manage_mesh unavailable."}
+
+        ros_req = ManageMesh.Request()
+        ros_req.mesh_id = req.mesh_id
+        ros_req.mesh_path = req.mesh_path
+        ros_req.x = float(req.x)
+        ros_req.y = float(req.y)
+        ros_req.z = float(req.z)
+        ros_req.r1 = float(req.r1)
+        ros_req.r2 = float(req.r2)
+        ros_req.r3 = float(req.r3)
+        ros_req.r4 = float(req.r4)
+        ros_req.rotation_format = req.rotation_format
+        ros_req.scale_x = float(req.scale_x)
+        ros_req.scale_y = float(req.scale_y)
+        ros_req.scale_z = float(req.scale_z)
+        ros_req.r = float(req.r)
+        ros_req.g = float(req.g)
+        ros_req.b = float(req.b)
+        ros_req.a = float(req.a)
+        ros_req.action = req.action
+
+        fut = self.manage_mesh_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            return {"success": res.success, "message": res.message}
+        except Exception as e:
+            logger.error(f"Failed to manage mesh: {e}")
             return {"success": False, "message": str(e)}
 
 # ----------------------------
@@ -734,3 +796,13 @@ def manage_box(req: ManageBoxReq):
         return _ros_client.call_manage_box(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/manage_mesh")
+def manage_mesh(req: ManageMeshReq):
+    try:
+        return _ros_client.call_manage_mesh(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+

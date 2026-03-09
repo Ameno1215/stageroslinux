@@ -19,6 +19,9 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <moveit/robot_trajectory/robot_trajectory.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
+#include <geometric_shapes/mesh_operations.h>
+#include <shape_msgs/msg/mesh.hpp>
+#include <geometric_shapes/shape_operations.h>
 
 #include "motion_control/srv/init_robot.hpp"
 #include "motion_control/srv/set_scaling.hpp"
@@ -29,6 +32,7 @@
 #include "motion_control/srv/move_waypoints.hpp"
 #include "motion_control/srv/set_virtual_cage.hpp"
 #include "motion_control/srv/manage_box.hpp"
+#include "motion_control/srv/manage_mesh.hpp"
 
 
 namespace motion_control
@@ -195,6 +199,10 @@ namespace motion_control
                 const std::shared_ptr<srv::ManageBox::Request> req,
                 std::shared_ptr<srv::ManageBox::Response> res);
 
+            void onManageMesh(
+                const std::shared_ptr<motion_control::srv::ManageMesh::Request> req,
+                std::shared_ptr<motion_control::srv::ManageMesh::Response> res);
+
 
             // Internal helpers
             // Checks if the MoveGroup interface is initialized before processing motion commands
@@ -222,6 +230,7 @@ namespace motion_control
             rclcpp::Service<srv::MoveWaypoints>::SharedPtr srv_move_waypoints_;
             rclcpp::Service<srv::SetVirtualCage>::SharedPtr srv_virtual_cage_;
             rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;
+            rclcpp::Service<motion_control::srv::ManageMesh>::SharedPtr srv_manage_mesh_;
     };
 
 }  // namespace motion_control

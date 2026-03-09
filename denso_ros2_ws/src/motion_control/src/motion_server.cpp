@@ -54,6 +54,10 @@ namespace motion_control
         srv_manage_box_ = this->create_service<srv::ManageBox>(
             "manage_box",
             std::bind(&MotionServer::onManageBox, this, std::placeholders::_1, std::placeholders::_2));
+        
+        srv_manage_mesh_ = this->create_service<srv::ManageMesh>(
+            "manage_mesh",
+            std::bind(&MotionServer::onManageMesh, this, std::placeholders::_1, std::placeholders::_2));
 
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
@@ -826,12 +830,108 @@ namespace motion_control
         }
 
         // Apply to the planning scene
-        std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
-        collision_objects.push_back(obj);
-        planning_scene_->applyCollisionObjects(collision_objects);
+        moveit_msgs::msg::PlanningScene planning_scene_msg;
+        planning_scene_msg.is_diff = true; 
+        
+        planning_scene_msg.world.collision_objects.push_back(obj);
+
+        if (req->action != "REMOVE") {
+            moveit_msgs::msg::ObjectColor oc;
+            oc.id = obj.id;
+            oc.color.r = req->r;
+            oc.color.g = req->g;
+            oc.color.b = req->b;
+            oc.color.a = req->a;
+            planning_scene_msg.object_colors.push_back(oc);
+        }
+
+        planning_scene_->applyPlanningScene(planning_scene_msg);
 
         res->success = true;
-        res->message = "Box '" + req->box_id + "' action '" + req->action + "' applied.";
+        res->message = "Box '" + req->box_id + "' action '" + req->action + "' applied with color.";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onManageMesh(
+        const std::shared_ptr<srv::ManageMesh::Request> req,
+        std::shared_ptr<srv::ManageMesh::Response> res)
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        std::string why;
+        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+
+        moveit_msgs::msg::CollisionObject obj;
+        obj.header.frame_id = "world"; // Placed relative to the world frame
+        obj.id = req->mesh_id;
+
+        if (req->action == "REMOVE") {
+            obj.operation = obj.REMOVE;
+        } else {
+            obj.operation = obj.ADD;
+
+            // Create the scale vector
+            Eigen::Vector3d scale(req->scale_x, req->scale_y, req->scale_z);
+            
+            // Load the mesh from the specified path (must start with file:// or package://)
+            shapes::Mesh* m = shapes::createMeshFromResource(req->mesh_path, scale);
+            
+            if (!m) {
+                res->success = false;
+                res->message = "Failed to load mesh from: " + req->mesh_path;
+                RCLCPP_ERROR(this->get_logger(), "%s", res->message.c_str());
+                return;
+            }
+
+            // Convert to ROS message
+            shape_msgs::msg::Mesh mesh_msg;
+            shapes::ShapeMsg shape_msg;
+            shapes::constructMsgFromShape(m, shape_msg);
+            mesh_msg = boost::get<shape_msgs::msg::Mesh>(shape_msg);
+            delete m; // Free the memory
+
+            // Calculate the pose (Translation + Rotation)
+            tf2::Quaternion q;
+            if (req->rotation_format == "RPY") {
+                q.setRPY(req->r1, req->r2, req->r3);
+            } else {
+                q = tf2::Quaternion(req->r1, req->r2, req->r3, req->r4);
+                q.normalize();
+            }
+
+            geometry_msgs::msg::Pose pose;
+            pose.position.x = req->x;
+            pose.position.y = req->y;
+            pose.position.z = req->z;
+            pose.orientation.x = q.x();
+            pose.orientation.y = q.y();
+            pose.orientation.z = q.z();
+            pose.orientation.w = q.w();
+
+            // Add to the CollisionObject
+            obj.meshes.push_back(mesh_msg);
+            obj.mesh_poses.push_back(pose);
+        }
+
+        // Apply to the planning scene
+        moveit_msgs::msg::PlanningScene planning_scene_msg;
+        planning_scene_msg.is_diff = true;
+
+        planning_scene_msg.world.collision_objects.push_back(obj);
+
+        if (req->action != "REMOVE") {
+            moveit_msgs::msg::ObjectColor oc;
+            oc.id = obj.id;
+            oc.color.r = req->r;
+            oc.color.g = req->g;
+            oc.color.b = req->b;
+            oc.color.a = req->a;
+            planning_scene_msg.object_colors.push_back(oc);
+        }
+
+        planning_scene_->applyPlanningScene(planning_scene_msg);
+
+        res->success = true;
+        res->message = "Mesh '" + req->mesh_id + "' action '" + req->action + "' applied with color.";
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 

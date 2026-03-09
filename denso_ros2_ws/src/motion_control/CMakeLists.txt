@@ -27,6 +27,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/MoveWaypoints.srv"
   "srv/SetVirtualCage.srv"
   "srv/ManageBox.srv"
+  "srv/ManageMesh.srv"
   DEPENDENCIES geometry_msgs
 )
 
