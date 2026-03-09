@@ -48,7 +48,7 @@ def generate_launch_description():
     
     # 1. URDF
     description_package = PythonExpression([
-        "'staubli_tx2_60l_description' if 'staubli_tx2_60l' in '", model, "' else 'denso_robot_descriptions'"
+        "'staubli_robot_description' if 'staubli_tx2_60l' in '", model, "' else 'denso_robot_descriptions'"
     ])
     description_folder = "urdf"  # Stäubli et Denso utilisent tous les deux 'urdf' pour ce fichier
     description_file = PythonExpression([
@@ -57,7 +57,7 @@ def generate_launch_description():
     
     # 2. SRDF
     moveit_config_package = PythonExpression([
-        "'staubli_tx2_60l_moveit_config' if 'staubli_tx2_60l' in '", model, "' else 'denso_robot_moveit_config'"
+        "'staubli_robot_moveit_config' if 'staubli_tx2_60l' in '", model, "' else 'denso_robot_moveit_config'"
     ])
     srdf_folder = PythonExpression([
         "'config' if 'staubli_tx2_60l' in '", model, "' else 'srdf'"
@@ -95,7 +95,7 @@ def generate_launch_description():
 
     # --- Kinematics ---
     denso_kinematics = load_yaml("denso_robot_moveit_config", "config/kinematics.yaml") or {}
-    staubli_kinematics = load_yaml("staubli_tx2_60l_moveit_config", "config/kinematics.yaml") or {}
+    staubli_kinematics = load_yaml("staubli_robot_moveit_config", "config/kinematics.yaml") or {}
 
     motion_server_node = Node(
         package="motion_control",

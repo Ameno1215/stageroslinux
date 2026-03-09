@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>staubli_tx2_60l_moveit_config</name>
+  <name>staubli_robot_moveit_config</name>
   <version>1.0.0</version>
   <description>
     An automatically generated package with all the configuration and launch files for using the staubli with the MoveIt Motion Planning Framework
@@ -12,7 +12,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <exec_depend>ros2launch</exec_depend>
-  <exec_depend>staubli_tx2_60l_description</exec_depend>
+  <exec_depend>staubli_robot_description</exec_depend>
 
   <exec_depend>joint_state_publisher</exec_depend>
   <exec_depend>joint_state_publisher_gui</exec_depend>

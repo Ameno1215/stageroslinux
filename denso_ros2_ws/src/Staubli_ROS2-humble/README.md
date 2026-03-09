@@ -48,7 +48,7 @@ There are 3 different options for using this package:
     ```
   * Using a real robot with moveit only:
     ```
-    1) ros2 launch staubli_tx2_60l_moveit_config staubli_tx2_60l_planning_execution_real.launch.py
+    1) ros2 launch staubli_robot_moveit_config staubli_tx2_60l_planning_execution_real.launch.py
     2) ros2 launch staubli_val3_driver robot_interface_streaming.launch.py robot_ip:=<ROBOT_IP>
     ```
   * Using a real robot with moveit and the adaptive motion middleware:
@@ -62,7 +62,7 @@ There are 3 different options for using this package:
     3) ros2 launch staubli_val3_driver motion_streaming_interface.launch.py robot_ip:=127.0.0.1
     4) ros2 launch staubli_val3_driver io_interface.launch.py robot_ip:=<ROBOT_IP>
     5) ros2 launch staubli_val3_driver system_interface.launch.py robot_ip:=<ROBOT_IP>
-    6) ros2 launch staubli_tx2_60l_moveit_config staubli_tx2_60l_planning_execution_real.launch.py 
+    6) ros2 launch staubli_robot_moveit_config staubli_tx2_60l_planning_execution_real.launch.py 
     7) ros2 run industrial_robot_client joint_trajectory_action
     8) ros2 run moveit_interface moveit_interface planning_group:=manipulator
     ```

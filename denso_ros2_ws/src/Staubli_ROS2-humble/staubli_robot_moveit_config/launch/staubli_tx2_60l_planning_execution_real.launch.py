@@ -22,8 +22,9 @@ def generate_launch_description():
     # Trajectory execution functionality
     controllers_yaml = xacro.load_yaml(
         os.path.join(
-            get_package_share_directory("staubli_tx2_60l_moveit_config"),
+            get_package_share_directory("staubli_robot_moveit_config"),
             "config",
+            "tx2_60l",
             "staubli_tx2_60l_controllers.yaml",
         )
     )
@@ -59,7 +60,7 @@ def generate_launch_description():
         arguments=["--ros-args", "--log-level", "info"],
     )
     #RViz2
-    rviz_base = os.path.join(get_package_share_directory("staubli_tx2_60l_moveit_config"), "config")
+    rviz_base = os.path.join(get_package_share_directory("staubli_robot_moveit_config"), "config", "tx2_60l")
     rviz_full_config = os.path.join(rviz_base, "moveit.rviz")
     rviz_node = Node(
         package="rviz2",

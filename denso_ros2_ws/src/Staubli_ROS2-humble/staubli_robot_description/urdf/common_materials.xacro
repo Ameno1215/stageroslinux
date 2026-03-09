@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro">
-  <xacro:include filename="$(find staubli_tx2_60l_description)/urdf/common_colours.xacro"/>
+  <xacro:include filename="$(find staubli_robot_description)/urdf/common_colours.xacro"/>
 
   <!-- default colors for robots -->
   <xacro:macro name="material_staubli_ral_melon_yellow">

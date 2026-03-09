@@ -10,14 +10,15 @@ import xacro
 def generate_launch_description():
     robot_description_config = xacro.process_file(
         os.path.join(
-            get_package_share_directory("staubli_tx2_60l_description"),
+            get_package_share_directory("staubli_robot_description"),
             "urdf",
+            "tx2_60l",
             "tx2_60l.xacro",
         )
     )
     robot_description = {"robot_description": robot_description_config.toxml()}
 
-    rviz_config_file = PathJoinSubstitution([FindPackageShare("staubli_tx2_60l_description"), "rviz","view_tx2_60l.rviz"])
+    rviz_config_file = PathJoinSubstitution([FindPackageShare("staubli_robot_description"), "rviz","view_tx2_60l.rviz"])
     
     joint_state_publisher_node = Node(
         package="joint_state_publisher_gui",

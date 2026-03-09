@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(staubli_tx2_60l_moveit_config)
+project(staubli_robot_moveit_config)
 
 if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
