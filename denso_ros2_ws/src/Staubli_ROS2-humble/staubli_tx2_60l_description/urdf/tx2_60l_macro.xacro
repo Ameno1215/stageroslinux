@@ -3,6 +3,15 @@
   <xacro:include filename="$(find staubli_tx2_60l_description)/urdf/common_materials.xacro"/>
 
   <xacro:macro name="staubli_tx2_60l" params="prefix">
+    <!-- World link - always present so Gazebo Classic SDF conversion gets a proper root.
+         Without this, the URDF->SDF conversion fails with FrameAttachedToGraph errors
+         and gazebo_ros2_control skips all joint interfaces. -->
+    <link name="world"/>
+    <joint name="${prefix}world_joint" type="fixed">
+      <parent link="world"/>
+      <child link="${prefix}base_link"/>
+    </joint>
+
     <!-- links: main serial chain -->
     <link name="${prefix}base_link">
       <visual>
@@ -18,6 +27,11 @@
           <mesh filename="package://staubli_tx2_60l_description/meshes/collision/base_link.stl"/>
         </geometry>
       </collision>
+      <inertial>
+        <mass value="1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+      </inertial>
     </link>
     <link name="${prefix}link_1">
       <visual>
@@ -33,6 +47,11 @@
           <mesh filename="package://staubli_tx2_60l_description/meshes/collision/link_1.stl"/>
         </geometry>
       </collision>
+      <inertial>
+        <mass value="1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+      </inertial>
     </link>
     <link name="${prefix}link_2">
       <visual>
@@ -48,6 +67,11 @@
           <mesh filename="package://staubli_tx2_60l_description/meshes/collision/link_2.stl"/>
         </geometry>
       </collision>
+      <inertial>
+        <mass value="1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+      </inertial>
     </link>
     <link name="${prefix}link_3">
       <visual>
@@ -63,6 +87,11 @@
           <mesh filename="package://staubli_tx2_60l_description/meshes/collision/link_3.stl"/>
         </geometry>
       </collision>
+      <inertial>
+        <mass value="1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+      </inertial>
     </link>
     <link name="${prefix}link_4">
       <visual>
@@ -78,6 +107,11 @@
           <mesh filename="package://staubli_tx2_60l_description/meshes/collision/link_4.stl"/>
         </geometry>
       </collision>
+      <inertial>
+        <mass value="1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+      </inertial>
     </link>
     <link name="${prefix}link_5">
       <visual>
@@ -93,6 +127,11 @@
           <mesh filename="package://staubli_tx2_60l_description/meshes/collision/link_5.stl"/>
         </geometry>
       </collision>
+      <inertial>
+        <mass value="1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+      </inertial>
     </link>
     <link name="${prefix}link_6">
       <visual>
@@ -108,6 +147,11 @@
           <mesh filename="package://staubli_tx2_60l_description/meshes/collision/link_6.stl"/>
         </geometry>
       </collision>
+      <inertial>
+        <mass value="1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+      </inertial>
     </link>
 
     <!-- joints: main serial chain -->
