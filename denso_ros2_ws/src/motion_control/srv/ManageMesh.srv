@@ -16,6 +16,7 @@ float64 g
 float64 b
 float64 a
 string action          # "ADD" ou "REMOVE"
+bool enable_collision
 ---
 bool success
 string message

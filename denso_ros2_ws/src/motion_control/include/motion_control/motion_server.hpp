@@ -22,6 +22,8 @@
 #include <geometric_shapes/mesh_operations.h>
 #include <shape_msgs/msg/mesh.hpp>
 #include <geometric_shapes/shape_operations.h>
+#include <visualization_msgs/msg/marker.hpp>
+#include <unordered_map>
 
 #include "motion_control/srv/init_robot.hpp"
 #include "motion_control/srv/set_scaling.hpp"
@@ -33,6 +35,7 @@
 #include "motion_control/srv/set_virtual_cage.hpp"
 #include "motion_control/srv/manage_box.hpp"
 #include "motion_control/srv/manage_mesh.hpp"
+
 
 
 namespace motion_control
@@ -56,6 +59,20 @@ namespace motion_control
         private:
             std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
             std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+            
+            rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
+    
+            // RViz requires a numeric ID (int32), but MoveIt uses names (string).
+            // This dictionary maps string IDs to integer IDs.
+            std::unordered_map<std::string, int32_t> marker_ids_;
+            int32_t next_marker_id_ = 0;
+
+            int32_t getMarkerId(const std::string& name) {
+                if (marker_ids_.find(name) == marker_ids_.end()) {
+                    marker_ids_[name] = next_marker_id_++;
+                }
+                return marker_ids_[name];
+            }
 
             std::string moveitErrorCodeToString(const moveit::core::MoveItErrorCode& code);
 

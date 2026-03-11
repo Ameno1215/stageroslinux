@@ -18,6 +18,9 @@ namespace motion_control
         // Initialisation du système d'écoute TF
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+        rclcpp::QoS qos(10);
+        qos.transient_local();
+        visual_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("motion_server_markers", qos);
 
         srv_init_ = this->create_service<srv::InitRobot>(
             "init_robot",
@@ -784,73 +787,99 @@ namespace motion_control
         std::string why;
         if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
 
+        // --- 1. Math and Pose Calculations ---
+        tf2::Quaternion q;
+        if (req->rotation_format == "RPY") {
+            q.setRPY(req->r1, req->r2, req->r3);
+        } else {
+            q = tf2::Quaternion(req->r1, req->r2, req->r3, req->r4);
+            q.normalize();
+        }
+
+        tf2::Matrix3x3 m(q);
+        tf2::Vector3 z_vec = m.getColumn(2);
+
+        double offset = req->size_z / 2.0;
+        double cx = req->x + (offset * z_vec.x());
+        double cy = req->y + (offset * z_vec.y());
+        double cz = req->z + (offset * z_vec.z());
+
+        geometry_msgs::msg::Pose pose;
+        pose.position.x = cx;
+        pose.position.y = cy;
+        pose.position.z = cz;
+        pose.orientation.x = q.x();
+        pose.orientation.y = q.y();
+        pose.orientation.z = q.z();
+        pose.orientation.w = q.w();
+
+        // --- 2. Setup MoveIt Object and RViz Marker ---
         moveit_msgs::msg::CollisionObject obj;
         obj.header.frame_id = "world";
         obj.id = req->box_id;
 
-        if (req->action == "REMOVE") {
-            obj.operation = obj.REMOVE;
-        } else {
-            obj.operation = obj.ADD;
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "world";
+        marker.header.stamp = this->now();
+        marker.ns = "boxes";
+        marker.id = getMarkerId(req->box_id); 
 
-            // Convert to Quaternion
-            tf2::Quaternion q;
-            if (req->rotation_format == "RPY") {
-                q.setRPY(req->r1, req->r2, req->r3);
-            } else {
-                q = tf2::Quaternion(req->r1, req->r2, req->r3, req->r4);
-                q.normalize();
-            }
-
-            // Extract Z vector easily with tf2
-            tf2::Matrix3x3 m(q);
-            tf2::Vector3 z_vec = m.getColumn(2);
-
-            // Calculate Center (Move FORWARD into the object by half its Z-size)
-            double offset = req->size_z / 2.0;
-            double cx = req->x + (offset * z_vec.x());
-            double cy = req->y + (offset * z_vec.y());
-            double cz = req->z + (offset * z_vec.z());
-
-            shape_msgs::msg::SolidPrimitive primitive;
-            primitive.type = primitive.BOX;
-            primitive.dimensions = {req->size_x, req->size_y, req->size_z};
-
-            geometry_msgs::msg::Pose pose;
-            pose.position.x = cx;
-            pose.position.y = cy;
-            pose.position.z = cz;
-            pose.orientation.x = q.x();
-            pose.orientation.y = q.y();
-            pose.orientation.z = q.z();
-            pose.orientation.w = q.w();
-
-            obj.primitives.push_back(primitive);
-            obj.primitive_poses.push_back(pose);
-        }
-
-        // Apply to the planning scene
         moveit_msgs::msg::PlanningScene planning_scene_msg;
         planning_scene_msg.is_diff = true; 
-        
-        planning_scene_msg.world.collision_objects.push_back(obj);
 
-        if (req->action != "REMOVE") {
-            moveit_msgs::msg::ObjectColor oc;
-            oc.id = obj.id;
-            oc.color.r = req->r;
-            oc.color.g = req->g;
-            oc.color.b = req->b;
-            oc.color.a = req->a;
-            planning_scene_msg.object_colors.push_back(oc);
+        // --- 3. Collision vs Visual Logic ---
+        if (req->action == "REMOVE") {
+            // Remove from both MoveIt and RViz
+            obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
+            marker.action = visualization_msgs::msg::Marker::DELETE;
+        } else {
+            if (req->enable_collision) {
+                // COLLISION ON: MoveIt handles it
+                obj.operation = moveit_msgs::msg::CollisionObject::ADD;
+
+                shape_msgs::msg::SolidPrimitive primitive;
+                primitive.type = primitive.BOX;
+                primitive.dimensions = {req->size_x, req->size_y, req->size_z};
+
+                obj.primitives.push_back(primitive);
+                obj.primitive_poses.push_back(pose);
+
+                moveit_msgs::msg::ObjectColor oc;
+                oc.id = obj.id;
+                oc.color.r = req->r;
+                oc.color.g = req->g;
+                oc.color.b = req->b;
+                oc.color.a = req->a;
+                planning_scene_msg.object_colors.push_back(oc);
+
+                // Hide RViz marker
+                marker.action = visualization_msgs::msg::Marker::DELETE;
+            } else {
+                // COLLISION OFF: Purely visual in RViz
+                obj.operation = moveit_msgs::msg::CollisionObject::REMOVE; 
+
+                marker.action = visualization_msgs::msg::Marker::ADD;
+                marker.type = visualization_msgs::msg::Marker::CUBE;
+                marker.pose = pose;
+                marker.scale.x = req->size_x;
+                marker.scale.y = req->size_y;
+                marker.scale.z = req->size_z;
+                marker.color.r = req->r;
+                marker.color.g = req->g;
+                marker.color.b = req->b;
+                marker.color.a = req->a;
+            }
         }
 
+        // --- 4. Apply changes ---
+        planning_scene_msg.world.collision_objects.push_back(obj);
         planning_scene_->applyPlanningScene(planning_scene_msg);
+        visual_marker_pub_->publish(marker); 
 
         res->success = true;
-        res->message = "Box '" + req->box_id + "' action '" + req->action + "' applied with color.";
-        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+        res->message = "Box '" + req->box_id + "' action '" + req->action + "' applied. Collision: " + (req->enable_collision ? "ON" : "OFF");
     }
+
 
     void MotionServer::onManageMesh(
         const std::shared_ptr<srv::ManageMesh::Request> req,

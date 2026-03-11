@@ -15,6 +15,7 @@ float64 g
 float64 b
 float64 a
 string action
+bool enable_collision
 ---
 bool success
 string message
