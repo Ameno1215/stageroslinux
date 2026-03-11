@@ -171,6 +171,7 @@ class ManageBoxReq(BaseModel):
     b: float = 0.8
     a: float = 1.0
     action: SupportedBoxAction = "ADD"
+    enable_collision: bool = True
     
 class ManageMeshReq(BaseModel):
     mesh_id: str
@@ -625,6 +626,7 @@ class MotionRosClient(Node):
         ros_req.b = float(req.b)
         ros_req.a = float(req.a)
         ros_req.action = req.action
+        ros_req.enable_collision = bool(req.enable_collision)
 
         fut = self.manage_box_cli.call_async(ros_req)
         try:
