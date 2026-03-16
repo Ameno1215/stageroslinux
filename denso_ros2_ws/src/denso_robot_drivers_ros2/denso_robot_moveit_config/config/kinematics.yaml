@@ -23,13 +23,13 @@ arm:
   mode: local
 
   # --- Accuracy ---
-  position_threshold: 0.0001          # 0.1mm — tight, ensures path fidelity
-  orientation_threshold: 0.001        # Very tight orientation tracking
+  position_threshold: 0.001          # 1mm — tight, ensures path fidelity
+  orientation_threshold: 0.01        # Very tight orientation tracking
   cost_threshold: 0.001
 
   # --- Scales ---
   position_scale: 1.0
-  rotation_scale: 1.0                 # Full 6-DOF tracking along the path
+  rotation_scale: 0.5                 # Full 6-DOF tracking along the path
 
   # --- Joint smoothness ---
   # Small but non-zero: penalizes large jumps between consecutive waypoints
@@ -38,7 +38,7 @@ arm:
 
   # --- Gradient descent tuning ---
   # Smaller step = more precise convergence, worth it since we have timeout budget
-  gd_step_size: 0.00001               # 10x finer than default
+  gd_step_size: 0.0001
 
   # --- Approximate solution guard ---
   # If a waypoint IK drifts too far from goal, reject it rather than accept garbage

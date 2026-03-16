@@ -11,8 +11,8 @@ namespace motion_control
         // Declare parameters for convenient launch-time configuration
         this->declare_parameter<std::string>("model", "vs060");
         this->declare_parameter<std::string>("planning_group", "arm");
-        this->declare_parameter<double>("velocity_scale", 0.1);
-        this->declare_parameter<double>("accel_scale", 0.1);
+        this->declare_parameter<double>("velocity_scale", 1.0);
+        this->declare_parameter<double>("accel_scale", 1.0);
         this->set_parameter(rclcpp::Parameter("use_sim_time", true));
 
         // Initialisation du système d'écoute TF

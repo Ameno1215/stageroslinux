@@ -8,7 +8,7 @@
 			</command_interface>
 			<command_interface name="velocity">
 				<param name="min">0</param>
-				<param name="max">3</param>
+				<param name="max">8</param>
 			</command_interface>
 			<state_interface name="position">
                 <param name="initial_value">0.0</param>
@@ -23,7 +23,7 @@
 			</command_interface>
 			<command_interface name="velocity">
 				<param name="min">0</param>
-				<param name="max">2</param>
+				<param name="max">5</param>
 			</command_interface>
 			<state_interface name="position">
                 <param name="initial_value">0.0</param>
@@ -38,7 +38,7 @@
 			</command_interface>
 			<command_interface name="velocity">
 				<param name="min">0</param>
-				<param name="max">2</param>
+				<param name="max">6</param>
 			</command_interface>
 			<state_interface name="position">
                 <param name="initial_value">1.57</param>
@@ -53,7 +53,7 @@
 			</command_interface>
 			<command_interface name="velocity">
 				<param name="min">0</param>
-				<param name="max">3</param>
+				<param name="max">9</param>
 			</command_interface>
 			<state_interface name="position">
                 <param name="initial_value">0.0</param>
@@ -68,7 +68,7 @@
 			</command_interface>
 			<command_interface name="velocity">
 				<param name="min">0</param>
-				<param name="max">2</param>
+				<param name="max">7</param>
 			</command_interface>
 			<state_interface name="position">
                 <param name="initial_value">1.57</param>
@@ -83,7 +83,7 @@
 			</command_interface>
 			<command_interface name="velocity">
 				<param name="min">0</param>
-				<param name="max">5</param>
+				<param name="max">15</param>
 			</command_interface>
 			<state_interface name="position">
                 <param name="initial_value">0.0</param>
