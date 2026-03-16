@@ -274,7 +274,22 @@ namespace motion_control
         }
 
         // Otherwise, we need the current position to calculate the relative or tool coordinate system
-        geometry_msgs::msg::PoseStamped current_pose_msg = move_group_->getCurrentPose();
+        geometry_msgs::msg::PoseStamped current_pose_msg;
+        try {
+            current_pose_msg = move_group_->getCurrentPose();
+        } catch (const std::exception& e) {
+            out_error_msg = std::string("Failed to get current pose for relative motion: ") + e.what();
+            return final_pose;
+        }
+        // Validate that we got a non-zero pose (getCurrentPose can silently return zeros if TF is not ready)
+        const auto& p = current_pose_msg.pose;
+        const auto& o = p.orientation;
+        if (p.position.x == 0.0 && p.position.y == 0.0 && p.position.z == 0.0 &&
+            o.x == 0.0 && o.y == 0.0 && o.z == 0.0 && o.w == 0.0) {
+            out_error_msg = "getCurrentPose() returned a zero pose. TF tree may not be ready";
+            return final_pose;
+        }
+        
         tf2::Transform current_transform;
         tf2::fromMsg(current_pose_msg.pose, current_transform);
 
@@ -316,6 +331,17 @@ namespace motion_control
 
         if (!error_msg.empty()) { res->success = false; res->message = error_msg; return; }
 
+        // Validate quaternion to catch NaN/Inf before sending to MoveIt
+        {
+            const auto& q = target_pose.pose.orientation;
+            double norm = std::sqrt(q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w);
+            if (!std::isfinite(norm) || norm < 0.99 || norm > 1.01) {
+                res->success = false;
+                res->message = "Invalid quaternion after transformation (norm=" + std::to_string(norm) + "). Check rotation inputs.";
+                return;
+            }
+        }
+
         // Speed ​​application
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
@@ -327,8 +353,8 @@ namespace motion_control
             waypoints.push_back(target_pose.pose);
 
             moveit_msgs::msg::RobotTrajectory trajectory;
-            const double jump_threshold = 1.5; // 1.5 radian jump threshold (prevents joint "jumps")
-            const double eef_step = 0.01; // 1 cm resolution
+            const double jump_threshold = 3; // 3 radian jump threshold (prevents joint "jumps")
+            const double eef_step = 0.005; // 1 cm resolution
 
             double fraction = move_group_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
 
@@ -426,8 +452,8 @@ namespace motion_control
         // Cartesian path planning
         if (req->cartesian_path) {
             moveit_msgs::msg::RobotTrajectory trajectory;
-            const double jump_threshold = 1.5; 
-            const double eef_step = 0.01;      
+            const double jump_threshold = 3; 
+            const double eef_step = 0.005;      
 
             auto start_time = std::chrono::high_resolution_clock::now();
             double fraction = move_group_->computeCartesianPath(absolute_waypoints, eef_step, jump_threshold, trajectory);
@@ -509,6 +535,12 @@ namespace motion_control
                 }
                 
                 // Update the start state for the next segment calculation
+                if (segment_plan.trajectory_.joint_trajectory.points.empty()) {
+                    res->success = false;
+                    res->message = "Planner returned an empty trajectory at waypoint " + std::to_string(i+1);
+                    move_group_->setStartStateToCurrentState();
+                    return;
+                }
                 std::vector<double> last_positions = segment_plan.trajectory_.joint_trajectory.points.back().positions;
                 current_start_state->setJointGroupPositions(planning_group_, last_positions);
             }
@@ -644,9 +676,10 @@ namespace motion_control
             // Lookup Transform via TF2
             geometry_msgs::msg::TransformStamped t;
             t = tf_buffer_->lookupTransform(
-                reference_frame, 
-                target_frame, 
-                tf2::TimePointZero // Get the latest available transform
+                reference_frame,
+                target_frame,
+                tf2::TimePointZero, // Get the latest available transform
+                tf2::durationFromSec(0.5) // Timeout: fail fast if TF tree is broken
             );
 
             // Fill Standard Pose (Position + Quaternion)
