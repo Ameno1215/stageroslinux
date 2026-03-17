@@ -251,7 +251,7 @@ class MotionRosClient(Node):
         return fut.result()
 
     def call_init(self, req: InitReq) -> Dict[str, Any]:
-        logger.info(f"Initialization request (Model: {req.model}, Group: {req.planning_group})")
+        logger.info(f"Initialization requested (Model: {req.model}, Group: {req.planning_group})")
         ros_req = InitRobot.Request()
         ros_req.model = str(req.model)
         ros_req.planning_group = str(req.planning_group)
@@ -280,7 +280,7 @@ class MotionRosClient(Node):
         return {"success": bool(res.success), "message": str(res.message)}
 
     def call_scaling(self, req: ScalingReq) -> Dict[str, Any]:
-        logger.info(f"Scaling change request (Vel: {req.velocity_scale}, Acc: {req.accel_scale})")
+        logger.info(f"Scaling change requested (Vel: {req.velocity_scale}, Acc: {req.accel_scale})")
         ros_req = SetScaling.Request()
         ros_req.velocity_scale = float(req.velocity_scale)
         ros_req.accel_scale = float(req.accel_scale)
@@ -300,7 +300,7 @@ class MotionRosClient(Node):
             raise RuntimeError(f"SetScaling failed: {e}")
 
     def call_move_joints(self, req: JointReq) -> Dict[str, Any]:
-        logger.info(f"Joint movement request: {req.joints} (Relative={req.is_relative}, Execute={req.execute})")
+        logger.info(f"Joint movement requested: {req.joints} (Relative={req.is_relative}, Angle Format={req.angle_format}, Execute={req.execute})")
         ros_req = MoveJoints.Request()
 
         if req.angle_format.upper() == "DEG":
@@ -325,7 +325,11 @@ class MotionRosClient(Node):
             raise RuntimeError(f"MoveJoints failed: {e}")
 
     def call_move_to_pose(self, req: MoveToPoseReq) -> Dict[str, Any]:
-        logger.info(f"Request for movement received : X={req.x}, Y={req.y}, Z={req.z} (Relative={req.is_relative}, Cartesian={req.cartesian_path}, Execute={req.execute})")
+        if req.rotation_format.upper() == "RPY":
+            logger.info(f"Request for movement received : X={req.x}, Y={req.y}, Z={req.z}, RX={req.r1}, RY={req.r2}, RZ={req.r3}, (Relative={req.is_relative}, Cartesian={req.cartesian_path}, Angle Format={req.angle_format}, Execute={req.execute})")
+        else:
+            logger.info(f"Request for movement received : X={req.x}, Y={req.y}, Z={req.z}, R1={req.r1}, R2={req.r2}, R3={req.r3}, R4={req.r4}, (Relative={req.is_relative}, Cartesian={req.cartesian_path}, Angle Format={req.angle_format}, Execute={req.execute})")
+        
         ros_req = MoveToPose.Request()
         ros_req.x = float(req.x)
         ros_req.y = float(req.y)
@@ -361,7 +365,7 @@ class MotionRosClient(Node):
             raise RuntimeError(f"MoveToPose failed: {e}")
 
     def call_move_waypoints(self, req: MoveWaypointsReq) -> Dict[str, Any]:
-        logger.info(f"Waypoints movement request: {len(req.waypoints)} points (Cartesian={req.cartesian_path}, execute={req.execute})")
+        logger.info(f"Waypoints movement requested: {len(req.waypoints)} points (Cartesian={req.cartesian_path}, execute={req.execute})")
         ros_req = MoveWaypoints.Request()
         ros_req.cartesian_path = bool(req.cartesian_path)
         ros_req.execute = bool(req.execute)
@@ -408,7 +412,7 @@ class MotionRosClient(Node):
             raise RuntimeError(f"MoveWaypoints failed: {e}")
 
     def call_get_joints(self):
-        logger.info("Joint state read request")
+        logger.info("Joint state read requested")
         req = GetJointState.Request()
         fut = self.get_joints_cli.call_async(req)
         try:
@@ -424,7 +428,7 @@ class MotionRosClient(Node):
             raise RuntimeError(f"GetJointState failed: {e}")
     
     def call_get_pose(self, frame_id: str = "", child_frame_id: str = ""):
-        logger.info(f"Pose read request (frame={frame_id}, child={child_frame_id})")
+        logger.info(f"Pose read requested (frame={frame_id}, child={child_frame_id})")
         req = GetCurrentPose.Request()
         req.frame_id = frame_id # Reference frame for the returned pose (e.g. "base_link"). If empty, the robot's default frame will be used.
         req.child_frame_id = child_frame_id # (Optional) If specified, the service will attempt to return the pose of this child frame. If empty, the end-effector frame will be used.
@@ -477,7 +481,7 @@ class MotionRosClient(Node):
         }
 
     def call_set_virtual_cage(self, req: VirtualCageReq) -> Dict[str, Any]:
-        logger.info(f"Virtual cage modification request (Enable={req.enable})")
+        logger.info(f"Virtual cage modification requested (Enable={req.enable})")
         ros_req = SetVirtualCage.Request()
         ros_req.enable = bool(req.enable)
         ros_req.front = float(req.front)
@@ -539,8 +543,10 @@ class MotionRosClient(Node):
             return {"success": False, "message": str(e)}
 
     def call_move_approach(self, req: MoveApproachReq):
-        import math
-        logger.info(f"Calculating approach pose: target=({req.x:.3f}, {req.y:.3f}, {req.z:.3f}), z_offset={req.z_offset}m")
+        if req.rotation_format.upper() == "RPY":
+            logger.info(f"Approach pose requested: target=(position: {req.x:.3f}, {req.y:.3f}, {req.z:.3f} - orientation: {req.r1:.3f}, {req.r2:.3f}, {req.r3:.3f}), z_offset={req.z_offset}m, cartesian={req.cartesian_path}")
+        else:
+            logger.info(f"Approach pose requested: target=(position: {req.x:.3f}, {req.y:.3f}, {req.z:.3f} - orientation: {req.r1:.3f}, {req.r2:.3f}, {req.r3:.3f}, {req.r4:.3f}), z_offset={req.z_offset}m, cartesian={req.cartesian_path}")
         
         # Convert RPY to Quaternion if necessary
         if req.rotation_format.upper() == "RPY":
