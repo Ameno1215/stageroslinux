@@ -24,6 +24,7 @@
 #include <geometric_shapes/shape_operations.h>
 #include <visualization_msgs/msg/marker.hpp>
 #include <unordered_map>
+#include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
 
 #include "motion_control/srv/init_robot.hpp"
 #include "motion_control/srv/set_scaling.hpp"
@@ -212,15 +213,85 @@ namespace motion_control
                 const std::shared_ptr<srv::SetVirtualCage::Request> req,
                 std::shared_ptr<srv::SetVirtualCage::Response> res);
 
+            /**
+             * @brief Service callback to add, update, or remove a box in the planning scene.
+             * 
+             * Supports two display modes:
+             * 1. Collision enabled: the box is added as a MoveIt CollisionObject, making the
+             *    planner treat it as a physical obstacle.
+             * 2. Collision disabled: the box is rendered as a purely visual RViz Marker
+             *    (no effect on planning).
+             * 
+             * The box position (x, y, z) represents the center of its bottom face.
+             * An internal offset along the box's local Z-axis is applied so that the
+             * geometric center is correctly placed for MoveIt and RViz.
+             * Rotation can be specified in either RPY or Quaternion format.
+             * 
+             * @param req Contains the box ID, action (ADD/REMOVE), dimensions, pose,
+             *            rotation format, color (RGBA), and collision toggle.
+             * @param res Returns the success status and a descriptive message.
+             */
             void onManageBox(
                 const std::shared_ptr<srv::ManageBox::Request> req,
                 std::shared_ptr<srv::ManageBox::Response> res);
 
+            /**
+             * @brief Service callback to add or remove a 3D mesh in the MoveIt planning scene.
+             * 
+             * Loads a mesh file (STL, DAE, OBJ, etc.) from a URI (file:// or package://)
+             * and inserts it as a CollisionObject. The mesh can be independently scaled
+             * along each axis (X, Y, Z) and positioned with a full 6-DOF pose.
+             * Rotation can be specified in either RPY or Quaternion format.
+             * An RGBA color is applied via the PlanningScene diff for RViz rendering.
+             * 
+             * @param req Contains the mesh ID, action (ADD/REMOVE), file path, scale factors,
+             *            pose, rotation format, and color (RGBA).
+             * @param res Returns the success status and a descriptive message.
+             */
             void onManageMesh(
                 const std::shared_ptr<motion_control::srv::ManageMesh::Request> req,
                 std::shared_ptr<motion_control::srv::ManageMesh::Response> res);
 
+            /**
+             * @brief Attempts to compute a Cartesian path with progressive fallback strategies.
+             * 
+             * Tries increasingly permissive parameters to maximize the achieved path fraction:
+             * 1. Fine resolution (0.5 mm step, 3.0 rad jump threshold).
+             * 2. Coarser resolution (1 cm step) if the first attempt falls below 95%.
+             * 
+             * This approach improves reliability near singularities or tight collision zones
+             * where the default parameters may fail to produce a sufficient path fraction.
+             * 
+             * @param waypoints Ordered list of target Cartesian poses the end-effector must pass through.
+             * @param trajectory Output parameter filled with the best computed trajectory.
+             * @param out_msg Output string describing the outcome (e.g., which strategy succeeded or failure details).
+             * @return double The fraction of the path successfully computed (0.0 to 1.0).
+            */
+            double computeCartesianPathRobust(
+                const std::vector<geometry_msgs::msg::Pose>& waypoints,
+                moveit_msgs::msg::RobotTrajectory& trajectory,
+                std::string& out_msg);
 
+            /**
+             * @brief Applies velocity and acceleration scaling to a raw Cartesian trajectory.
+             * 
+             * MoveIt's computeCartesianPath does NOT respect the scaling factors set via
+             * setMaxVelocityScalingFactor / setMaxAccelerationScalingFactor.
+             * This helper re-times the trajectory using the Time-Optimal Trajectory Generation
+             * (TOTG) algorithm, enforcing the current vel_scale_ and accel_scale_ values
+             * while respecting the robot's joint velocity and acceleration limits.
+             * 
+             * Must be called on every Cartesian trajectory BEFORE execution to ensure
+             * the robot moves at the user-configured speed.
+             * 
+             * @param trajectory The robot trajectory to retime (modified in place).
+             */
+            void applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory);
+
+
+                        
+
+            
             // Internal helpers
             // Checks if the MoveGroup interface is initialized before processing motion commands
             bool ensureInitialized(std::string& why) const;

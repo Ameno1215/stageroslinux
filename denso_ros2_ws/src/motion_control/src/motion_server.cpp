@@ -315,6 +315,51 @@ namespace motion_control
         return final_pose;
     }
 
+    double MotionServer::computeCartesianPathRobust(
+        const std::vector<geometry_msgs::msg::Pose>& waypoints,
+        moveit_msgs::msg::RobotTrajectory& trajectory,
+        std::string& out_msg)
+    {
+        // Attempt 1: standard
+        double fraction = move_group_->computeCartesianPath(
+            waypoints, 0.005, 3.0, trajectory);
+        if (fraction >= 0.95) { out_msg = "OK (standard)"; return fraction; }
+
+        // Attempt 2: coarser step (more permissive)
+        RCLCPP_WARN(this->get_logger(),
+            "Cartesian path attempt 1 failed (fraction: %.1f%%). Retrying with coarser step...",
+            fraction * 100.0);
+
+        fraction = move_group_->computeCartesianPath(
+            waypoints, 0.01, 3.0, trajectory);
+        if (fraction >= 0.95) {
+            RCLCPP_WARN(this->get_logger(),
+                "Cartesian path succeeded on fallback (coarser step). Fraction: %.1f%%",
+                fraction * 100.0);
+            out_msg = "OK (coarser step — fallback)";
+            return fraction;
+        }
+
+        out_msg = "FAILED (best fraction: " + std::to_string(fraction * 100) + "%)";
+        return fraction;
+    }
+
+    void MotionServer::applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory)
+    {
+        // computeCartesianPath does NOT respect setMaxVelocityScalingFactor.
+        // We must manually retime the trajectory using TOTG (Time Optimal Trajectory Generation).
+        robot_trajectory::RobotTrajectory rt(
+            move_group_->getRobotModel(), planning_group_);
+
+        rt.setRobotTrajectoryMsg(*move_group_->getCurrentState(), trajectory);
+
+        trajectory_processing::TimeOptimalTrajectoryGeneration totg;
+        totg.computeTimeStamps(rt, vel_scale_, accel_scale_);
+
+        // Convert back to message with correct timestamps
+        rt.getRobotTrajectoryMsg(trajectory);
+    }
+
     void MotionServer::onMoveToPose(
         const std::shared_ptr<motion_control::srv::MoveToPose::Request> req,
         std::shared_ptr<motion_control::srv::MoveToPose::Response> res)
@@ -346,33 +391,81 @@ namespace motion_control
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        // Choice of planning method: Straight line (Cartesian) VS Curve (Joint Space)
-        if (req->cartesian_path) 
+        // // Choice of planning method: Straight line (Cartesian) VS Curve (Joint Space)
+        // if (req->cartesian_path) 
+        // {
+        //     std::vector<geometry_msgs::msg::Pose> waypoints;
+        //     waypoints.push_back(target_pose.pose);
+
+        //     moveit_msgs::msg::RobotTrajectory trajectory;
+        //     const double jump_threshold = 3; // 3 radian jump threshold (prevents joint "jumps")
+        //     const double eef_step = 0.005; // 1 cm resolution
+
+        //     double fraction = move_group_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+
+        //     if (fraction < 0.95) { // If MoveIt was unable to draw at least 95% of the straight line
+        //         res->success = false;
+        //         res->message = "Impossible Cartesian path (collision or singularity) Fraction: " + std::to_string(fraction);
+        //         return;
+        //     }
+
+        //     if (req->execute) {
+        //         auto exec_code = move_group_->execute(trajectory);
+        //         res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
+        //         res->message = res->success ? "Cartesian path executed." : "Failed to execute cartesian path";
+        //     } else {
+        //         res->success = true;
+        //         res->message = "Cartesian path planned at " + std::to_string(fraction * 100.0) + "%";
+        //     }
+        // } 
+        // else 
+        // {
+        //     // Standard joint space planning
+        //     std::string msg;
+        //     res->success = planAndMaybeExecutePose(target_pose, req->execute, msg);
+        //     res->message = msg;
+        // }
+
+        if (req->cartesian_path)
         {
             std::vector<geometry_msgs::msg::Pose> waypoints;
             waypoints.push_back(target_pose.pose);
 
             moveit_msgs::msg::RobotTrajectory trajectory;
-            const double jump_threshold = 3; // 3 radian jump threshold (prevents joint "jumps")
-            const double eef_step = 0.005; // 1 cm resolution
+            std::string cart_msg;
 
-            double fraction = move_group_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+            auto start_time = std::chrono::high_resolution_clock::now();
+            double fraction = computeCartesianPathRobust(waypoints, trajectory, cart_msg);
+            auto end_time = std::chrono::high_resolution_clock::now();
+            double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
-            if (fraction < 0.95) { // If MoveIt was unable to draw at least 95% of the straight line
+            RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)", 
+                        cart_msg.c_str(), planning_duration);
+
+            if (fraction < 0.95) {
                 res->success = false;
-                res->message = "Impossible Cartesian path (collision or singularity) Fraction: " + std::to_string(fraction);
+                res->message = "Cartesian path failed — best fraction: "
+                            + std::to_string(fraction * 100.0) + "% | "
+                            + cart_msg
+                            + " (took " + std::to_string(planning_duration) + "s)";
                 return;
             }
+
+            // Apply velocity/acceleration scaling to the raw Cartesian trajectory
+            applyVelocityScaling(trajectory);
 
             if (req->execute) {
                 auto exec_code = move_group_->execute(trajectory);
                 res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
-                res->message = res->success ? "Cartesian path executed." : "Failed to execute cartesian path";
+                res->message = res->success
+                    ? "Cartesian path executed. " + cart_msg + " (took " + std::to_string(planning_duration) + "s)"
+                    : "Execution failed: " + moveitErrorCodeToString(exec_code);
             } else {
                 res->success = true;
-                res->message = "Cartesian path planned at " + std::to_string(fraction * 100.0) + "%";
+                res->message = "Cartesian path planned at "
+                            + std::to_string(fraction * 100.0) + "% (execute=false) — " + cart_msg;
             }
-        } 
+        }
         else 
         {
             // Standard joint space planning
@@ -450,31 +543,70 @@ namespace motion_control
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
         // Cartesian path planning
-        if (req->cartesian_path) {
+        // if (req->cartesian_path) {
+        //     moveit_msgs::msg::RobotTrajectory trajectory;
+        //     const double jump_threshold = 3; 
+        //     const double eef_step = 0.005;      
+
+        //     auto start_time = std::chrono::high_resolution_clock::now();
+        //     double fraction = move_group_->computeCartesianPath(absolute_waypoints, eef_step, jump_threshold, trajectory);
+        //     auto end_time = std::chrono::high_resolution_clock::now();
+        //     double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
+
+        //     if (fraction < 0.95) { 
+        //         res->success = false;
+        //         res->message = "Cartesian path impossible or incomplete. Calculated fraction: " + std::to_string(fraction) + " (took " + std::to_string(planning_duration) + " seconds)";
+        //         return;
+        //     }
+
+        //     if (req->execute) {
+        //         auto exec_code = move_group_->execute(trajectory);
+        //         res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
+        //         res->message = res->success ? "Trajectory waypoints executed successfully. (took " + std::to_string(planning_duration) + " seconds)" : "Failed to execute trajectory: " + moveitErrorCodeToString(exec_code) + " (took " + std::to_string(planning_duration) + " seconds)";
+        //     } else {
+        //         res->success = true;
+        //         res->message = "Trajectory waypoints planned at " + std::to_string(fraction * 100.0) + "%" + " (execute=false) (took " + std::to_string(planning_duration) + " seconds)";
+        //     }
+        // } 
+        if (req->cartesian_path)
+        {
+
             moveit_msgs::msg::RobotTrajectory trajectory;
-            const double jump_threshold = 3; 
-            const double eef_step = 0.005;      
+            std::string cart_msg;
 
             auto start_time = std::chrono::high_resolution_clock::now();
-            double fraction = move_group_->computeCartesianPath(absolute_waypoints, eef_step, jump_threshold, trajectory);
+            double fraction = computeCartesianPathRobust(absolute_waypoints, trajectory, cart_msg);
             auto end_time = std::chrono::high_resolution_clock::now();
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
-            if (fraction < 0.95) { 
+            RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)", 
+                        cart_msg.c_str(), planning_duration);
+
+            if (fraction < 0.95) {
                 res->success = false;
-                res->message = "Cartesian path impossible or incomplete. Calculated fraction: " + std::to_string(fraction) + " (took " + std::to_string(planning_duration) + " seconds)";
+                res->message = "Cartesian path failed — best fraction: "
+                            + std::to_string(fraction * 100.0) + "% | "
+                            + cart_msg
+                            + " (took " + std::to_string(planning_duration) + "s)";
                 return;
             }
+
+            // Apply velocity/acceleration scaling to the raw Cartesian trajectory
+            applyVelocityScaling(trajectory);
 
             if (req->execute) {
                 auto exec_code = move_group_->execute(trajectory);
                 res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
-                res->message = res->success ? "Trajectory waypoints executed successfully. (took " + std::to_string(planning_duration) + " seconds)" : "Failed to execute trajectory: " + moveitErrorCodeToString(exec_code) + " (took " + std::to_string(planning_duration) + " seconds)";
+                res->message = res->success
+                    ? "Cartesian path executed. " + cart_msg + " (took " + std::to_string(planning_duration) + "s)"
+                    : "Execution failed: " + moveitErrorCodeToString(exec_code);
             } else {
                 res->success = true;
-                res->message = "Trajectory waypoints planned at " + std::to_string(fraction * 100.0) + "%" + " (execute=false) (took " + std::to_string(planning_duration) + " seconds)";
+                res->message = "Cartesian path planned at "
+                            + std::to_string(fraction * 100.0) + "% (execute=false) — " + cart_msg;
             }
-        } else {
+        }
+        else {
             moveit_msgs::msg::RobotTrajectory combined_trajectory;
             combined_trajectory.joint_trajectory.joint_names = move_group_->getJointNames();
             
