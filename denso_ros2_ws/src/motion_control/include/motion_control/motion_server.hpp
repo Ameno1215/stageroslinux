@@ -296,10 +296,16 @@ namespace motion_control
              */
             void applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory);
 
-
+            bool planAndExecuteJoints(const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg);
                         
-
+            void onMoveToPoseViaJoint(const std::shared_ptr<motion_control::srv::MoveToPose::Request> req, std::shared_ptr<motion_control::srv::MoveToPose::Response> res);
             
+            bool solveIKAndPlanJoints(const geometry_msgs::msg::Pose& target_pose, bool execute, std::string& out_msg);
+
+
+
+
+
             // Internal helpers
             // Checks if the MoveGroup interface is initialized before processing motion commands
             bool ensureInitialized(std::string& why) const;
@@ -323,6 +329,7 @@ namespace motion_control
             rclcpp::Service<srv::GetCurrentPose>::SharedPtr srv_get_pose_;
             rclcpp::Service<srv::MoveJoints>::SharedPtr srv_move_joints_;
             rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_;
+            rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_via_joint_;
             rclcpp::Service<srv::MoveWaypoints>::SharedPtr srv_move_waypoints_;
             rclcpp::Service<srv::SetVirtualCage>::SharedPtr srv_virtual_cage_;
             rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;

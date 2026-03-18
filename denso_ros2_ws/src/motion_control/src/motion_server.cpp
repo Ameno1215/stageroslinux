@@ -34,6 +34,10 @@ namespace motion_control
             "move_to_pose",
             std::bind(&MotionServer::onMoveToPose, this, std::placeholders::_1, std::placeholders::_2));
 
+        srv_move_pose_via_joint_ = this->create_service<srv::MoveToPose>(
+            "move_to_pose_via_joint",
+            std::bind(&MotionServer::onMoveToPoseViaJoint, this, std::placeholders::_1, std::placeholders::_2));
+
         srv_move_waypoints_ = this->create_service<srv::MoveWaypoints>(
             "move_waypoints",
             std::bind(&MotionServer::onMoveWaypoints, this, std::placeholders::_1, std::placeholders::_2));
@@ -198,17 +202,46 @@ namespace motion_control
         return planning_scene::PlanningScene::clone(locked_scene.operator->()->shared_from_this());
     }
 
+    bool MotionServer::solveIKAndPlanJoints(
+        const geometry_msgs::msg::Pose& target_pose,
+        bool execute,
+        std::string& out_msg)
+    {
+        const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+        if (!jmg) {
+            out_msg = "Unknown planning group: " + planning_group_;
+            return false;
+        }
+
+        moveit::core::RobotStatePtr robot_state = move_group_->getCurrentState(2.0);
+        if (!robot_state) {
+            out_msg = "Failed to obtain current robot state";
+            return false;
+        }
+
+        if (!robot_state->setFromIK(jmg, target_pose, 0.5)) {
+            out_msg = "IK failed: pose is unreachable (out of workspace or near singularity)";
+            return false;
+        }
+
+        robot_state->enforceBounds(jmg);
+
+        std::vector<double> joint_targets;
+        robot_state->copyJointGroupPositions(jmg, joint_targets);
+
+        return planAndExecuteJoints(joint_targets, false, execute, out_msg);
+    }
+
     bool MotionServer::planAndMaybeExecutePose(
         const geometry_msgs::msg::PoseStamped& target,
         bool execute,
         std::string& out_msg)
     {
         move_group_->setPoseTarget(target);
-
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        // Plan the motion to the Cartesian pose target
+        // --- Strategy 1: Standard pose target ---
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         auto start_time = std::chrono::high_resolution_clock::now();
         auto code = move_group_->plan(plan);
@@ -216,40 +249,57 @@ namespace motion_control
         double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
         if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-            // --- Run diagnostic analysis ---
+            // Build diagnostic message for logging
+            std::string diag_msg;
             auto scene = getLockedPlanningScene();
             if (scene) {
                 auto report = diagnosePlanningFailure(
                     code, *move_group_, scene, planning_group_,
-                    &target.pose, nullptr,  // pose target, no joint target
+                    &target.pose, nullptr,
                     planning_duration, this->get_logger());
-                
-                out_msg = "Planning failed: " + moveitErrorCodeToString(code)
-                        + " | " + report.summary
-                        + " (took " + std::to_string(planning_duration) + "s)";
+                diag_msg = moveitErrorCodeToString(code) + " | " + report.summary;
             } else {
-                out_msg = "Planning failed: " + moveitErrorCodeToString(code)
-                        + " (took " + std::to_string(planning_duration) + "s)"
-                        + " [diagnostic scene unavailable]";
+                diag_msg = moveitErrorCodeToString(code) + " [diagnostic scene unavailable]";
             }
+
+            // --- Strategy 2: Fallback to explicit IK + joint-space planning ---
+            RCLCPP_WARN(this->get_logger(),
+                "Pose target planning failed: %s (%.2fs) — Falling back to IK + joint-space...",
+                diag_msg.c_str(), planning_duration);
+
+            move_group_->clearPoseTargets();
+
+            std::string fallback_msg;
+            bool fallback_ok = solveIKAndPlanJoints(target.pose, execute, fallback_msg);
+
+            if (fallback_ok) {
+                out_msg = "[FALLBACK IK+Joint] " + fallback_msg;
+                RCLCPP_INFO(this->get_logger(), "Fallback succeeded: %s", fallback_msg.c_str());
+                return true;
+            }
+
+            // Both strategies failed
+            out_msg = "Both strategies failed. "
+                    "Pose target: " + diag_msg + " (" + std::to_string(planning_duration) + "s) | "
+                    "IK+Joint fallback: " + fallback_msg;
             return false;
         }
 
-        // Always clear pose targets to avoid accidental reuse
+        // Execute strategy 1 if it's possible
         move_group_->clearPoseTargets();
 
-        // If execute flag is true, execute the planned trajectory
         if (execute) {
             auto exec_code = move_group_->execute(plan);
             if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-            out_msg = "Execution failed for pose target" + moveitErrorCodeToString(exec_code) + " (took " + std::to_string(planning_duration) + " seconds)";
-            return false;
+                out_msg = "Execution failed for pose target: " + moveitErrorCodeToString(exec_code)
+                        + " (took " + std::to_string(planning_duration) + "s)";
+                return false;
             }
-            out_msg = "Planned and executed pose target successfully (took " + std::to_string(planning_duration) + " seconds)";
+            out_msg = "Planned and executed pose target successfully (took " + std::to_string(planning_duration) + "s)";
             return true;
         }
 
-        out_msg = "Planned pose target successfully (execute=false) (took " + std::to_string(planning_duration) + " seconds)";
+        out_msg = "Planned pose target successfully (execute=false) (took " + std::to_string(planning_duration) + "s)";
         return true;
     }
 
@@ -718,32 +768,22 @@ namespace motion_control
         }
     }
 
-    void MotionServer::onMoveJoints(
-        const std::shared_ptr<motion_control::srv::MoveJoints::Request> req,
-        std::shared_ptr<motion_control::srv::MoveJoints::Response> res)
+    bool MotionServer::planAndExecuteJoints(
+        const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg)
     {
-        std::lock_guard<std::mutex> lock(mtx_);
-        std::string why;
-        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
-
         const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
         const auto& names = jmg->getVariableNames();
 
-        if (req->joints.size() != names.size()) {
-            res->success = false;
-            res->message = "Incorrect joint size. Expected: " + std::to_string(names.size());
-            return;
+        if (joints.size() != names.size()) {
+            out_msg = "Incorrect joint size. Expected: " + std::to_string(names.size());
+            return false;
         }
 
         std::map<std::string, double> target;
-        std::vector<double> current_joints = move_group_->getCurrentJointValues();
+        std::vector<double> current = move_group_->getCurrentJointValues();
 
         for (size_t i = 0; i < names.size(); ++i) {
-            if (req->is_relative) {
-                target[names[i]] = current_joints[i] + req->joints[i]; // Relative addition
-            } else {
-                target[names[i]] = req->joints[i]; // Absolute pose
-            }
+            target[names[i]] = is_relative ? current[i] + joints[i] : joints[i];
         }
 
         move_group_->setJointValueTarget(target);
@@ -751,57 +791,100 @@ namespace motion_control
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
         moveit::planning_interface::MoveGroupInterface::Plan plan;
+        auto t0 = std::chrono::high_resolution_clock::now();
+        auto code = move_group_->plan(plan);
+        double dt = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count();
 
-        auto start_time = std::chrono::high_resolution_clock::now();
-        moveit::core::MoveItErrorCode plan_code = move_group_->plan(plan);
-
-        auto end_time = std::chrono::high_resolution_clock::now();
-        double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
-        
-        if (plan_code != moveit::core::MoveItErrorCode::SUCCESS) {
-        // Build the target joint vector for diagnostics
-        std::vector<double> target_joints;
-        for (size_t i = 0; i < names.size(); ++i) {
-            target_joints.push_back(target[names[i]]);
+        if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+            out_msg = "Planning failed: " + moveitErrorCodeToString(code)
+                    + " (took " + std::to_string(dt) + "s)";
+            return false;
         }
 
-        auto scene = getLockedPlanningScene();
-            if (scene) {
-                auto report = diagnosePlanningFailure(
-                    plan_code, *move_group_, scene, planning_group_,
-                    nullptr, &target_joints,  // no pose target, joint target
-                    planning_duration, this->get_logger());
-                
-                res->success = false;
-                res->message = "Failed to plan joint trajectory: "
-                            + moveitErrorCodeToString(plan_code)
-                            + " | " + report.summary
-                            + " (took " + std::to_string(planning_duration) + "s)";
-            } else {
-                res->success = false;
-                res->message = "Failed to plan joint trajectory: "
-                            + moveitErrorCodeToString(plan_code)
-                            + " (took " + std::to_string(planning_duration) + "s)";
+        if (execute) {
+            auto exec = move_group_->execute(plan);
+            if (exec != moveit::core::MoveItErrorCode::SUCCESS) {
+                out_msg = "Execution failed: " + moveitErrorCodeToString(exec)
+                        + " (took " + std::to_string(dt) + "s)";
+                return false;
             }
+            out_msg = "Joint trajectory executed (took " + std::to_string(dt) + "s)";
+        } else {
+            out_msg = "Joint trajectory planned (execute=false) (took " + std::to_string(dt) + "s)";
+        }
+        return true;
+    }
+
+    void MotionServer::onMoveJoints(
+        const std::shared_ptr<motion_control::srv::MoveJoints::Request> req,
+        std::shared_ptr<motion_control::srv::MoveJoints::Response> res) 
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        std::string why;
+        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+
+        std::string msg;
+        res->success = planAndExecuteJoints(req->joints, req->is_relative, req->execute, msg);
+        res->message = msg;
+    }
+
+    void MotionServer::onMoveToPoseViaJoint(
+        const std::shared_ptr<motion_control::srv::MoveToPose::Request> req,
+        std::shared_ptr<motion_control::srv::MoveToPose::Response> res)
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        std::string error_msg;
+        if (!ensureInitialized(error_msg)) { res->success = false; res->message = error_msg; return; }
+
+        // --- 1. Compute the absolute Cartesian target ---
+        geometry_msgs::msg::PoseStamped target_pose = computeAbsoluteTarget(
+            req->x, req->y, req->z,
+            req->r1, req->r2, req->r3, req->r4,
+            req->rotation_format, req->reference_frame,
+            req->is_relative, error_msg);
+
+        if (!error_msg.empty()) { res->success = false; res->message = error_msg; return; }
+
+        // Validate quaternion
+        const auto& q = target_pose.pose.orientation;
+        double norm = std::sqrt(q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w);
+        if (!std::isfinite(norm) || norm < 0.99 || norm > 1.01) {
+            res->success = false;
+            res->message = "Invalid quaternion after transformation (norm=" + std::to_string(norm) + "). Check rotation inputs.";
             return;
         }
 
-        if (req->execute) {
-            moveit::core::MoveItErrorCode exec_code = move_group_->execute(plan);
-            
-            if (exec_code == moveit::core::MoveItErrorCode::SUCCESS) {
-                res->success = true;
-                res->message = "Joint trajectory executed successfully (took " + std::to_string(planning_duration) + " seconds).";
-            } else {
-                res->success = false;
-                res->message = "Failed to execute joint trajectory: " + moveitErrorCodeToString(exec_code) + " (took " + std::to_string(planning_duration) + " seconds)";
-            }
-        } else {
-            res->success = true; 
-            res->message = "Joint trajectory planned successfully (execute=false) (took " + std::to_string(planning_duration) + " seconds).";
+        // --- 2. Solve Inverse Kinematics ---
+        const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+        if (!jmg) {
+            res->success = false;
+            res->message = "Unknown planning group: " + planning_group_;
+            return;
         }
-    }
 
+        moveit::core::RobotStatePtr robot_state = move_group_->getCurrentState(2.0);
+        if (!robot_state) {
+            res->success = false;
+            res->message = "Failed to obtain current robot state";
+            return;
+        }
+
+        if (!robot_state->setFromIK(jmg, target_pose.pose, 0.5)) {
+            res->success = false;
+            res->message = "IK failed: pose is unreachable (out of workspace or near singularity)";
+            return;
+        }
+
+        robot_state->enforceBounds(jmg);
+
+        std::vector<double> joint_targets;
+        robot_state->copyJointGroupPositions(jmg, joint_targets);
+
+        // --- 3. Plan and execute in joint space ---
+        std::string msg;
+        res->success = planAndExecuteJoints(joint_targets, false, req->execute, msg);
+        res->message = "[IK OK] " + msg;
+    }
 
     void MotionServer::onGetJointState(
         const std::shared_ptr<srv::GetJointState::Request> /*req*/,
