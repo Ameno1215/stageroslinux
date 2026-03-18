@@ -26,6 +26,10 @@
 #include <unordered_map>
 #include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
 
+
+#include "motion_control/motion_diagnostics.hpp"
+#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
+
 #include "motion_control/srv/init_robot.hpp"
 #include "motion_control/srv/set_scaling.hpp"
 #include "motion_control/srv/get_joint_state.hpp"
@@ -62,6 +66,10 @@ namespace motion_control
             std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
             
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
+
+
+            planning_scene_monitor::PlanningSceneMonitorPtr psm_;
+            planning_scene::PlanningSceneConstPtr getLockedPlanningScene() const;
     
             // RViz requires a numeric ID (int32), but MoveIt uses names (string).
             // This dictionary maps string IDs to integer IDs.

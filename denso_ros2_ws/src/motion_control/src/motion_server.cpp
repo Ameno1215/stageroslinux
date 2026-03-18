@@ -123,6 +123,23 @@ namespace motion_control
             shared_from_this(), planning_group_);
             planning_scene_ = std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
 
+            // This gives us access to the full PlanningScene (collision world,
+            // allowed collision matrix, robot state) needed by diagnostic helpers.
+            psm_ = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
+                shared_from_this(), "robot_description");
+            
+            // Start listening to the planning scene topic published by move_group
+            psm_->startSceneMonitor("/monitored_planning_scene");
+            // Start listening to the robot's joint state for state updates
+            psm_->startStateMonitor("/joint_states");
+            // Wait briefly for the first scene to arrive
+            if (!psm_->waitForCurrentRobotState(this->now(), 2.0)) {
+                RCLCPP_WARN(this->get_logger(),
+                    "PlanningSceneMonitor: timed out waiting for robot state. "
+                    "Diagnostics may be incomplete on first call.");
+            }
+            RCLCPP_INFO(this->get_logger(), "PlanningSceneMonitor initialized for diagnostics");
+
             move_group_->setMaxVelocityScalingFactor(vel_scale_);
             move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
@@ -171,6 +188,16 @@ namespace motion_control
         }
     }
 
+    planning_scene::PlanningSceneConstPtr MotionServer::getLockedPlanningScene() const
+    {
+        if (!psm_) return nullptr;
+        
+        // LockedPlanningSceneRO gives a const, thread-safe view of the scene
+        planning_scene_monitor::LockedPlanningSceneRO locked_scene(psm_);
+        // Clone it so we can use it after the lock is released
+        return planning_scene::PlanningScene::clone(locked_scene.operator->()->shared_from_this());
+    }
+
     bool MotionServer::planAndMaybeExecutePose(
         const geometry_msgs::msg::PoseStamped& target,
         bool execute,
@@ -189,7 +216,22 @@ namespace motion_control
         double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
         if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-            out_msg = "Planning failed: " + moveitErrorCodeToString(code) + " (took " + std::to_string(planning_duration) + " seconds)";
+            // --- Run diagnostic analysis ---
+            auto scene = getLockedPlanningScene();
+            if (scene) {
+                auto report = diagnosePlanningFailure(
+                    code, *move_group_, scene, planning_group_,
+                    &target.pose, nullptr,  // pose target, no joint target
+                    planning_duration, this->get_logger());
+                
+                out_msg = "Planning failed: " + moveitErrorCodeToString(code)
+                        + " | " + report.summary
+                        + " (took " + std::to_string(planning_duration) + "s)";
+            } else {
+                out_msg = "Planning failed: " + moveitErrorCodeToString(code)
+                        + " (took " + std::to_string(planning_duration) + "s)"
+                        + " [diagnostic scene unavailable]";
+            }
             return false;
         }
 
@@ -391,41 +433,6 @@ namespace motion_control
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        // // Choice of planning method: Straight line (Cartesian) VS Curve (Joint Space)
-        // if (req->cartesian_path) 
-        // {
-        //     std::vector<geometry_msgs::msg::Pose> waypoints;
-        //     waypoints.push_back(target_pose.pose);
-
-        //     moveit_msgs::msg::RobotTrajectory trajectory;
-        //     const double jump_threshold = 3; // 3 radian jump threshold (prevents joint "jumps")
-        //     const double eef_step = 0.005; // 1 cm resolution
-
-        //     double fraction = move_group_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
-
-        //     if (fraction < 0.95) { // If MoveIt was unable to draw at least 95% of the straight line
-        //         res->success = false;
-        //         res->message = "Impossible Cartesian path (collision or singularity) Fraction: " + std::to_string(fraction);
-        //         return;
-        //     }
-
-        //     if (req->execute) {
-        //         auto exec_code = move_group_->execute(trajectory);
-        //         res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
-        //         res->message = res->success ? "Cartesian path executed." : "Failed to execute cartesian path";
-        //     } else {
-        //         res->success = true;
-        //         res->message = "Cartesian path planned at " + std::to_string(fraction * 100.0) + "%";
-        //     }
-        // } 
-        // else 
-        // {
-        //     // Standard joint space planning
-        //     std::string msg;
-        //     res->success = planAndMaybeExecutePose(target_pose, req->execute, msg);
-        //     res->message = msg;
-        // }
-
         if (req->cartesian_path)
         {
             std::vector<geometry_msgs::msg::Pose> waypoints;
@@ -443,11 +450,25 @@ namespace motion_control
                         cart_msg.c_str(), planning_duration);
 
             if (fraction < 0.95) {
+                // --- Cartesian-specific diagnostic ---
+                auto scene = getLockedPlanningScene();
+                std::string diag_summary;
+                if (scene) {
+                    auto report = diagnoseCartesianFailure(
+                        *move_group_, scene, planning_group_,
+                        waypoints, fraction,
+                        planning_duration, this->get_logger());
+                    diag_summary = report.summary;
+                }
+
                 res->success = false;
-                res->message = "Cartesian path failed — best fraction: "
+                res->message = "Cartesian path failed — fraction: "
                             + std::to_string(fraction * 100.0) + "% | "
-                            + cart_msg
-                            + " (took " + std::to_string(planning_duration) + "s)";
+                            + cart_msg;
+                if (!diag_summary.empty()) {
+                    res->message += " | " + diag_summary;
+                }
+                res->message += " (took " + std::to_string(planning_duration) + "s)";
                 return;
             }
 
@@ -542,32 +563,6 @@ namespace motion_control
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        // Cartesian path planning
-        // if (req->cartesian_path) {
-        //     moveit_msgs::msg::RobotTrajectory trajectory;
-        //     const double jump_threshold = 3; 
-        //     const double eef_step = 0.005;      
-
-        //     auto start_time = std::chrono::high_resolution_clock::now();
-        //     double fraction = move_group_->computeCartesianPath(absolute_waypoints, eef_step, jump_threshold, trajectory);
-        //     auto end_time = std::chrono::high_resolution_clock::now();
-        //     double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
-
-        //     if (fraction < 0.95) { 
-        //         res->success = false;
-        //         res->message = "Cartesian path impossible or incomplete. Calculated fraction: " + std::to_string(fraction) + " (took " + std::to_string(planning_duration) + " seconds)";
-        //         return;
-        //     }
-
-        //     if (req->execute) {
-        //         auto exec_code = move_group_->execute(trajectory);
-        //         res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
-        //         res->message = res->success ? "Trajectory waypoints executed successfully. (took " + std::to_string(planning_duration) + " seconds)" : "Failed to execute trajectory: " + moveitErrorCodeToString(exec_code) + " (took " + std::to_string(planning_duration) + " seconds)";
-        //     } else {
-        //         res->success = true;
-        //         res->message = "Trajectory waypoints planned at " + std::to_string(fraction * 100.0) + "%" + " (execute=false) (took " + std::to_string(planning_duration) + " seconds)";
-        //     }
-        // } 
         if (req->cartesian_path)
         {
 
@@ -583,11 +578,24 @@ namespace motion_control
                         cart_msg.c_str(), planning_duration);
 
             if (fraction < 0.95) {
+                auto scene = getLockedPlanningScene();
+                std::string diag_summary;
+                if (scene) {
+                    auto report = diagnoseCartesianFailure(
+                        *move_group_, scene, planning_group_,
+                        absolute_waypoints, fraction,
+                        planning_duration, this->get_logger());
+                    diag_summary = report.summary;
+                }
+
                 res->success = false;
-                res->message = "Cartesian path failed — best fraction: "
+                res->message = "Cartesian path failed — fraction: "
                             + std::to_string(fraction * 100.0) + "% | "
-                            + cart_msg
-                            + " (took " + std::to_string(planning_duration) + "s)";
+                            + cart_msg;
+                if (!diag_summary.empty()) {
+                    res->message += " | " + diag_summary;
+                }
+                res->message += " (took " + std::to_string(planning_duration) + "s)";
                 return;
             }
 
@@ -628,13 +636,27 @@ namespace motion_control
                 moveit::planning_interface::MoveGroupInterface::Plan segment_plan;
                 auto code = move_group_->plan(segment_plan);
                 
-                if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+                 if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+                    auto scene = getLockedPlanningScene();
+                    std::string diag_summary;
+                    if (scene) {
+                        auto report = diagnosePlanningFailure(
+                            code, *move_group_, scene, planning_group_,
+                            &absolute_waypoints[i], nullptr,
+                            0.0, this->get_logger());
+                        diag_summary = report.summary;
+                    }
+
                     res->success = false;
-                    res->message = "Planning failed at waypoint " + std::to_string(i+1) + ": " + moveitErrorCodeToString(code);
-                    move_group_->setStartStateToCurrentState(); // Safety reset
+                    res->message = "Planning failed at waypoint " + std::to_string(i + 1)
+                                + ": " + moveitErrorCodeToString(code);
+                    if (!diag_summary.empty()) {
+                        res->message += " | " + diag_summary;
+                    }
+                    move_group_->setStartStateToCurrentState();
                     return;
                 }
-                
+                            
                 // Assemble the trajectory and adjust timing
                 int32_t segment_duration_sec = 0;
                 uint32_t segment_duration_nanosec = 0;
@@ -737,8 +759,30 @@ namespace motion_control
         double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
         
         if (plan_code != moveit::core::MoveItErrorCode::SUCCESS) {
-            res->success = false; 
-            res->message = "Failed to plan joint trajectory: " + moveitErrorCodeToString(plan_code) + " (took " + std::to_string(planning_duration) + " seconds)"; 
+        // Build the target joint vector for diagnostics
+        std::vector<double> target_joints;
+        for (size_t i = 0; i < names.size(); ++i) {
+            target_joints.push_back(target[names[i]]);
+        }
+
+        auto scene = getLockedPlanningScene();
+            if (scene) {
+                auto report = diagnosePlanningFailure(
+                    plan_code, *move_group_, scene, planning_group_,
+                    nullptr, &target_joints,  // no pose target, joint target
+                    planning_duration, this->get_logger());
+                
+                res->success = false;
+                res->message = "Failed to plan joint trajectory: "
+                            + moveitErrorCodeToString(plan_code)
+                            + " | " + report.summary
+                            + " (took " + std::to_string(planning_duration) + "s)";
+            } else {
+                res->success = false;
+                res->message = "Failed to plan joint trajectory: "
+                            + moveitErrorCodeToString(plan_code)
+                            + " (took " + std::to_string(planning_duration) + "s)";
+            }
             return;
         }
 

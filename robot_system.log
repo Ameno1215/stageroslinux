@@ -1,0 +1,94 @@
+2026-03-18 11:12:13,594 - INFO - All ROS 2 services are connected.
+2026-03-18 11:12:30,648 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-18 11:12:30,855 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect, planning_frame=world, ee_link=tool_link
+2026-03-18 11:12:32,860 - INFO - Requesting IK solver info from C++ node...
+2026-03-18 11:12:32,866 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-18 11:12:35,661 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-18 11:12:35,667 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-18 11:12:37,676 - INFO - Sending ADD for mesh box1 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:12:39,759 - INFO - Sending ADD for mesh box2 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:12:41,844 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-18 11:12:41,850 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-18 11:12:45,806 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-18 11:12:45,974 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.092511 seconds).
+2026-03-18 11:12:47,985 - INFO - Joint movement requested: [77.0, 42.0, 65.0, 19.0, -61.0, 0.0] (Relative=False, Angle Format=DEG, Execute=True)
+2026-03-18 11:12:48,059 - ERROR - Joint movement failed: Failed to plan joint trajectory: FAILURE | [DIAG] Primary cause: START_STATE_IN_COLLISION (+1 additional issue(s))
+  - Start state IS in collision. Pairs: J1 <-> tool_link, J2 <-> cage_bottom, J2 <-> tool_link, J3 <-> cage_bottom, J3 <-> tool_link (+7 more)
+  - Goal state IS in collision.
+  - Planning took 0.0300465s
+ (took 0.030047s)
+2026-03-18 11:18:14,443 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-18 11:18:14,648 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect, planning_frame=world, ee_link=tool_link
+2026-03-18 11:18:16,663 - INFO - Requesting IK solver info from C++ node...
+2026-03-18 11:18:16,669 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-18 11:18:18,673 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-18 11:18:18,679 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-18 11:18:20,719 - INFO - Sending ADD for mesh box1 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:18:22,815 - INFO - Sending ADD for mesh box2 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:18:24,895 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-18 11:18:24,901 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-18 11:18:28,876 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-18 11:18:29,060 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.120562 seconds).
+2026-03-18 11:18:31,060 - INFO - Request for movement received : X=0.14, Y=0.52, Z=0.54, RX=0.44, RY=0.76, RZ=1.55, (Relative=False, Cartesian=True, Angle Format=RAD, Execute=True)
+2026-03-18 11:18:32,139 - ERROR - Failed movement ! Cause returned by MoveIt : Cartesian path failed — fraction: 35.820896% | FAILED (best fraction: 35.820896%) | [DIAG] Primary cause: START_STATE_IN_COLLISION (+1 additional issue(s))
+  - Start state IS in collision. Pairs: J4 <-> cage_left, J5 <-> cage_left
+  - Goal state IS in collision.
+  - Cartesian fraction achieved: 35.8209% (failure near waypoint #0)
+  - Planning took 1.04674s
+ (took 1.046737s)
+2026-03-18 11:19:32,490 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-18 11:19:32,691 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect, planning_frame=world, ee_link=tool_link
+2026-03-18 11:19:34,699 - INFO - Requesting IK solver info from C++ node...
+2026-03-18 11:19:34,705 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-18 11:19:36,683 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-18 11:19:36,689 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-18 11:19:38,689 - INFO - Sending ADD for mesh box1 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:19:40,777 - INFO - Sending ADD for mesh box2 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:19:43,608 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-18 11:19:43,614 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-18 11:19:47,574 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-18 11:19:47,732 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.093172 seconds).
+2026-03-18 11:19:49,743 - INFO - Request for movement received : X=0.14, Y=0.52, Z=0.54, RX=0.44, RY=0.76, RZ=1.55, (Relative=False, Cartesian=False, Angle Format=RAD, Execute=True)
+2026-03-18 11:19:59,840 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE | [DIAG] Primary cause: START_STATE_IN_COLLISION (+2 additional issue(s))
+  - Start state IS in collision. Pairs: J1 <-> tool_link, J2 <-> cage_bottom, J2 <-> tool_link, J3 <-> cage_bottom, J3 <-> tool_link (+15 more)
+  - Goal state IS in collision.
+  - Near singularity at goal. Manipulability=2.65831e-37 (threshold=0.001), Jacobian condition=inf
+  - Planning took 10.02s
+ (took 10.020009s)
+2026-03-18 11:20:48,445 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-18 11:20:49,381 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect, planning_frame=world, ee_link=tool_link
+2026-03-18 11:20:51,359 - INFO - Requesting IK solver info from C++ node...
+2026-03-18 11:20:51,365 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-18 11:20:53,381 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-18 11:20:53,387 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-18 11:20:55,430 - INFO - Sending ADD for mesh box1 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:20:57,514 - INFO - Sending ADD for mesh box2 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:20:59,591 - INFO - Virtual cage modification requested (Enable=False)
+2026-03-18 11:20:59,615 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-18 11:21:03,565 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-18 11:21:03,724 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.088094 seconds).
+2026-03-18 11:21:05,720 - INFO - Request for movement received : X=0.14, Y=0.52, Z=0.54, RX=0.44, RY=0.76, RZ=1.55, (Relative=False, Cartesian=False, Angle Format=RAD, Execute=True)
+2026-03-18 11:21:15,769 - ERROR - Failed movement ! Cause returned by MoveIt : Planning failed: FAILURE | [DIAG] Primary cause: START_STATE_IN_COLLISION (+2 additional issue(s))
+  - Start state IS in collision. Pairs: J1 <-> tool_link, J2 <-> tool_link, J3 <-> tool_link, base_link <-> tool_link, J1 <-> tool_link (+3 more)
+  - Goal state IS in collision.
+  - Near singularity at goal. Manipulability=2.65831e-37 (threshold=0.001), Jacobian condition=inf
+  - Planning took 10.0255s
+ (took 10.025485s)
+2026-03-18 11:21:50,450 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-18 11:21:50,634 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect, planning_frame=world, ee_link=tool_link
+2026-03-18 11:21:52,629 - INFO - Requesting IK solver info from C++ node...
+2026-03-18 11:21:52,637 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-18 11:21:55,399 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-18 11:21:55,407 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-18 11:21:57,419 - INFO - Sending ADD for mesh box1 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:21:59,519 - INFO - Sending ADD for mesh box2 (Path: file:///mnt/c/Users/33648/Desktop/STAGE_ROS/card_storage/boitier.STL)...
+2026-03-18 11:22:01,588 - INFO - Virtual cage modification requested (Enable=False)
+2026-03-18 11:22:01,594 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-18 11:22:05,549 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-18 11:22:05,725 - INFO - Joint movement successful: Joint trajectory executed successfully (took 0.100415 seconds).
+2026-03-18 11:22:07,719 - INFO - Request for movement received : X=0.14, Y=0.52, Z=0.54, RX=0.44, RY=0.76, RZ=1.55, (Relative=False, Cartesian=True, Angle Format=RAD, Execute=True)
+2026-03-18 11:22:08,783 - ERROR - Failed movement ! Cause returned by MoveIt : Cartesian path failed — fraction: 38.805970% | FAILED (best fraction: 38.805970%) | [DIAG] Primary cause: START_STATE_IN_COLLISION
+  - Start state IS in collision. Pairs: J1 <-> tool_link, J2 <-> tool_link, J3 <-> tool_link, base_link <-> tool_link
+  - Cartesian fraction achieved: 38.806%
+  - Planning took 1.05026s
+ (took 1.050263s)
