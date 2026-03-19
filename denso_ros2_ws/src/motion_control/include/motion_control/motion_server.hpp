@@ -295,14 +295,50 @@ namespace motion_control
              * @param trajectory The robot trajectory to retime (modified in place).
              */
             void applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory);
-
-            bool planAndExecuteJoints(const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg);
-                        
-            void onMoveToPoseViaJoint(const std::shared_ptr<motion_control::srv::MoveToPose::Request> req, std::shared_ptr<motion_control::srv::MoveToPose::Response> res);
             
+            /**
+             * @brief Plans and optionally executes a joint-space trajectory to the specified joint positions.
+             * 
+             * Supports both absolute joint targets and relative offsets from the current joint state.
+             * Applies the current velocity and acceleration scaling factors before planning.
+             * 
+             * @param joints Target joint values (in radians). Must match the number of joints in the planning group.
+             * @param is_relative If true, the values are treated as deltas added to the current joint positions.
+             * @param execute If true, the planned trajectory is executed. If false, only planning is performed.
+             * @param out_msg Reference to a string where status or error messages will be written.
+             * @return true If planning (and execution if requested) succeeded.
+             * @return false If the joint count is incorrect, planning failed, or execution failed.
+             */
+            bool planAndExecuteJoints(const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg);
+
+            /**
+             * @brief Move the robot to a Cartesian pose using joint-space planning only.
+             * 
+             * Computes the absolute target pose (handling relative offsets, reference frames,
+             * and rotation formats), solves Inverse Kinematics to obtain joint positions,
+             * then plans and executes entirely in joint space. This avoids Cartesian-space
+             * planning issues (e.g., singularities, joint-limit wrapping) while still
+             * accepting a pose as input.
+             * 
+             * @param req Contains target coordinates, rotation format, reference frame, and motion flags.
+             * @param res Returns the success status and a descriptive message prefixed with "[IK OK]" on success.
+             */
+            void onMoveToPoseViaJoint(const std::shared_ptr<motion_control::srv::MoveToPose::Request> req, std::shared_ptr<motion_control::srv::MoveToPose::Response> res);
+
+            /**
+             * @brief Solves Inverse Kinematics for a target pose and delegates to joint-space planning.
+             * 
+             * Used as a fallback strategy when Cartesian-space planning fails. Obtains the
+             * current robot state, computes a valid IK solution for the given pose, enforces
+             * joint limits, and forwards the resulting joint configuration to planAndExecuteJoints.
+             * 
+             * @param target_pose The desired end-effector pose in the planning frame.
+             * @param execute If true, the trajectory is executed after planning. If false, plan-only mode.
+             * @param out_msg Reference to a string where status or error messages will be written.
+             * @return true If IK was solved and joint-space planning (and execution if requested) succeeded.
+             * @return false If IK failed (unreachable pose), the robot state is unavailable, or planning failed.
+             */
             bool solveIKAndPlanJoints(const geometry_msgs::msg::Pose& target_pose, bool execute, std::string& out_msg);
-
-
 
 
 

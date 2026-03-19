@@ -456,9 +456,9 @@ class MotionRosClient(Node):
         
         logger.info(
             f"Pose read successful. "
-            f"XYZ: [{p.position.x:.3f}, {p.position.y:.3f}, {p.position.z:.3f}], "
-            f"Quat: [{p.orientation.x:.3f}, {p.orientation.y:.3f}, {p.orientation.z:.3f}, {p.orientation.w:.3f}], "
-            f"RPY: [{rx:.3f}, {ry:.3f}, {rz:.3f}]"
+            f"XYZ: [{p.position.x:.6f}, {p.position.y:.6f}, {p.position.z:.6f}], "
+            f"Quat: [{p.orientation.x:.6f}, {p.orientation.y:.6f}, {p.orientation.z:.6f}, {p.orientation.w:.6f}], "
+            f"RPY: [{rx:.6f}, {ry:.6f}, {rz:.6f}]"
         )
 
         return {

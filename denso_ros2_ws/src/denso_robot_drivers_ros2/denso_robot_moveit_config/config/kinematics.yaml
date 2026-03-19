@@ -23,8 +23,8 @@ arm:
   mode: local
 
   # --- Accuracy ---
-  position_threshold: 0.001          # 1mm — tight, ensures path fidelity
-  orientation_threshold: 0.01        # Very tight orientation tracking
+  position_threshold: 0.0005          # 0.5mm — tight, ensures path fidelity
+  orientation_threshold: 0.005        # Very tight orientation tracking
   cost_threshold: 0.001
 
   # --- Scales ---
@@ -42,5 +42,5 @@ arm:
 
   # --- Approximate solution guard ---
   # If a waypoint IK drifts too far from goal, reject it rather than accept garbage
-  approximate_solution_position_threshold: 0.005    # 5mm max drift
-  approximate_solution_orientation_threshold: 0.05  # ~3 deg max drift
+  approximate_solution_position_threshold: 0.001
+  approximate_solution_orientation_threshold: 0.01
