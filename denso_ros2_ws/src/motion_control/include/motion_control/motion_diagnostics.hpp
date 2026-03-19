@@ -1,19 +1,5 @@
 #pragma once
 
-// =============================================================================
-// motion_diagnostics.hpp
-//
-// Diagnostic utilities for MotionServer — provides structured failure analysis
-// after MoveIt planning/execution errors. Distinguishes between:
-//   - Collision (start, goal, or along trajectory)
-//   - IK / Unreachable pose
-//   - Singularity (via Jacobian condition number / manipulability)
-//   - Joint limits violation
-//   - Cartesian path partial failure (with spatial localization)
-//   - Timeout / generic planning failure
-//
-// =============================================================================
-
 #include <string>
 #include <vector>
 #include <optional>
@@ -25,13 +11,37 @@
 #include <moveit/robot_model/robot_model.h>
 #include <moveit_msgs/msg/move_it_error_codes.hpp>
 #include <geometry_msgs/msg/pose.hpp>
+#include <moveit/robot_model/joint_model_group.h>
+#include <moveit/collision_detection/collision_common.h>
 #include <Eigen/Dense>
+#include <Eigen/SVD>
+#include <cmath>
+#include <set>
+#include <sstream>
+#include <algorithm>
 
 namespace motion_control
 {
+
+    /**
+     * @brief Structured report collecting all findings from a planning or execution failure diagnostic.
+     * 
+     * Aggregates collision details (start, goal, path), IK reachability, singularity metrics
+     * (Yoshikawa manipulability and Jacobian condition number), joint limit violations,
+     * Cartesian path completion fraction, and timing information into a single object.
+     * 
+     * When multiple issues are detected simultaneously, all are stored in `all_causes`
+     * and the most actionable one is promoted to `primary_cause` using a priority order:
+     * collision > IK > singularity > joint limits > timeout.
+     * 
+     * Call `buildSummary()` after populating the fields to generate a human-readable
+     * diagnostic string suitable for logging.
+     */
     struct DiagnosticReport
     {
-        // ---- High-level verdict ----
+        /**
+         * @brief Enumeration of root cause categories for planning/execution failures.
+         */
         enum class Cause {
             UNKNOWN,
             START_COLLISION,
@@ -44,119 +54,135 @@ namespace motion_control
             CONTROL_FAILED,
             CARTESIAN_INCOMPLETE,
             CONSTRAINT_VIOLATION,
-            MULTIPLE_CAUSES       // When several issues are detected simultaneously
+            MULTIPLE_CAUSES
         };
 
         Cause primary_cause = Cause::UNKNOWN;
-        std::vector<Cause> all_causes;          // May contain multiple findings
+        std::vector<Cause> all_causes;
 
-        // ---- Collision details ----
+        // Collision details
         bool start_in_collision = false;
         bool goal_in_collision  = false;
-        std::vector<std::string> collision_pairs;  // e.g. "link3 <-> box_obstacle"
+        std::vector<std::string> collision_pairs;        // e.g. "link3 <-> box_obstacle"
+        std::vector<std::string> self_collision_pairs;   // link <-> link (same robot)
+        std::vector<std::string> env_collision_pairs;    // link <-> external object
 
-        // ---- IK details ----
+        // IK details 
         bool ik_failed = false;
-        std::string ik_detail;                     // e.g. "KDL returned no solution after 5 attempts"
+        std::string ik_detail;
 
-        // ---- Singularity details ----
+        // Singularity details
         bool near_singularity = false;
-        double manipulability = -1.0;              // Yoshikawa manipulability measure
-        double condition_number = -1.0;            // Jacobian condition number (high = bad)
-        double singularity_threshold = 1e-3;       // Below this manipulability → singular
+        double manipulability = -1.0;
+        double condition_number = -1.0;
+        double singularity_threshold = 1e-3;
 
-        // ---- Joint limits ----
+        // Joint limits 
         bool joints_out_of_bounds = false;
-        std::vector<std::string> violating_joints; // Names of joints exceeding limits
+        std::vector<std::string> violating_joints;
 
-        // ---- Cartesian path ----
+        // Cartesian path
         double cartesian_fraction = -1.0;
-        int    cartesian_fail_waypoint_index = -1; // Index of first waypoint that couldn't be reached
-        geometry_msgs::msg::Pose cartesian_fail_pose; // Approximate pose where interpolation broke
+        int    cartesian_fail_waypoint_index = -1;
+        geometry_msgs::msg::Pose cartesian_fail_pose;
 
-        // ---- Timing ----
+        // Timing 
         double planning_duration_s = 0.0;
 
-        // ---- Human-readable summary ----
-        std::string summary;                       // Full diagnostic message
+        // Human-readable summary 
+        std::string summary;
 
         /**
-         * @brief Assembles the human-readable summary string from all populated fields.
+         * @brief Builds the human-readable summary string from all populated fields.
          * 
-         * Iterates over collision details, IK status, singularity metrics, joint-limit
-         * violations, Cartesian fraction, and timing to produce a structured multi-line
-         * diagnostic message stored in the `summary` member.
+         * Assembles a multi-line diagnostic message including the primary cause,
+         * collision pair details (separated into self-collision and environment),
+         * IK failure reason, singularity metrics, joint limit violations, Cartesian
+         * fraction achieved, and planning duration. Limits output to avoid flooding
+         * logs (e.g., max 3 collision pairs shown, with a count of additional ones).
+         * 
+         * Must be called after all diagnostic checks have populated the report fields.
          */
         void buildSummary();
 
-         /**
-         * @brief Converts a Cause enum value to its string representation.
+        /**
+         * @brief Converts a Cause enum value to a human-readable string.
          * 
-         * @param c The diagnostic cause to convert.
-         * @return std::string Human-readable name of the cause (e.g. "GOAL_STATE_IN_COLLISION").
+         * @param c The cause enum value to convert.
+         * @return std::string Uppercase string representation (e.g., "START_STATE_IN_COLLISION").
          */
         static std::string causeToString(Cause c);
     };
 
 
-    // ---------------------------------------------------------------------------
-    // Diagnostic functions (designed as static helpers or MotionServer methods)
-    // ---------------------------------------------------------------------------
+    /**
+     * @brief Singularity metrics computed from Jacobian SVD decomposition.
+     * 
+     * Provides two complementary measures of proximity to a kinematic singularity:
+     * - Yoshikawa manipulability (product of singular values — low = singular).
+     * - Jacobian condition number (sigma_max / sigma_min — high = singular).
+     */
+    struct SingularityMetrics {
+        double manipulability;    ///< sqrt(det(J * J^T)) — Yoshikawa measure
+        double condition_number;  ///< sigma_max / sigma_min of J
+        bool   is_singular;       ///< true if manipulability < threshold
+    };
+
 
     /**
      * @brief Checks whether a given robot state is in collision within the planning scene.
      * 
-     * Performs a collision query against the full planning scene (self-collisions
-     * and environment obstacles). When a collision is detected, the colliding
-     * pairs are returned as human-readable strings (e.g. "link3 <-> box_obstacle").
+     * Queries the planning scene for contacts at the given state and classifies
+     * each colliding pair as either self-collision (both bodies are robot links)
+     * or environment collision (at least one body is an external object).
+     * Limited to 10 contact pairs to avoid flooding on complex scenes.
      * 
-     * @param scene A const snapshot of the planning scene to check against.
-     * @param state The robot state to evaluate for collisions.
-     * @param group_name Name of the joint model group to restrict the check to.
-     * @param collision_pairs Output vector filled with "bodyA <-> bodyB" strings for each contact (up to 10).
-     * @return true If the state is in collision.
+     * @param scene Const snapshot of the planning scene (typically from getLockedPlanningScene).
+     * @param state The robot state to check.
+     * @param group_name The planning group to restrict the collision check to.
+     * @param collision_pairs Output: all colliding pairs as "bodyA <-> bodyB" strings.
+     * @param self_collision_pairs Output: subset of pairs where both bodies are robot links.
+     * @param env_collision_pairs Output: subset of pairs involving at least one external object.
+     * @return true If the state is in collision (at least one contact pair found).
      * @return false If the state is collision-free.
      */
     bool checkStateCollision(
         const planning_scene::PlanningSceneConstPtr& scene,
         const moveit::core::RobotState& state,
         const std::string& group_name,
-        std::vector<std::string>& collision_pairs);
+        std::vector<std::string>& collision_pairs,
+        std::vector<std::string>& self_collision_pairs,
+        std::vector<std::string>& env_collision_pairs);
 
     /**
-     * @brief Checks whether any joint in the given state exceeds its model-defined position limits.
+     * @brief Checks whether joint values in the given state respect model bounds.
      * 
-     * Iterates over all active joints of the specified group and compares their
-     * current values against the URDF-defined bounds. Each violation is returned
-     * as a formatted string containing the joint name, its current value, and
-     * the allowed range (e.g. "joint_3=3.25 [-3.14, 3.14]").
+     * Iterates over all active joints in the planning group and compares each
+     * variable's position against its declared min/max limits.
      * 
-     * @param state The robot state whose joint positions are checked.
-     * @param group_name Name of the joint model group to inspect.
-     * @return std::vector<std::string> List of violation descriptions (empty if all joints are within bounds).
+     * @param state The robot state to check.
+     * @param group_name The planning group whose joints to verify.
+     * @return std::vector<std::string> Names of joints that exceed their bounds,
+     *         formatted as "joint_name=value [min, max]". Empty if all within limits.
      */
     std::vector<std::string> checkJointLimits(
         const moveit::core::RobotState& state,
         const std::string& group_name);
 
-    struct SingularityMetrics {
-        double manipulability;    // det(J * J^T)^0.5  — Yoshikawa measure
-        double condition_number;  // sigma_max / sigma_min of J
-        bool   is_singular;       // true if manipulability < threshold
-    };
-
     /**
-     * @brief Computes singularity metrics for a given robot state using the geometric Jacobian.
+     * @brief Computes singularity metrics via Jacobian SVD decomposition.
      * 
-     * Evaluates proximity to kinematic singularities by performing an SVD
-     * decomposition of the Jacobian matrix and deriving two complementary measures:
-     * 1. Yoshikawa manipulability: product of singular values (low = singular).
-     * 2. Jacobian condition number: ratio of largest to smallest singular value (high = singular).
+     * Retrieves the geometric Jacobian (6 x n_joints) at the tip link of the
+     * planning group and performs Singular Value Decomposition. Computes the
+     * Yoshikawa manipulability measure (product of all singular values) and
+     * the condition number (sigma_max / sigma_min). A manipulability below
+     * the threshold indicates proximity to a kinematic singularity.
      * 
      * @param state The robot state at which to evaluate the Jacobian.
-     * @param jmg Pointer to the joint model group (determines which joints and tip link are used).
-     * @param threshold Manipulability value below which the state is considered singular (default: 1e-3).
-     * @return SingularityMetrics Struct containing manipulability, condition number, and a boolean singular flag.
+     * @param jmg Pointer to the joint model group (must not be null).
+     * @param threshold Manipulability below this value flags the state as singular (default: 1e-3).
+     * @return SingularityMetrics Containing manipulability, condition number, and singular flag.
+     *         Returns manipulability=0, condition=inf, is_singular=true if Jacobian computation fails.
      */
     SingularityMetrics computeSingularityMetrics(
         const moveit::core::RobotState& state,
@@ -164,52 +190,69 @@ namespace motion_control
         double threshold = 1e-3);
 
     /**
-     * @brief Runs a comprehensive diagnostic analysis after a MoveIt planning failure.
+     * @brief Runs a full diagnostic analysis after a MoveIt planning failure.
      * 
-     * This is the main diagnostic entry point for joint-space and pose-target planning.
-     * It systematically checks the start state for collisions, attempts IK on the goal
-     * pose (if provided), verifies the goal state for collisions, joint-limit violations,
-     * and singularity proximity. A prioritized primary cause is determined from all
-     * detected issues, and a human-readable summary is generated.
+     * This is the main diagnostic entry point called from service handlers when
+     * MoveGroupInterface::plan() returns a non-SUCCESS error code. Performs the
+     * following checks in order:
      * 
-     * @param error_code The MoveIt error code returned by the failed plan() call.
-     * @param move_group Reference to the MoveGroupInterface (used to retrieve the current state and robot model).
-     * @param scene A const snapshot of the planning scene for collision checking.
-     * @param group_name Name of the joint model group being planned for.
-     * @param goal_pose Pointer to the target Cartesian pose (nullable if planning in joint space).
-     * @param goal_joints Pointer to the target joint values (nullable if planning to a pose target).
-     * @param planning_duration_s Wall-clock time the planner spent before failing.
-     * @param logger ROS logger used to emit warnings during the diagnostic process.
-     * @return DiagnosticReport Structured report containing all findings, the primary cause, and a summary string.
+     * 1. Collision check on the current (start) state.
+     * 2. Goal state construction (via IK for pose targets or direct assignment for
+     *    joint targets), then collision check, joint limit check, and singularity
+     *    analysis on the goal state.
+     * 3. Timeout detection from the error code.
+     * 4. Primary cause determination using priority: collision > IK > singularity
+     *    > joint limits > timeout.
+     * 
+     * Accepts either a goal pose (for Cartesian targets) or goal joint values
+     * (for joint-space targets). Pass nullptr for the unused one.
+     * 
+     * @param error_code The MoveIt error code returned by plan().
+     * @param move_group Reference to the MoveGroupInterface (used to get current state and robot model).
+     * @param scene Const snapshot of the planning scene for collision checking.
+     * @param group_name The planning group name.
+     * @param goal_pose Target Cartesian pose (nullable — pass nullptr for joint-space targets).
+     * @param goal_joints Target joint values (nullable — pass nullptr for pose targets).
+     * @param planning_duration_s Wall-clock time the planner spent (for the report).
+     * @param logger ROS logger for WARN/DEBUG output during analysis.
+     * @return DiagnosticReport Fully populated report with summary already built.
      */
     DiagnosticReport diagnosePlanningFailure(
         const moveit::core::MoveItErrorCode& error_code,
         const moveit::planning_interface::MoveGroupInterface& move_group,
         const planning_scene::PlanningSceneConstPtr& scene,
         const std::string& group_name,
-        const geometry_msgs::msg::Pose* goal_pose,       // nullable if joint target
-        const std::vector<double>* goal_joints,           // nullable if pose target
+        const geometry_msgs::msg::Pose* goal_pose,
+        const std::vector<double>* goal_joints,
         double planning_duration_s,
         const rclcpp::Logger& logger);
 
     /**
-     * @brief Runs a diagnostic analysis specifically tailored to Cartesian path planning failures.
+     * @brief Runs a diagnostic specifically for Cartesian path failures.
      * 
-     * Walks through each waypoint sequentially, attempting IK and checking for
-     * collisions and singularity at each step. This localizes the failure spatially
-     * by identifying the first waypoint where IK fails, a collision occurs, or
-     * the arm enters a singular configuration. If all individual waypoints are
-     * reachable, the failure is attributed to the interpolated path between them
-     * (e.g. passing through a collision zone or singularity during linear interpolation).
+     * Called when computeCartesianPath returns a fraction below the acceptable
+     * threshold. Walks through each waypoint sequentially to pinpoint WHERE
+     * and WHY the interpolated path breaks:
      * 
-     * @param move_group Reference to the MoveGroupInterface (used to retrieve the current state and robot model).
-     * @param scene A const snapshot of the planning scene for collision checking.
-     * @param group_name Name of the joint model group being planned for.
-     * @param waypoints Ordered list of Cartesian poses the end-effector was expected to follow.
-     * @param achieved_fraction The fraction (0.0–1.0) of the path that was successfully computed before failure.
+     * 1. Checks the start state for collision.
+     * 2. For each waypoint: attempts IK, checks collision, and evaluates
+     *    singularity at the resulting joint state. Stops at the first failure
+     *    for IK and collision (singularity analysis continues to gather all data).
+     * 3. If all individual waypoints are reachable and collision-free, the failure
+     *    is attributed to the interpolated path between waypoints (collision zone,
+     *    singularity, or joint-limit boundary crossed during interpolation).
+     * 
+     * The `cartesian_fail_waypoint_index` and `cartesian_fail_pose` fields in the
+     * returned report identify the approximate location of the break.
+     * 
+     * @param move_group Reference to the MoveGroupInterface (used for current state and robot model).
+     * @param scene Const snapshot of the planning scene for collision checking.
+     * @param group_name The planning group name.
+     * @param waypoints Ordered list of Cartesian poses the end-effector must pass through.
+     * @param achieved_fraction Fraction of the path successfully computed (0.0 to 1.0).
      * @param planning_duration_s Wall-clock time the Cartesian planner spent.
-     * @param logger ROS logger used to emit warnings during the diagnostic process.
-     * @return DiagnosticReport Structured report including the failure waypoint index, pose, cause, and summary.
+     * @param logger ROS logger for WARN/DEBUG output during analysis.
+     * @return DiagnosticReport Fully populated report with spatial failure localization.
      */
     DiagnosticReport diagnoseCartesianFailure(
         const moveit::planning_interface::MoveGroupInterface& move_group,

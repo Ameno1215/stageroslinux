@@ -1,6 +1,5 @@
 #include "motion_control/motion_server.hpp"
 
-#include <sstream>
 
 namespace motion_control
 {
@@ -196,10 +195,14 @@ namespace motion_control
     {
         if (!psm_) return nullptr;
         
-        // LockedPlanningSceneRO gives a const, thread-safe view of the scene
+        // LockedPlanningSceneRO gives a const, thread-safe snapshot.
+        // The clone may be stale by the time diagnostics run — this is expected
+        // for post-failure analysis but should be noted in logs.
         planning_scene_monitor::LockedPlanningSceneRO locked_scene(psm_);
-        // Clone it so we can use it after the lock is released
-        return planning_scene::PlanningScene::clone(locked_scene.operator->()->shared_from_this());
+        auto cloned = planning_scene::PlanningScene::clone(locked_scene.operator->()->shared_from_this());
+        RCLCPP_DEBUG(this->get_logger(),
+            "[DIAG] Cloned planning scene for diagnostics (snapshot — may be stale if world changed during execution)");
+        return cloned;
     }
 
     bool MotionServer::solveIKAndPlanJoints(
@@ -240,6 +243,13 @@ namespace motion_control
         move_group_->setPoseTarget(target);
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
+
+        RCLCPP_DEBUG(this->get_logger(),
+            "[PlanPose] Target: pos=[%.4f, %.4f, %.4f] quat=[%.4f, %.4f, %.4f, %.4f] execute=%s",
+            target.pose.position.x, target.pose.position.y, target.pose.position.z,
+            target.pose.orientation.x, target.pose.orientation.y,
+            target.pose.orientation.z, target.pose.orientation.w,
+            execute ? "true" : "false");
 
         // --- Strategy 1: Standard pose target ---
         moveit::planning_interface::MoveGroupInterface::Plan plan;
@@ -285,14 +295,25 @@ namespace motion_control
             return false;
         }
 
+        RCLCPP_DEBUG(this->get_logger(),
+            "[PlanPose] Plan OK: %zu points, planning took %.3fs",
+            plan.trajectory_.joint_trajectory.points.size(), planning_duration);
+
         // Execute strategy 1 if it's possible
         move_group_->clearPoseTargets();
 
         if (execute) {
+            // Validate trajectory before sending to controller
+            std::string traj_err;
+            if (!validateTrajectory(plan.trajectory_, traj_err)) {
+                out_msg = traj_err;
+                return false;
+            }
+
             auto exec_code = move_group_->execute(plan);
             if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-                out_msg = "Execution failed for pose target: " + moveitErrorCodeToString(exec_code)
-                        + " (took " + std::to_string(planning_duration) + "s)";
+                // Run post-execution diagnostics
+                out_msg = diagnoseExecutionFailure(exec_code);
                 return false;
             }
             out_msg = "Planned and executed pose target successfully (took " + std::to_string(planning_duration) + "s)";
@@ -334,7 +355,7 @@ namespace motion_control
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 
-    geometry_msgs::msg::PoseStamped MotionServer::computeAbsoluteTarget(
+    std::optional<geometry_msgs::msg::PoseStamped> MotionServer::computeAbsoluteTarget(
         double x, double y, double z,
         double r1, double r2, double r3, double r4,
         const std::string& rot_format,
@@ -371,7 +392,7 @@ namespace motion_control
             current_pose_msg = move_group_->getCurrentPose();
         } catch (const std::exception& e) {
             out_error_msg = std::string("Failed to get current pose for relative motion: ") + e.what();
-            return final_pose;
+            return std::nullopt;
         }
         // Validate that we got a non-zero pose (getCurrentPose can silently return zeros if TF is not ready)
         const auto& p = current_pose_msg.pose;
@@ -379,7 +400,7 @@ namespace motion_control
         if (p.position.x == 0.0 && p.position.y == 0.0 && p.position.z == 0.0 &&
             o.x == 0.0 && o.y == 0.0 && o.z == 0.0 && o.w == 0.0) {
             out_error_msg = "getCurrentPose() returned a zero pose. TF tree may not be ready";
-            return final_pose;
+            return std::nullopt;
         }
         
         tf2::Transform current_transform;
@@ -400,7 +421,7 @@ namespace motion_control
         }
         else {
             out_error_msg = "Absolute combination + TOOL marker not supported. Please use WORLD reference for absolute poses";
-            return final_pose;
+            return std::nullopt;
         }
 
         tf2::toMsg(result_transform, final_pose.pose);
@@ -446,10 +467,117 @@ namespace motion_control
         rt.setRobotTrajectoryMsg(*move_group_->getCurrentState(), trajectory);
 
         trajectory_processing::TimeOptimalTrajectoryGeneration totg;
-        totg.computeTimeStamps(rt, vel_scale_, accel_scale_);
+
+        // Check return value — if retiming fails, the robot would
+        // execute with the raw (unscaled) timestamps, potentially at full speed.
+        // This is a SAFETY-CRITICAL check.
+        bool ok = totg.computeTimeStamps(rt, vel_scale_, accel_scale_);
+        if (!ok) {
+            RCLCPP_ERROR(this->get_logger(),
+                "SAFETY: TOTG retiming FAILED (vel=%.2f, accel=%.2f). "
+                "Trajectory will NOT be executed to prevent uncontrolled speed. "
+                "Clearing trajectory points as a safety measure.",
+                vel_scale_, accel_scale_);
+            // Clear the trajectory to prevent execution with raw timestamps
+            trajectory.joint_trajectory.points.clear();
+            return;
+        }
 
         // Convert back to message with correct timestamps
         rt.getRobotTrajectoryMsg(trajectory);
+    }
+
+    // Trajectory sanity check before sending to the controller
+    bool MotionServer::validateTrajectory(
+        const moveit_msgs::msg::RobotTrajectory& trajectory,
+        std::string& out_msg) const
+    {
+        const auto& points = trajectory.joint_trajectory.points;
+
+        if (points.empty()) {
+            out_msg = "SAFETY: Trajectory has 0 points — refusing execution";
+            RCLCPP_ERROR(this->get_logger(), "%s", out_msg.c_str());
+            return false;
+        }
+
+        double total_time = points.back().time_from_start.sec
+                          + points.back().time_from_start.nanosec * 1e-9;
+
+        RCLCPP_DEBUG(this->get_logger(),
+            "[TRAJ] %zu points, total duration: %.4fs, joints: %zu",
+            points.size(), total_time,
+            trajectory.joint_trajectory.joint_names.size());
+
+        // Check for suspiciously short segments that could cause controller jerk
+        int short_segment_count = 0;
+        for (size_t i = 1; i < points.size(); ++i) {
+            double t_prev = points[i-1].time_from_start.sec + points[i-1].time_from_start.nanosec * 1e-9;
+            double t_curr = points[i].time_from_start.sec + points[i].time_from_start.nanosec * 1e-9;
+            double dt = t_curr - t_prev;
+            if (dt < 1e-6) {
+                short_segment_count++;
+            }
+        }
+        if (short_segment_count > 0) {
+            RCLCPP_WARN(this->get_logger(),
+                "[TRAJ] WARNING: %d segment(s) with near-zero time delta detected — "
+                "controller may experience jerk", short_segment_count);
+        }
+
+        return true;
+    }
+
+    // Post-execution diagnostics
+    std::string MotionServer::diagnoseExecutionFailure(
+        const moveit::core::MoveItErrorCode& exec_code)
+    {
+        std::ostringstream oss;
+        oss << "Execution failed: " << moveitErrorCodeToString(exec_code);
+
+        // Log the current joint state at the point of failure
+        auto current_state = move_group_->getCurrentState(1.0);
+        if (current_state) {
+            std::vector<double> joint_vals;
+            current_state->copyJointGroupPositions(planning_group_, joint_vals);
+            oss << " | Interrupted joint state: [";
+            for (size_t i = 0; i < joint_vals.size(); ++i) {
+                if (i > 0) oss << ", ";
+                oss << std::fixed << std::setprecision(4) << joint_vals[i];
+            }
+            oss << "]";
+
+            // Run collision check at interrupted state
+            auto scene = getLockedPlanningScene();
+            if (scene) {
+                std::vector<std::string> pairs, self_pairs, env_pairs;
+                if (checkStateCollision(scene, *current_state, planning_group_,
+                                        pairs, self_pairs, env_pairs)) {
+                    oss << " | IN COLLISION at interrupted state: ";
+                    for (size_t i = 0; i < pairs.size() && i < 5; ++i) {
+                        if (i > 0) oss << ", ";
+                        oss << pairs[i];
+                    }
+                    if (!self_pairs.empty()) oss << " (" << self_pairs.size() << " self-collision)";
+                    if (!env_pairs.empty()) oss << " (" << env_pairs.size() << " env-collision)";
+                }
+
+                // Singularity check at interrupted state
+                const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+                if (jmg) {
+                    auto sing = computeSingularityMetrics(*current_state, jmg);
+                    if (sing.is_singular) {
+                        oss << " | NEAR SINGULARITY: manipulability=" << sing.manipulability
+                            << ", condition=" << sing.condition_number;
+                    }
+                }
+            }
+        } else {
+            oss << " | WARNING: Could not retrieve robot state after execution failure";
+        }
+
+        std::string result = oss.str();
+        RCLCPP_ERROR(this->get_logger(), "[EXEC-DIAG] %s", result.c_str());
+        return result;
     }
 
     void MotionServer::onMoveToPose(
@@ -460,13 +588,13 @@ namespace motion_control
         std::string error_msg;
         if (!ensureInitialized(error_msg)) { res->success = false; res->message = error_msg; return; }
 
-        // Calculating the absolute target using our mathematical engine
-        geometry_msgs::msg::PoseStamped target_pose = computeAbsoluteTarget(
+        auto maybe_target = computeAbsoluteTarget(
             req->x, req->y, req->z, req->r1, req->r2, req->r3, req->r4,
             req->rotation_format, req->reference_frame, req->is_relative, error_msg
         );
 
-        if (!error_msg.empty()) { res->success = false; res->message = error_msg; return; }
+        if (!maybe_target.has_value()) { res->success = false; res->message = error_msg; return; }
+        auto target_pose = maybe_target.value();
 
         // Validate quaternion to catch NaN/Inf before sending to MoveIt
         {
@@ -479,7 +607,20 @@ namespace motion_control
             }
         }
 
-        // Speed ​​application
+        // Log the resolved target on the path for post-incident reconstruction
+        RCLCPP_DEBUG(this->get_logger(),
+            "[MoveToPose] Resolved target: pos=[%.4f, %.4f, %.4f] quat=[%.4f, %.4f, %.4f, %.4f] "
+            "frame=%s ref=%s relative=%s cartesian=%s execute=%s",
+            target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z,
+            target_pose.pose.orientation.x, target_pose.pose.orientation.y,
+            target_pose.pose.orientation.z, target_pose.pose.orientation.w,
+            target_pose.header.frame_id.c_str(),
+            req->reference_frame.c_str(),
+            req->is_relative ? "true" : "false",
+            req->cartesian_path ? "true" : "false",
+            req->execute ? "true" : "false");
+
+        // Speed application
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
@@ -525,12 +666,25 @@ namespace motion_control
             // Apply velocity/acceleration scaling to the raw Cartesian trajectory
             applyVelocityScaling(trajectory);
 
+            // Validate trajectory before sending to controller
+            std::string traj_err;
+            if (!validateTrajectory(trajectory, traj_err)) {
+                res->success = false;
+                res->message = traj_err;
+                return;
+            }
+
             if (req->execute) {
                 auto exec_code = move_group_->execute(trajectory);
-                res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
-                res->message = res->success
-                    ? "Cartesian path executed. " + cart_msg + " (took " + std::to_string(planning_duration) + "s)"
-                    : "Execution failed: " + moveitErrorCodeToString(exec_code);
+                if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                    // Run post-execution diagnostics
+                    res->success = false;
+                    res->message = diagnoseExecutionFailure(exec_code);
+                } else {
+                    res->success = true;
+                    res->message = "Cartesian path executed. " + cart_msg
+                                 + " (took " + std::to_string(planning_duration) + "s)";
+                }
             } else {
                 res->success = true;
                 res->message = "Cartesian path planned at "
@@ -604,10 +758,34 @@ namespace motion_control
             // The point we just calculated becomes the new reference base for the next point!
             current_base_tf = target_tf;
 
+            tf2::Quaternion q_check = target_tf.getRotation();
+            double norm = q_check.length();
+            if (!std::isfinite(norm) || norm < 0.99 || norm > 1.01) {
+                res->success = false;
+                res->message = "Invalid quaternion at waypoint " + std::to_string(i)
+                            + " (norm=" + std::to_string(norm) + ")";
+                return;
+            }
+
             geometry_msgs::msg::Pose abs_pose;
             tf2::toMsg(target_tf, abs_pose);
             absolute_waypoints.push_back(abs_pose);
+
+            // Log each resolved waypoint for post-incident reconstruction
+            RCLCPP_DEBUG(this->get_logger(),
+                "[MoveWaypoints] WP#%zu resolved: pos=[%.4f, %.4f, %.4f] "
+                "quat=[%.4f, %.4f, %.4f, %.4f] (rel=%s frame=%s)",
+                i, abs_pose.position.x, abs_pose.position.y, abs_pose.position.z,
+                abs_pose.orientation.x, abs_pose.orientation.y,
+                abs_pose.orientation.z, abs_pose.orientation.w,
+                is_rel ? "true" : "false", ref_frame.c_str());
         }
+
+        RCLCPP_DEBUG(this->get_logger(),
+            "[MoveWaypoints] %zu waypoints resolved, cartesian=%s, execute=%s",
+            absolute_waypoints.size(),
+            req->cartesian_path ? "true" : "false",
+            req->execute ? "true" : "false");
 
         // Apply velocity and acceleration scaling factors
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
@@ -652,12 +830,25 @@ namespace motion_control
             // Apply velocity/acceleration scaling to the raw Cartesian trajectory
             applyVelocityScaling(trajectory);
 
+            // Validate trajectory before sending to controller
+            std::string traj_err;
+            if (!validateTrajectory(trajectory, traj_err)) {
+                res->success = false;
+                res->message = traj_err;
+                return;
+            }
+
             if (req->execute) {
                 auto exec_code = move_group_->execute(trajectory);
-                res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
-                res->message = res->success
-                    ? "Cartesian path executed. " + cart_msg + " (took " + std::to_string(planning_duration) + "s)"
-                    : "Execution failed: " + moveitErrorCodeToString(exec_code);
+                if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                    // Run post-execution diagnostics
+                    res->success = false;
+                    res->message = diagnoseExecutionFailure(exec_code);
+                } else {
+                    res->success = true;
+                    res->message = "Cartesian path executed. " + cart_msg
+                                 + " (took " + std::to_string(planning_duration) + "s)";
+                }
             } else {
                 res->success = true;
                 res->message = "Cartesian path planned at "
@@ -682,37 +873,161 @@ namespace motion_control
                 // Set the target
                 move_group_->setPoseTarget(absolute_waypoints[i]);
                 
-                // Plan the segment
+                // // Plan the segment
+                // moveit::planning_interface::MoveGroupInterface::Plan segment_plan;
+                // auto seg_t0 = std::chrono::high_resolution_clock::now();
+                // auto code = move_group_->plan(segment_plan);
+                // double seg_dt = std::chrono::duration<double>(
+                //     std::chrono::high_resolution_clock::now() - seg_t0).count();
+
+                // // Log per-segment planning time
+                // RCLCPP_DEBUG(this->get_logger(),
+                //     "[MoveWaypoints] Segment %zu/%zu planning: %s (%.3fs, %zu points)",
+                //     i + 1, absolute_waypoints.size(),
+                //     (code == moveit::core::MoveItErrorCode::SUCCESS) ? "OK" : "FAILED",
+                //     seg_dt,
+                //     segment_plan.trajectory_.joint_trajectory.points.size());
+
+                // if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+                //     auto scene = getLockedPlanningScene();
+                //     std::string diag_summary;
+                //     if (scene) {
+                //         auto report = diagnosePlanningFailure(
+                //             code, *move_group_, scene, planning_group_,
+                //             &absolute_waypoints[i], nullptr,
+                //             seg_dt, this->get_logger());
+                //         diag_summary = report.summary;
+                //     }
+
+                //     res->success = false;
+                //     res->message = "Planning failed at waypoint " + std::to_string(i + 1)
+                //                 + ": " + moveitErrorCodeToString(code);
+                //     if (!diag_summary.empty()) {
+                //         res->message += " | " + diag_summary;
+                //     }
+                //     move_group_->setStartStateToCurrentState();
+                //     return;
+                // }
+
+                // Plan the segment (Strategy 1: pose target)
                 moveit::planning_interface::MoveGroupInterface::Plan segment_plan;
+                auto seg_t0 = std::chrono::high_resolution_clock::now();
                 auto code = move_group_->plan(segment_plan);
-                
-                 if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+                double seg_dt = std::chrono::duration<double>(
+                    std::chrono::high_resolution_clock::now() - seg_t0).count();
+
+                // Hygiene: clear pose targets after planning (same as planAndMaybeExecutePose)
+                move_group_->clearPoseTargets();
+
+                RCLCPP_DEBUG(this->get_logger(),
+                    "[MoveWaypoints] Segment %zu/%zu planning: %s (%.3fs, %zu points)",
+                    i + 1, absolute_waypoints.size(),
+                    (code == moveit::core::MoveItErrorCode::SUCCESS) ? "OK" : "FAILED",
+                    seg_dt,
+                    segment_plan.trajectory_.joint_trajectory.points.size());
+
+                if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+                    // Diagnostics for the pose-target failure
+                    std::string diag_msg;
                     auto scene = getLockedPlanningScene();
-                    std::string diag_summary;
                     if (scene) {
                         auto report = diagnosePlanningFailure(
                             code, *move_group_, scene, planning_group_,
                             &absolute_waypoints[i], nullptr,
-                            0.0, this->get_logger());
-                        diag_summary = report.summary;
+                            seg_dt, this->get_logger());
+                        diag_msg = report.summary;
                     }
 
-                    res->success = false;
-                    res->message = "Planning failed at waypoint " + std::to_string(i + 1)
-                                + ": " + moveitErrorCodeToString(code);
-                    if (!diag_summary.empty()) {
-                        res->message += " | " + diag_summary;
+                    RCLCPP_WARN(this->get_logger(),
+                        "[MoveWaypoints] Segment %zu pose-target failed: %s (%.2fs) "
+                        "— Falling back to IK + joint-space...",
+                        i + 1, diag_msg.c_str(), seg_dt);
+
+                    // Strategy 2: Explicit IK + joint-space planning 
+                    const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+                    bool fallback_ok = false;
+
+                    if (jmg) {
+                        // Use the chained start state for IK, not getCurrentState()
+                        moveit::core::RobotState ik_state(*current_start_state);
+                        if (ik_state.setFromIK(jmg, absolute_waypoints[i], 0.5)) {
+                            ik_state.enforceBounds(jmg);
+
+                            std::vector<double> joint_targets;
+                            ik_state.copyJointGroupPositions(jmg, joint_targets);
+
+                            // Set joint target instead of pose target
+                            std::map<std::string, double> joint_map;
+                            const auto& names = jmg->getVariableNames();
+                            for (size_t j = 0; j < names.size(); ++j) {
+                                joint_map[names[j]] = joint_targets[j];
+                            }
+
+                            move_group_->setStartState(*current_start_state);
+                            move_group_->setJointValueTarget(joint_map);
+
+                            auto fb_t0 = std::chrono::high_resolution_clock::now();
+                            code = move_group_->plan(segment_plan);
+                            double fb_dt = std::chrono::duration<double>(
+                                std::chrono::high_resolution_clock::now() - fb_t0).count();
+
+                            RCLCPP_DEBUG(this->get_logger(),
+                                "[MoveWaypoints] Segment %zu fallback IK+Joint: %s (%.3fs)",
+                                i + 1,
+                                (code == moveit::core::MoveItErrorCode::SUCCESS) ? "OK" : "FAILED",
+                                fb_dt);
+
+                            if (code == moveit::core::MoveItErrorCode::SUCCESS) {
+                                fallback_ok = true;
+                                RCLCPP_INFO(this->get_logger(),
+                                    "[MoveWaypoints] Segment %zu fallback succeeded", i + 1);
+                            }
+                        } else {
+                            RCLCPP_WARN(this->get_logger(),
+                                "[MoveWaypoints] Segment %zu IK failed during fallback", i + 1);
+                        }
                     }
-                    move_group_->setStartStateToCurrentState();
-                    return;
+
+                    if (!fallback_ok) {
+                        res->success = false;
+                        res->message = "Both strategies failed at waypoint " + std::to_string(i + 1)
+                                    + ". Pose target: " + moveitErrorCodeToString(code);
+                        if (!diag_msg.empty()) {
+                            res->message += " | " + diag_msg;
+                        }
+                        move_group_->setStartStateToCurrentState();
+                        return;
+                    }
                 }
                             
                 // Assemble the trajectory and adjust timing
                 int32_t segment_duration_sec = 0;
                 uint32_t segment_duration_nanosec = 0;
                 
-                // Skip the first point of subsequent segments to avoid a full stop at each waypoint
+                // Warn about velocity discontinuity at segment junctions.
+                // MoveIt plans each segment with zero-velocity endpoints. Skipping
+                // points[0] avoids duplicate positions but does NOT guarantee
+                // velocity continuity. The controller may experience a velocity jump.
                 size_t start_index = (i == 0) ? 0 : 1; 
+
+                if (i > 0 && !combined_trajectory.joint_trajectory.points.empty()
+                    && segment_plan.trajectory_.joint_trajectory.points.size() > 1) {
+                    // Log the velocity at the junction for debugging
+                    const auto& last_pt = combined_trajectory.joint_trajectory.points.back();
+                    const auto& next_pt = segment_plan.trajectory_.joint_trajectory.points[1]; // first used point
+                    if (!last_pt.velocities.empty() && !next_pt.velocities.empty()) {
+                        double max_vel_jump = 0.0;
+                        for (size_t j = 0; j < last_pt.velocities.size() && j < next_pt.velocities.size(); ++j) {
+                            max_vel_jump = std::max(max_vel_jump,
+                                std::abs(last_pt.velocities[j] - next_pt.velocities[j]));
+                        }
+                        if (max_vel_jump > 0.1) {  // rad/s threshold
+                            RCLCPP_WARN(this->get_logger(),
+                                "[MoveWaypoints] Velocity discontinuity at segment %zu junction: "
+                                "max delta=%.4f rad/s — controller may jerk", i, max_vel_jump);
+                        }
+                    }
+                }
                 
                 for (size_t j = start_index; j < segment_plan.trajectory_.joint_trajectory.points.size(); ++j) {
                     auto pt = segment_plan.trajectory_.joint_trajectory.points[j];
@@ -750,17 +1065,42 @@ namespace motion_control
             }
             
             // Restore normal state
+            move_group_->clearPoseTargets();
             move_group_->setStartStateToCurrentState();
             
             auto end_time = std::chrono::high_resolution_clock::now();
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
+
+            // Retime the combined trajectory to eliminate velocity discontinuities
+            // at segment junctions (same mechanism as cartesian paths)
+            applyVelocityScaling(combined_trajectory);
+
+            // Summary of the assembled multi-segment trajectory
+            RCLCPP_DEBUG(this->get_logger(),
+                "[MoveWaypoints] Combined trajectory: %zu points, total planning duration: %.3fs",
+                combined_trajectory.joint_trajectory.points.size(),
+                planning_duration);
+
+            // Validate combined trajectory before sending to controller
+            std::string traj_err;
+            if (!validateTrajectory(combined_trajectory, traj_err)) {
+                res->success = false;
+                res->message = traj_err;
+                return;
+            }
             
             // Execute
             if (req->execute) {
                 auto exec_code = move_group_->execute(combined_trajectory);
-                res->success = (exec_code == moveit::core::MoveItErrorCode::SUCCESS);
-                res->message = res->success ? "Waypoint sequence executed successfully (" + std::to_string(planning_duration) + "s)" 
-                                            : "Execution failed: " + moveitErrorCodeToString(exec_code);
+                if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                    // Run post-execution diagnostics
+                    res->success = false;
+                    res->message = diagnoseExecutionFailure(exec_code);
+                } else {
+                    res->success = true;
+                    res->message = "Waypoint sequence executed successfully ("
+                                 + std::to_string(planning_duration) + "s)";
+                }
             } else {
                 res->success = true;
                 res->message = "Sequence planned successfully (execute=false).";
@@ -786,6 +1126,24 @@ namespace motion_control
             target[names[i]] = is_relative ? current[i] + joints[i] : joints[i];
         }
 
+        // Log target and current joints on the happy path
+        {
+            std::ostringstream oss_cur, oss_tgt;
+            oss_cur << std::fixed << std::setprecision(4) << "[";
+            oss_tgt << std::fixed << std::setprecision(4) << "[";
+            for (size_t i = 0; i < names.size(); ++i) {
+                if (i > 0) { oss_cur << ", "; oss_tgt << ", "; }
+                oss_cur << current[i];
+                oss_tgt << target[names[i]];
+            }
+            oss_cur << "]"; oss_tgt << "]";
+            RCLCPP_DEBUG(this->get_logger(),
+                "[PlanJoints] current=%s target=%s relative=%s execute=%s",
+                oss_cur.str().c_str(), oss_tgt.str().c_str(),
+                is_relative ? "true" : "false",
+                execute ? "true" : "false");
+        }
+
         move_group_->setJointValueTarget(target);
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
@@ -796,16 +1154,47 @@ namespace motion_control
         double dt = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count();
 
         if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+            // Run full diagnostic analysis — this was previously missing entirely
+            std::string diag_msg;
+            auto scene = getLockedPlanningScene();
+            if (scene) {
+                // Convert target map to vector for diagnostics
+                std::vector<double> goal_joints_vec;
+                for (const auto& name : names) {
+                    goal_joints_vec.push_back(target[name]);
+                }
+                auto report = diagnosePlanningFailure(
+                    code, *move_group_, scene, planning_group_,
+                    nullptr, &goal_joints_vec,
+                    dt, this->get_logger());
+                diag_msg = report.summary;
+            }
+
             out_msg = "Planning failed: " + moveitErrorCodeToString(code)
                     + " (took " + std::to_string(dt) + "s)";
+            if (!diag_msg.empty()) {
+                out_msg += " | " + diag_msg;
+            }
             return false;
         }
 
+        // Log trajectory characteristics on the happy path
+        RCLCPP_DEBUG(this->get_logger(),
+            "[PlanJoints] Plan OK: %zu points, planning took %.3fs",
+            plan.trajectory_.joint_trajectory.points.size(), dt);
+
         if (execute) {
+            // Validate trajectory before execution
+            std::string traj_err;
+            if (!validateTrajectory(plan.trajectory_, traj_err)) {
+                out_msg = traj_err;
+                return false;
+            }
+
             auto exec = move_group_->execute(plan);
             if (exec != moveit::core::MoveItErrorCode::SUCCESS) {
-                out_msg = "Execution failed: " + moveitErrorCodeToString(exec)
-                        + " (took " + std::to_string(dt) + "s)";
+                // Run post-execution diagnostics
+                out_msg = diagnoseExecutionFailure(exec);
                 return false;
             }
             out_msg = "Joint trajectory executed (took " + std::to_string(dt) + "s)";
@@ -823,6 +1212,12 @@ namespace motion_control
         std::string why;
         if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
 
+        RCLCPP_DEBUG(this->get_logger(),
+        "[MoveJoints] Request: %zu joints, relative=%s, execute=%s",
+        req->joints.size(),
+        req->is_relative ? "true" : "false",
+        req->execute ? "true" : "false");
+
         std::string msg;
         res->success = planAndExecuteJoints(req->joints, req->is_relative, req->execute, msg);
         res->message = msg;
@@ -836,14 +1231,14 @@ namespace motion_control
         std::string error_msg;
         if (!ensureInitialized(error_msg)) { res->success = false; res->message = error_msg; return; }
 
-        // --- 1. Compute the absolute Cartesian target ---
-        geometry_msgs::msg::PoseStamped target_pose = computeAbsoluteTarget(
+        auto maybe_target = computeAbsoluteTarget(
             req->x, req->y, req->z,
             req->r1, req->r2, req->r3, req->r4,
             req->rotation_format, req->reference_frame,
             req->is_relative, error_msg);
 
-        if (!error_msg.empty()) { res->success = false; res->message = error_msg; return; }
+        if (!maybe_target.has_value()) { res->success = false; res->message = error_msg; return; }
+        auto target_pose = maybe_target.value();
 
         // Validate quaternion
         const auto& q = target_pose.pose.orientation;
@@ -854,35 +1249,15 @@ namespace motion_control
             return;
         }
 
-        // --- 2. Solve Inverse Kinematics ---
-        const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
-        if (!jmg) {
-            res->success = false;
-            res->message = "Unknown planning group: " + planning_group_;
-            return;
-        }
+        // Log the resolved target
+        RCLCPP_DEBUG(this->get_logger(),
+            "[MoveToPoseViaJoint] Target: pos=[%.4f, %.4f, %.4f] quat=[%.4f, %.4f, %.4f, %.4f]",
+            target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z,
+            target_pose.pose.orientation.x, target_pose.pose.orientation.y,
+            target_pose.pose.orientation.z, target_pose.pose.orientation.w);
 
-        moveit::core::RobotStatePtr robot_state = move_group_->getCurrentState(2.0);
-        if (!robot_state) {
-            res->success = false;
-            res->message = "Failed to obtain current robot state";
-            return;
-        }
-
-        if (!robot_state->setFromIK(jmg, target_pose.pose, 0.5)) {
-            res->success = false;
-            res->message = "IK failed: pose is unreachable (out of workspace or near singularity)";
-            return;
-        }
-
-        robot_state->enforceBounds(jmg);
-
-        std::vector<double> joint_targets;
-        robot_state->copyJointGroupPositions(jmg, joint_targets);
-
-        // --- 3. Plan and execute in joint space ---
         std::string msg;
-        res->success = planAndExecuteJoints(joint_targets, false, req->execute, msg);
+        res->success = solveIKAndPlanJoints(target_pose.pose, req->execute, msg);
         res->message = "[IK OK] " + msg;
     }
 
@@ -1259,6 +1634,3 @@ namespace motion_control
 
 
 }  // namespace motion_control
-
-
-

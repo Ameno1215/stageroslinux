@@ -1,19 +1,9 @@
 #include "motion_control/motion_diagnostics.hpp"
 
-#include <moveit/robot_state/robot_state.h>
-#include <moveit/planning_scene/planning_scene.h>
-#include <moveit/robot_model/joint_model_group.h>
-#include <moveit/collision_detection/collision_common.h>
 
-#include <Eigen/SVD>
-#include <cmath>
-#include <sstream>
-#include <algorithm>
 
 namespace motion_control
 {
-
-
     std::string DiagnosticReport::causeToString(Cause c)
     {
         switch (c) {
@@ -48,7 +38,26 @@ namespace motion_control
         // Collision details
         if (start_in_collision) {
             oss << "  - Start state IS in collision.";
-            if (!collision_pairs.empty()) {
+            if (!self_collision_pairs.empty()) {
+                oss << " Self-collision: ";
+                for (size_t i = 0; i < self_collision_pairs.size() && i < 3; ++i) {
+                    if (i > 0) oss << ", ";
+                    oss << self_collision_pairs[i];
+                }
+                if (self_collision_pairs.size() > 3) oss << " (+" << (self_collision_pairs.size() - 3) << " more)";
+                oss << ".";
+            }
+            if (!env_collision_pairs.empty()) {
+                oss << " Environment: ";
+                for (size_t i = 0; i < env_collision_pairs.size() && i < 3; ++i) {
+                    if (i > 0) oss << ", ";
+                    oss << env_collision_pairs[i];
+                }
+                if (env_collision_pairs.size() > 3) oss << " (+" << (env_collision_pairs.size() - 3) << " more)";
+                oss << ".";
+            }
+            if (self_collision_pairs.empty() && env_collision_pairs.empty() && !collision_pairs.empty()) {
+                // Fallback: show raw pairs if classification wasn't done
                 oss << " Pairs: ";
                 for (size_t i = 0; i < collision_pairs.size() && i < 5; ++i) {
                     if (i > 0) oss << ", ";
@@ -106,7 +115,9 @@ namespace motion_control
         const planning_scene::PlanningSceneConstPtr& scene,
         const moveit::core::RobotState& state,
         const std::string& group_name,
-        std::vector<std::string>& collision_pairs)
+        std::vector<std::string>& collision_pairs,
+        std::vector<std::string>& self_collision_pairs,
+        std::vector<std::string>& env_collision_pairs)
     {
         collision_detection::CollisionRequest req;
         req.group_name = group_name;
@@ -118,13 +129,29 @@ namespace motion_control
         scene->checkCollision(req, result, state);
 
         collision_pairs.clear();
+        self_collision_pairs.clear();
+        env_collision_pairs.clear();
+
         if (result.collision) {
+            // Collect all robot link names to distinguish self vs env
+            const auto& link_names = state.getRobotModel()->getLinkModelNames();
+            std::set<std::string> robot_links(link_names.begin(), link_names.end());
+
             for (const auto& contact_pair : result.contacts) {
-                // contact_pair.first is a std::pair<string, string>
                 std::string pair_str = contact_pair.first.first 
                                     + " <-> " 
                                     + contact_pair.first.second;
                 collision_pairs.push_back(pair_str);
+
+                // Classify: if both bodies are robot links, it's self-collision
+                bool first_is_robot = robot_links.count(contact_pair.first.first) > 0;
+                bool second_is_robot = robot_links.count(contact_pair.first.second) > 0;
+
+                if (first_is_robot && second_is_robot) {
+                    self_collision_pairs.push_back(pair_str);
+                } else {
+                    env_collision_pairs.push_back(pair_str);
+                }
             }
         }
         return result.collision;
@@ -230,12 +257,16 @@ namespace motion_control
         // 1. Check start state for collision
         moveit::core::RobotStatePtr start_state = move_group.getCurrentState();
         if (start_state) {
-            std::vector<std::string> pairs;
-            if (checkStateCollision(scene, *start_state, group_name, pairs)) {
+            std::vector<std::string> pairs, self_pairs, env_pairs;
+            if (checkStateCollision(scene, *start_state, group_name, pairs, self_pairs, env_pairs)) {
                 report.start_in_collision = true;
                 report.collision_pairs = pairs;
+                report.self_collision_pairs = self_pairs;
+                report.env_collision_pairs = env_pairs;
                 report.all_causes.push_back(DiagnosticReport::Cause::START_COLLISION);
-                RCLCPP_WARN(logger, "[DIAG] Start state is in collision with %zu contact pair(s)", pairs.size());
+                RCLCPP_WARN(logger, "[DIAG] Start state is in collision with %zu contact pair(s) "
+                            "(%zu self-collision, %zu environment)",
+                            pairs.size(), self_pairs.size(), env_pairs.size());
             }
 
             // Also check joint limits on the current state
@@ -272,17 +303,24 @@ namespace motion_control
 
         if (goal_state_valid) {
             // 2a. Collision check on goal state
-            std::vector<std::string> goal_pairs;
-            if (checkStateCollision(scene, goal_state, group_name, goal_pairs)) {
+            std::vector<std::string> goal_pairs, goal_self, goal_env;
+            if (checkStateCollision(scene, goal_state, group_name, goal_pairs, goal_self, goal_env)) {
                 report.goal_in_collision = true;
                 if (report.collision_pairs.empty()) {
                     report.collision_pairs = goal_pairs;
+                    report.self_collision_pairs = goal_self;
+                    report.env_collision_pairs = goal_env;
                 } else {
                     report.collision_pairs.insert(
                         report.collision_pairs.end(), goal_pairs.begin(), goal_pairs.end());
+                    report.self_collision_pairs.insert(
+                        report.self_collision_pairs.end(), goal_self.begin(), goal_self.end());
+                    report.env_collision_pairs.insert(
+                        report.env_collision_pairs.end(), goal_env.begin(), goal_env.end());
                 }
                 report.all_causes.push_back(DiagnosticReport::Cause::GOAL_COLLISION);
-                RCLCPP_WARN(logger, "[DIAG] Goal state is in collision with %zu pair(s)", goal_pairs.size());
+                RCLCPP_WARN(logger, "[DIAG] Goal state is in collision with %zu pair(s) "
+                            "(%zu self, %zu env)", goal_pairs.size(), goal_self.size(), goal_env.size());
             }
 
             // 2b. Joint limits on goal state
@@ -368,12 +406,15 @@ namespace motion_control
         // 1. Check start state
         moveit::core::RobotStatePtr current = move_group.getCurrentState();
         if (current) {
-            std::vector<std::string> pairs;
-            if (checkStateCollision(scene, *current, group_name, pairs)) {
+            std::vector<std::string> pairs, self_pairs, env_pairs;
+            if (checkStateCollision(scene, *current, group_name, pairs, self_pairs, env_pairs)) {
                 report.start_in_collision = true;
                 report.collision_pairs = pairs;
+                report.self_collision_pairs = self_pairs;
+                report.env_collision_pairs = env_pairs;
                 report.all_causes.push_back(DiagnosticReport::Cause::START_COLLISION);
-                RCLCPP_WARN(logger, "[DIAG-CART] Start state is in collision");
+                RCLCPP_WARN(logger, "[DIAG-CART] Start state is in collision "
+                            "(%zu self, %zu env)", self_pairs.size(), env_pairs.size());
             }
         }
 
@@ -407,16 +448,18 @@ namespace motion_control
             probe_state.update();
 
             // Collision check at this waypoint
-            std::vector<std::string> wp_pairs;
-            if (checkStateCollision(scene, probe_state, group_name, wp_pairs)) {
+            std::vector<std::string> wp_pairs, wp_self, wp_env;
+            if (checkStateCollision(scene, probe_state, group_name, wp_pairs, wp_self, wp_env)) {
                 report.goal_in_collision = true;
                 report.cartesian_fail_waypoint_index = static_cast<int>(i);
                 report.cartesian_fail_pose = waypoints[i];
                 report.collision_pairs = wp_pairs;
+                report.self_collision_pairs = wp_self;
+                report.env_collision_pairs = wp_env;
                 report.all_causes.push_back(DiagnosticReport::Cause::PATH_COLLISION);
                 RCLCPP_WARN(logger,
-                    "[DIAG-CART] Collision detected at waypoint #%zu with %zu pair(s)",
-                    i, wp_pairs.size());
+                    "[DIAG-CART] Collision at waypoint #%zu: %zu pair(s) (%zu self, %zu env)",
+                    i, wp_pairs.size(), wp_self.size(), wp_env.size());
                 break;
             }
 
