@@ -212,6 +212,7 @@ class MotionRosClient(Node):
         self.param_client = self.create_client(GetParameters, "/motion_server/get_parameters")
         self.manage_box_cli = self.create_client(ManageBox, "/manage_box")
         self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
+        self.move_pose_via_joint_cli = self.create_client(MoveToPose, "/move_to_pose_via_joint")
         
 
         # Wait for services
@@ -227,7 +228,8 @@ class MotionRosClient(Node):
             (self.cage_cli, "/set_virtual_cage"),
             (self.param_client, "/motion_server/get_parameters"),
             (self.manage_box_cli, "/manage_box"),
-            (self.manage_mesh_cli, "/manage_mesh")
+            (self.manage_mesh_cli, "/manage_mesh"),
+            (self.move_pose_via_joint_cli, "/move_to_pose_via_joint")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 logger.error(f"Service {name} not available. Is motion_server running?")
@@ -454,9 +456,9 @@ class MotionRosClient(Node):
         
         logger.info(
             f"Pose read successful. "
-            f"XYZ: [{p.position.x:.3f}, {p.position.y:.3f}, {p.position.z:.3f}], "
-            f"Quat: [{p.orientation.x:.3f}, {p.orientation.y:.3f}, {p.orientation.z:.3f}, {p.orientation.w:.3f}], "
-            f"RPY: [{rx:.3f}, {ry:.3f}, {rz:.3f}]"
+            f"XYZ: [{p.position.x:.6f}, {p.position.y:.6f}, {p.position.z:.6f}], "
+            f"Quat: [{p.orientation.x:.6f}, {p.orientation.y:.6f}, {p.orientation.z:.6f}, {p.orientation.w:.6f}], "
+            f"RPY: [{rx:.6f}, {ry:.6f}, {rz:.6f}]"
         )
 
         return {
@@ -674,6 +676,46 @@ class MotionRosClient(Node):
         except Exception as e:
             logger.error(f"Failed to manage mesh: {e}")
             return {"success": False, "message": str(e)}
+    
+    def call_move_to_pose_via_joint(self, req: MoveToPoseReq) -> Dict[str, Any]:
+        logger.info(
+            f"MoveToPoseViaJoint requested: X={req.x}, Y={req.y}, Z={req.z}, "
+            f"Relative={req.is_relative}, Execute={req.execute}"
+        )
+
+        ros_req = MoveToPose.Request()
+        ros_req.x = float(req.x)
+        ros_req.y = float(req.y)
+        ros_req.z = float(req.z)
+
+        r1, r2, r3 = float(req.r1), float(req.r2), float(req.r3)
+
+        if req.rotation_format.upper() == "RPY" and req.angle_format.upper() == "DEG":
+            r1, r2, r3 = math.radians(r1), math.radians(r2), math.radians(r3)
+
+        ros_req.r1 = r1
+        ros_req.r2 = r2
+        ros_req.r3 = r3
+        ros_req.r4 = float(req.r4)
+        ros_req.rotation_format = str(req.rotation_format)
+        ros_req.reference_frame = str(req.reference_frame)
+        ros_req.is_relative = bool(req.is_relative)
+        ros_req.cartesian_path = False  # Not used by this service, but field exists in the msg
+        ros_req.execute = bool(req.execute)
+
+        fut = self.move_pose_via_joint_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=None)
+            if res.success:
+                logger.info(f"MoveToPoseViaJoint successful: {res.message}")
+            else:
+                logger.error(f"MoveToPoseViaJoint failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during MoveToPoseViaJoint call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"MoveToPoseViaJoint failed: {e}")
+    
 
 # ----------------------------
 # FastAPI app
@@ -812,5 +854,10 @@ def manage_mesh(req: ManageMeshReq):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
+@app.post("/move_to_pose_via_joint")
+def move_to_pose_via_joint(req: MoveToPoseReq):
+    try:
+        return _ros_client.call_move_to_pose_via_joint(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 

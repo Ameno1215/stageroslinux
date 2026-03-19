@@ -2,8 +2,12 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
+#include <iomanip>
+#include <sstream>
+
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -25,6 +29,10 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <unordered_map>
 #include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
+
+
+#include "motion_control/motion_diagnostics.hpp"
+#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 
 #include "motion_control/srv/init_robot.hpp"
 #include "motion_control/srv/set_scaling.hpp"
@@ -62,6 +70,10 @@ namespace motion_control
             std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
             
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
+
+
+            planning_scene_monitor::PlanningSceneMonitorPtr psm_;
+            planning_scene::PlanningSceneConstPtr getLockedPlanningScene() const;
     
             // RViz requires a numeric ID (int32), but MoveIt uses names (string).
             // This dictionary maps string IDs to integer IDs.
@@ -105,7 +117,14 @@ namespace motion_control
              * @param out_error_msg Reference to a string to output any transformation errors.
              * @return geometry_msgs::msg::PoseStamped The computed absolute pose in the world frame.
              */
-            geometry_msgs::msg::PoseStamped computeAbsoluteTarget(
+            /**
+             * @brief Computes the absolute target pose in the "world" frame.
+             * 
+             * callers cannot accidentally use an uninitialized pose on error. 
+             * Returns std::nullopt on failure
+             * and populates out_error_msg with the reason.
+             */
+            std::optional<geometry_msgs::msg::PoseStamped> computeAbsoluteTarget(
                 double x, double y, double z,
                 double r1, double r2, double r3, double r4,
                 const std::string& rot_format,
@@ -288,10 +307,83 @@ namespace motion_control
              */
             void applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory);
 
+            /**
+             * Validates a trajectory before execution.
+             * Checks for degenerate trajectories (too few points, near-zero duration,
+             * suspiciously short segments). Returns false and fills out_msg if the
+             * trajectory is unsafe to execute.
+             */
+            bool validateTrajectory(
+                const moveit_msgs::msg::RobotTrajectory& trajectory,
+                std::string& out_msg) const;
 
-                        
+            /**
+             * Runs post-execution diagnostics when a controller error occurs.
+             * Logs the current joint state, checks collision and singularity at the
+             * interrupted state, and returns a human-readable summary.
+             */
+            std::string diagnoseExecutionFailure(
+                const moveit::core::MoveItErrorCode& exec_code);
 
+            /**
+             * @brief Plans and optionally executes a joint-space trajectory.
+             * 
+             * Sets the target joint values (absolute or relative to current state),
+             * applies velocity/acceleration scaling, plans via MoveIt, and optionally
+             * executes the trajectory. Includes full diagnostic analysis on planning
+             * failure and post-execution diagnostics on controller errors.
+             * 
+             * @param joints Target joint values (one per active joint in the planning group).
+             * @param is_relative If true, values are treated as deltas from the current joint state.
+             * @param execute If true, the planned trajectory is sent to the controller.
+             * @param out_msg Reference to a string where status or error messages will be written.
+             * @return true If planning (and execution if requested) succeeded.
+             * @return false If joint count mismatch, planning failed, trajectory validation
+             *         failed, or execution was rejected by the controller.
+             */
+            bool planAndExecuteJoints(const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg);
+                  
+            /**
+             * @brief Service callback to move the robot to a Cartesian pose via joint-space planning.
+             * 
+             * Resolves the target pose using computeAbsoluteTarget (supporting relative offsets,
+             * TOOL/WORLD frames, RPY/Quaternion formats), then solves Inverse Kinematics to obtain
+             * a joint configuration and plans entirely in joint space. This avoids the constraints
+             * of Cartesian-space planners (singularities, straight-line requirements) at the cost
+             * of a non-linear end-effector path.
+             * 
+             * Delegates to solveIKAndPlanJoints after pose resolution and quaternion validation.
+             * 
+             * @param req Contains target coordinates, rotation format, reference frame, and flags.
+             * @param res Returns the success status and informational messages prefixed with "[IK OK]".
+             */
+            void onMoveToPoseViaJoint(const std::shared_ptr<motion_control::srv::MoveToPose::Request> req, std::shared_ptr<motion_control::srv::MoveToPose::Response> res);
             
+            /**
+             * @brief Solves IK for a target pose and plans the resulting joint trajectory.
+             * 
+             * Used as a fallback strategy when pose-target planning fails (e.g., due to
+             * planner limitations near singularities). Explicitly computes a joint-space
+             * solution via the IK solver, enforces joint bounds, and delegates to
+             * planAndExecuteJoints for planning and optional execution.
+             * 
+             * Uses the current robot state as the IK seed, which biases the solver toward
+             * the nearest joint configuration. Note that the chosen configuration may differ
+             * from what a pose-target planner would select (e.g., elbow-up vs elbow-down).
+             * 
+             * @param target_pose The desired end-effector pose in the planning frame.
+             * @param execute If true, the planned trajectory is sent to the controller.
+             * @param out_msg Reference to a string where status or error messages will be written.
+             * @return true If IK succeeded and planAndExecuteJoints returned success.
+             * @return false If the planning group is unknown, current state is unavailable,
+             *         IK returned no solution, or joint-space planning/execution failed.
+             */
+            bool solveIKAndPlanJoints(const geometry_msgs::msg::Pose& target_pose, bool execute, std::string& out_msg);
+
+
+
+
+
             // Internal helpers
             // Checks if the MoveGroup interface is initialized before processing motion commands
             bool ensureInitialized(std::string& why) const;
@@ -315,6 +407,7 @@ namespace motion_control
             rclcpp::Service<srv::GetCurrentPose>::SharedPtr srv_get_pose_;
             rclcpp::Service<srv::MoveJoints>::SharedPtr srv_move_joints_;
             rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_;
+            rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_via_joint_;
             rclcpp::Service<srv::MoveWaypoints>::SharedPtr srv_move_waypoints_;
             rclcpp::Service<srv::SetVirtualCage>::SharedPtr srv_virtual_cage_;
             rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;

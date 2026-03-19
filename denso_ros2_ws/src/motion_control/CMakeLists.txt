@@ -37,9 +37,10 @@ include_directories(include)
 
 add_library(motion_server_lib
   src/motion_server.cpp
+  src/motion_diagnostics.cpp
 )
 ament_target_dependencies(motion_server_lib
-  rclcpp geometry_msgs moveit_ros_planning_interface moveit_msgs
+  rclcpp geometry_msgs moveit_ros_planning_interface moveit_msgs moveit_ros_planning
 )
 
 # Make sure the generated interfaces are available to this target
@@ -54,6 +55,7 @@ target_link_libraries(motion_server_lib "${cpp_typesupport_target}")
 
 add_executable(motion_server
   src/motion_server_node.cpp
+  src/motion_diagnostics.cpp
 )
 target_link_libraries(motion_server motion_server_lib)
 ament_target_dependencies(motion_server
