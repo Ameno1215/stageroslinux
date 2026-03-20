@@ -21,16 +21,63 @@ from shape_msgs.msg import SolidPrimitive
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
+import textwrap
 
+from rcl_interfaces.msg import Log
 
 
 
 # ----------------------------
 # Logger Configuration
 # ----------------------------
+
+# ROS 2 log level mapping to Python logging levels
+_ROS_TO_PY_LEVEL = {
+    10: logging.DEBUG,
+    20: logging.DEBUG,
+    30: logging.WARNING,
+    40: logging.ERROR,
+    50: logging.CRITICAL, 
+}
+
+class WrappingFormatter(logging.Formatter):
+    """Wraps long log lines, indenting continuation lines to align with the message start."""
+
+    def __init__(self, fmt, datefmt=None, width=200):
+        super().__init__(fmt, datefmt)
+        self.width = width
+
+    def format(self, record):
+        full = super().format(record)
+
+        if len(full) <= self.width:
+            return full
+
+        msg_start = full.find(record.message)
+        if msg_start == -1:
+            return full
+
+        prefix = full[:msg_start]
+        indent = " " * len(prefix)
+        max_msg_width = self.width - len(prefix)
+
+        # Process each existing line separately to preserve original \n
+        result_lines = []
+        for i, line in enumerate(record.message.split("\n")):
+            wrapped = textwrap.fill(
+                line,
+                width=max_msg_width,
+                initial_indent="" if i == 0 else indent,
+                subsequent_indent=indent,
+            )
+            result_lines.append(wrapped)
+
+        return prefix + "\n".join(result_lines)
+
+
 logger = logging.getLogger("MotionBridge")
 logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+formatter = WrappingFormatter('%(asctime)s - %(levelname)s - %(message)s', width=200)
 
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
@@ -214,6 +261,7 @@ class MotionRosClient(Node):
         self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
         self.move_pose_via_joint_cli = self.create_client(MoveToPose, "/move_to_pose_via_joint")
         
+        self.create_subscription(Log, "/rosout", self._on_rosout, 10)
 
         # Wait for services
         logger.info("Waiting for ROS 2 services...")
@@ -234,6 +282,16 @@ class MotionRosClient(Node):
             if not cli.wait_for_service(timeout_sec=30.0):
                 logger.error(f"Service {name} not available. Is motion_server running?")
         logger.info("All ROS 2 services are connected.")
+
+    def _on_rosout(self, msg: Log):
+        # Only forward messages from the C++ motion_server node
+        if msg.name != "motion_server":
+            return
+        
+        print(f"[ROSOUT-DBG] level={msg.level} type={type(msg.level)} repr={repr(msg.level)}")
+    
+        py_level = _ROS_TO_PY_LEVEL.get(msg.level, logging.DEBUG)
+        logger.log(py_level, f"[C++:{msg.name}] {msg.msg}")
 
     def _wait_for_future(self, fut, timeout: Optional[float]):
         """
@@ -294,7 +352,7 @@ class MotionRosClient(Node):
             if res.success:
                 logger.info(f"Scaling change successful: {res.message}")
             else:
-                logger.error(f"Scaling change failed: {res.message}")
+                logger.error(f"Scaling change failed")
             return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
             logger.error(f"Critical error during SetScaling call: {e}")

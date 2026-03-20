@@ -162,6 +162,7 @@ namespace motion_control
      * 
      * @param state The robot state to check.
      * @param group_name The planning group whose joints to verify.
+     * @param logger ROS logger used to report offending values.
      * @return std::vector<std::string> Names of joints that exceed their bounds,
      *         formatted as "joint_name=value [min, max]". Empty if all within limits.
      */
