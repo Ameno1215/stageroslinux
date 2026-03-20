@@ -157,6 +157,7 @@ namespace motion_control
         return result.collision;
     }
 
+    // TODO CHECK les limites et retrouner une erreur
     std::vector<std::string> checkJointLimits(
         const moveit::core::RobotState& state,
         const std::string& group_name)
@@ -264,16 +265,15 @@ namespace motion_control
                 report.self_collision_pairs = self_pairs;
                 report.env_collision_pairs = env_pairs;
                 report.all_causes.push_back(DiagnosticReport::Cause::START_COLLISION);
-                RCLCPP_WARN(logger, "[DIAG] Start state is in collision with %zu contact pair(s) "
-                            "(%zu self-collision, %zu environment)",
-                            pairs.size(), self_pairs.size(), env_pairs.size());
+                // RCLCPP_WARN(logger, "[DIAG] Start state is in collision with %zu contact pair(s) "
+                //             "(%zu self-collision, %zu environment)",
+                //             pairs.size(), self_pairs.size(), env_pairs.size());
             }
 
             // Also check joint limits on the current state
             auto violations = checkJointLimits(*start_state, group_name);
             if (!violations.empty()) {
                 RCLCPP_WARN(logger, "[DIAG] Start state has %zu joint(s) out of bounds", violations.size());
-                // Not necessarily a separate cause — just informational for start
             }
         }
 
@@ -295,7 +295,7 @@ namespace motion_control
                 report.ik_detail = "IK solver returned no solution for the target pose. "
                                 "The pose may be outside the workspace or near a singularity.";
                 report.all_causes.push_back(DiagnosticReport::Cause::IK_UNREACHABLE);
-                RCLCPP_WARN(logger, "[DIAG] IK failed for goal pose — unreachable or singular");
+                // RCLCPP_WARN(logger, "[DIAG] IK failed for goal pose — unreachable or singular");
             } else {
                 goal_state_valid = true;
             }
@@ -319,8 +319,8 @@ namespace motion_control
                         report.env_collision_pairs.end(), goal_env.begin(), goal_env.end());
                 }
                 report.all_causes.push_back(DiagnosticReport::Cause::GOAL_COLLISION);
-                RCLCPP_WARN(logger, "[DIAG] Goal state is in collision with %zu pair(s) "
-                            "(%zu self, %zu env)", goal_pairs.size(), goal_self.size(), goal_env.size());
+                // RCLCPP_WARN(logger, "[DIAG] Goal state is in collision with %zu pair(s) "
+                //             "(%zu self, %zu env)", goal_pairs.size(), goal_self.size(), goal_env.size());
             }
 
             // 2b. Joint limits on goal state
@@ -329,8 +329,8 @@ namespace motion_control
                 report.joints_out_of_bounds = true;
                 report.violating_joints = goal_violations;
                 report.all_causes.push_back(DiagnosticReport::Cause::JOINT_LIMITS);
-                RCLCPP_WARN(logger, "[DIAG] Goal state violates joint limits on %zu joint(s)",
-                            goal_violations.size());
+                // RCLCPP_WARN(logger, "[DIAG] Goal state violates joint limits on %zu joint(s)",
+                //             goal_violations.size());
             }
 
             // 2c. Singularity check at goal state
@@ -340,9 +340,9 @@ namespace motion_control
             if (sing.is_singular) {
                 report.near_singularity = true;
                 report.all_causes.push_back(DiagnosticReport::Cause::SINGULARITY);
-                RCLCPP_WARN(logger,
-                    "[DIAG] Goal is near singularity: manipulability=%.6f, condition=%.1f",
-                    sing.manipulability, sing.condition_number);
+                // RCLCPP_WARN(logger,
+                //     "[DIAG] Goal is near singularity: manipulability=%.6f, condition=%.1f",
+                //     sing.manipulability, sing.condition_number);
             } else {
                 RCLCPP_DEBUG(logger,
                     "[DIAG] Singularity OK: manipulability=%.6f, condition=%.1f",
