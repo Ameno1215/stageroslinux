@@ -13,14 +13,14 @@
 arm:
   kinematics_solver: pick_ik/PickIkPlugin
   kinematics_solver_search_resolution: 0.005   # Finer search resolution along the path
-  kinematics_solver_timeout: 0.5               # 500ms per IK call — very generous
-  kinematics_solver_attempts: 10               # Retry hard before giving up
+  kinematics_solver_timeout: 1.0               # 1s per IK call — very generous
+  kinematics_solver_attempts: 32               # Retry hard before giving up
 
   # --- LOCAL mode for Cartesian interpolation ---
   # computeCartesianPath calls IK sequentially for each waypoint,
   # passing the previous solution as the seed → local GD is correct here.
   # Global/evolutionary would waste time re-exploring when you already have a great seed.
-  mode: local
+  mode: global
 
   # --- Accuracy ---
   position_threshold: 0.0005          # 0.5mm — tight, ensures path fidelity

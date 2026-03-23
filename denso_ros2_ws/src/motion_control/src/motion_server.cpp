@@ -68,30 +68,6 @@ namespace motion_control
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
-    std::string MotionServer:: moveitErrorCodeToString(const moveit::core::MoveItErrorCode& code)
-    {
-        switch (code.val) {
-            case moveit::core::MoveItErrorCode::SUCCESS: return "SUCCESS";
-            case moveit::core::MoveItErrorCode::FAILURE: return "FAILURE";
-            case moveit::core::MoveItErrorCode::PLANNING_FAILED: return "PLANNING_FAILED: No path found";
-            case moveit::core::MoveItErrorCode::INVALID_MOTION_PLAN: return "INVALID_MOTION_PLAN: Trajectory contains errors";
-            case moveit::core::MoveItErrorCode::MOTION_PLAN_INVALIDATED_BY_ENVIRONMENT_CHANGE: return "PLAN_INVALIDATED: Environment changed during execution";
-            case moveit::core::MoveItErrorCode::CONTROL_FAILED: return "CONTROL_FAILED: Controller execution failed";
-            case moveit::core::MoveItErrorCode::UNABLE_TO_AQUIRE_SENSOR_DATA: return "UNABLE_TO_AQUIRE_SENSOR_DATA";
-            case moveit::core::MoveItErrorCode::TIMED_OUT: return "TIMED_OUT: Planning took too long";
-            case moveit::core::MoveItErrorCode::PREEMPTED: return "PREEMPTED: Motion interrupted";
-            case moveit::core::MoveItErrorCode::INVALID_OBJECT_NAME: return "INVALID_OBJECT_NAME: Unrecognized frame or object";
-            case moveit::core::MoveItErrorCode::FRAME_TRANSFORM_FAILURE: return "FRAME_TRANSFORM_FAILURE: TF tree error";
-            case moveit::core::MoveItErrorCode::COLLISION_CHECKING_UNAVAILABLE: return "COLLISION_CHECKING_UNAVAILABLE";
-            case moveit::core::MoveItErrorCode::ROBOT_STATE_STALE: return "ROBOT_STATE_STALE: Robot state is too old";
-            case moveit::core::MoveItErrorCode::SENSOR_INFO_STALE: return "SENSOR_INFO_STALE: Sensor data is too old";
-            case moveit::core::MoveItErrorCode::CRASH: return "CRASH: Internal MoveIt crash";
-            case moveit::core::MoveItErrorCode::ABORT: return "ABORT: Motion aborted";
-            case moveit::core::MoveItErrorCode::NO_IK_SOLUTION: return "NO_IK_SOLUTION: Position unreachable (Out of workspace or singularity)";
-            default: return "UNKNOWN_ERROR_CODE";
-        }
-    }
-
     bool MotionServer::ensureInitialized(std::string& why) const
         {
         if (!initialized_ || !move_group_) {
@@ -129,7 +105,7 @@ namespace motion_control
             // This gives us access to the full PlanningScene (collision world,
             // allowed collision matrix, robot state) needed by diagnostic helpers.
             psm_ = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
-                shared_from_this(), "robot_description");
+            shared_from_this(), "robot_description");
             
             // Start listening to the planning scene topic published by move_group
             psm_->startSceneMonitor("/monitored_planning_scene");
@@ -192,15 +168,10 @@ namespace motion_control
     planning_scene::PlanningSceneConstPtr MotionServer::getLockedPlanningScene() const
     {
         if (!psm_) return nullptr;
-        
-        // LockedPlanningSceneRO gives a const, thread-safe snapshot.
-        // The clone may be stale by the time diagnostics run — this is expected
-        // for post-failure analysis but should be noted in logs.
+
         planning_scene_monitor::LockedPlanningSceneRO locked_scene(psm_);
-        auto cloned = planning_scene::PlanningScene::clone(locked_scene.operator->()->shared_from_this());
-        RCLCPP_DEBUG(this->get_logger(),
-            "[DIAG] Cloned planning scene for diagnostics (snapshot — may be stale if world changed during execution)");
-        return cloned;
+        return planning_scene::PlanningScene::clone(
+            locked_scene.operator->()->shared_from_this());
     }
 
     bool MotionServer::solveIKAndPlanJoints(
@@ -253,7 +224,7 @@ namespace motion_control
             std::vector<double> candidate_joints;
             candidate->copyJointGroupPositions(jmg, candidate_joints);
             
-            std::vector<double> weights = {1.0, 3.0, 3.0, 2.0, 1.0, 1.0};
+            std::vector<double> weights = {1.0, 3.0, 3.0, .0, 1.0, 1.0};
             double cost = 0.0;
             for (std::size_t j = 0; j < candidate_joints.size(); ++j) {
                 double diff = candidate_joints[j] - current_joints[j];
@@ -1193,7 +1164,6 @@ namespace motion_control
 
         if (code != moveit::core::MoveItErrorCode::SUCCESS) {
             std::string diag_msg;
-            auto scene = getLockedPlanningScene();
             if (scene) {
                 // Convert target map to vector for diagnostics
                 std::vector<double> goal_joints_vec;

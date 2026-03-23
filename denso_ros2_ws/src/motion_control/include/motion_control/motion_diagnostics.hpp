@@ -19,9 +19,13 @@
 #include <set>
 #include <sstream>
 #include <algorithm>
+#include <iomanip>
 
 namespace motion_control
 {
+
+    
+    std::string moveitErrorCodeToString(const moveit::core::MoveItErrorCode& code);
 
     /**
      * @brief Structured report collecting all findings from a planning or execution failure diagnostic.
@@ -60,12 +64,17 @@ namespace motion_control
         Cause primary_cause = Cause::UNKNOWN;
         std::vector<Cause> all_causes;
 
-        // Collision details
+        // Start collision details
         bool start_in_collision = false;
-        bool goal_in_collision  = false;
-        std::vector<std::string> collision_pairs;        // e.g. "link3 <-> box_obstacle"
-        std::vector<std::string> self_collision_pairs;   // link <-> link (same robot)
-        std::vector<std::string> env_collision_pairs;    // link <-> external object
+        std::vector<std::string> start_collision_pairs;
+        std::vector<std::string> start_self_collision_pairs;
+        std::vector<std::string> start_env_collision_pairs;
+
+        // Goal collision details
+        bool goal_in_collision = false;
+        std::vector<std::string> goal_collision_pairs;
+        std::vector<std::string> goal_self_collision_pairs;
+        std::vector<std::string> goal_env_collision_pairs;
 
         // IK details 
         bool ik_failed = false;

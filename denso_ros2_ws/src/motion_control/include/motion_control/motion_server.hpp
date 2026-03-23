@@ -68,7 +68,8 @@ namespace motion_control
         private:
             std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
             std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-            
+
+
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
 
 
@@ -86,8 +87,6 @@ namespace motion_control
                 }
                 return marker_ids_[name];
             }
-
-            std::string moveitErrorCodeToString(const moveit::core::MoveItErrorCode& code);
 
             /**
              * @brief Initializes the MoveIt MoveGroup interface.
