@@ -603,3 +603,585 @@
                                     - Near singularity. Manipulability=2.65831e-37 (threshold=0.001), Jacobian condition=inf
                                     - Planning took 12.0461s
                                    (12.046117s) | IK+Joint fallback: Goal state is in collision: cage_front <-> tool_link
+2026-03-24 15:39:29,217 - INFO - Waiting for ROS 2 services...
+2026-03-24 15:39:29,222 - INFO - All ROS 2 services are connected.
+2026-03-24 15:40:27,495 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-24 15:40:27,592 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:40:27,593 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:40:27,594 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:40:27,595 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:40:27,596 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:40:27,596 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:40:27,597 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:40:27,597 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:40:27,598 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:40:27,598 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.090598 seconds
+2026-03-24 15:40:27,656 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.approximate_solution_cost_threshold: double = 0.000000
+2026-03-24 15:40:27,657 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.minimal_displacement_weight: double = 0.001000
+2026-03-24 15:40:27,661 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:40:27,664 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:40:27,664 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:40:27,665 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:40:27,668 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:40:27,669 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:40:27,669 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:40:27,670 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:40:27,671 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:40:27,671 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.024944 seconds
+2026-03-24 15:40:27,728 - WARNING - [C++:motion_server] PlanningSceneMonitor: timed out waiting for robot state. Diagnostics may be incomplete on first call.
+2026-03-24 15:40:27,729 - DEBUG - [C++:motion_server] Link: world
+2026-03-24 15:40:27,729 - DEBUG - [C++:motion_server] Link: base_link
+2026-03-24 15:40:27,730 - DEBUG - [C++:motion_server] Link: J1
+2026-03-24 15:40:27,731 - DEBUG - [C++:motion_server] Link: J2
+2026-03-24 15:40:27,732 - DEBUG - [C++:motion_server] Link: J3
+2026-03-24 15:40:27,732 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                 planning_frame=world, ee_link=tool_link
+2026-03-24 15:40:27,733 - DEBUG - [C++:motion_server] Link: J4
+2026-03-24 15:40:27,734 - DEBUG - [C++:motion_server] Link: J5
+2026-03-24 15:40:27,734 - DEBUG - [C++:motion_server] Link: J6
+2026-03-24 15:40:27,735 - DEBUG - [C++:motion_server] Link: tool_link
+2026-03-24 15:40:27,735 - DEBUG - [C++:motion_server] Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                  planning_frame=world, ee_link=tool_link
+2026-03-24 15:40:29,815 - INFO - Requesting IK solver info from C++ node...
+2026-03-24 15:40:29,826 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-24 15:40:31,916 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-24 15:40:31,924 - DEBUG - [C++:motion_server] Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:40:31,927 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:40:34,012 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-24 15:40:34,014 - DEBUG - [C++:motion_server] [MoveJoints] Request: 6 joints, relative=false, execute=true
+2026-03-24 15:40:34,016 - DEBUG - [C++:motion_server] [PlanJoints] current=[0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000] target=[0.0000, 0.0000, 1.5700, 0.0000, 1.5700, 0.0000] relative=false
+                                  execute=true
+2026-03-24 15:40:34,194 - DEBUG - [C++:motion_server] [PlanJoints] Plan OK: 1 points, planning took 0.166s
+2026-03-24 15:40:34,196 - DEBUG - [C++:motion_server] [TRAJ] 1 points, total duration: 0.0000s, joints: 6
+2026-03-24 15:40:34,259 - INFO - Joint movement successful: Joint trajectory executed (took 0.166302s)
+2026-03-24 15:40:36,323 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-24 15:40:36,328 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-24 15:40:38,410 - INFO - Waypoints movement requested: 5 points (Cartesian=True, execute=True)
+2026-03-24 15:40:38,414 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#0 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:40:38,415 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#1 resolved: pos=[0.5000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:40:38,416 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#2 resolved: pos=[0.5000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:40:38,416 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#3 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:40:38,418 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#4 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:40:38,419 - DEBUG - [C++:motion_server] [MoveWaypoints] 5 waypoints resolved, cartesian=true, execute=true
+2026-03-24 15:40:40,113 - DEBUG - [C++:motion_server] Cartesian path result: OK (standard) (1.70s)
+2026-03-24 15:40:40,124 - DEBUG - [C++:motion_server] [TRAJ] 89 points, total duration: 8.7325s, joints: 6
+2026-03-24 15:40:49,839 - INFO - Waypoints movement successful: Cartesian path executed. OK (standard) (took 1.698982s)
+2026-03-24 15:40:51,883 - INFO - Virtual cage modification requested (Enable=False)
+2026-03-24 15:40:51,893 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-24 15:41:17,232 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-24 15:41:17,330 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:41:17,332 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:41:17,334 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:41:17,335 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:41:17,336 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:41:17,338 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:41:17,339 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:41:17,339 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:41:17,340 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:41:17,341 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.021618 seconds
+2026-03-24 15:41:17,426 - DEBUG - [C++:motion_server] Link: world
+2026-03-24 15:41:17,427 - DEBUG - [C++:motion_server] Link: base_link
+2026-03-24 15:41:17,428 - DEBUG - [C++:motion_server] Link: J1
+2026-03-24 15:41:17,428 - DEBUG - [C++:motion_server] Link: J2
+2026-03-24 15:41:17,429 - DEBUG - [C++:motion_server] Link: J3
+2026-03-24 15:41:17,429 - DEBUG - [C++:motion_server] Link: J4
+2026-03-24 15:41:17,430 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                 planning_frame=world, ee_link=tool_link
+2026-03-24 15:41:17,430 - DEBUG - [C++:motion_server] Link: J5
+2026-03-24 15:41:17,432 - DEBUG - [C++:motion_server] Link: J6
+2026-03-24 15:41:17,433 - DEBUG - [C++:motion_server] Link: tool_link
+2026-03-24 15:41:17,434 - DEBUG - [C++:motion_server] Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                  planning_frame=world, ee_link=tool_link
+2026-03-24 15:41:19,447 - INFO - Requesting IK solver info from C++ node...
+2026-03-24 15:41:19,453 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-24 15:41:21,474 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-24 15:41:21,475 - DEBUG - [C++:motion_server] Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:41:21,480 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:41:23,533 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-24 15:41:23,550 - DEBUG - [C++:motion_server] [MoveJoints] Request: 6 joints, relative=false, execute=true
+2026-03-24 15:41:23,551 - DEBUG - [C++:motion_server] [PlanJoints] current=[-0.7847, -0.0210, 1.8945, -0.0002, 1.2682, -2.3554] target=[0.0000, 0.0000, 1.5700, 0.0000, 1.5700, 0.0000] relative=false
+                                  execute=true
+2026-03-24 15:41:23,668 - DEBUG - [C++:motion_server] [PlanJoints] Plan OK: 15 points, planning took 0.117s
+2026-03-24 15:41:23,669 - DEBUG - [C++:motion_server] [TRAJ] 15 points, total duration: 1.3727s, joints: 6
+2026-03-24 15:41:25,162 - INFO - Joint movement successful: Joint trajectory executed (took 0.116971s)
+2026-03-24 15:41:27,198 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-24 15:41:27,203 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-24 15:41:29,204 - INFO - Waypoints movement requested: 5 points (Cartesian=False, execute=True)
+2026-03-24 15:41:29,206 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#0 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:41:29,207 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#1 resolved: pos=[0.5000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:41:29,207 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#2 resolved: pos=[0.5000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:41:29,208 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#3 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:41:29,208 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#4 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:41:29,209 - DEBUG - [C++:motion_server] [MoveWaypoints] 5 waypoints resolved, cartesian=false, execute=true
+2026-03-24 15:41:29,491 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 1/5 planning: OK (0.285s, 19 points)
+2026-03-24 15:41:30,713 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 2/5 planning: OK (1.222s, 24 points)
+2026-03-24 15:41:30,715 - WARNING - [C++:motion_server] [MoveWaypoints] Velocity discontinuity at segment 1 junction: max delta=0.5000 rad/s — controller may jerk
+2026-03-24 15:41:33,738 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 3/5 planning: OK (3.025s, 9 points)
+2026-03-24 15:41:33,739 - WARNING - [C++:motion_server] [MoveWaypoints] Velocity discontinuity at segment 2 junction: max delta=0.5000 rad/s — controller may jerk
+2026-03-24 15:41:33,884 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 4/5 planning: OK (0.146s, 12 points)
+2026-03-24 15:41:33,885 - WARNING - [C++:motion_server] [MoveWaypoints] Velocity discontinuity at segment 3 junction: max delta=0.5000 rad/s — controller may jerk
+2026-03-24 15:41:34,173 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 5/5 planning: OK (0.289s, 17 points)
+2026-03-24 15:41:34,174 - WARNING - [C++:motion_server] [MoveWaypoints] Velocity discontinuity at segment 4 junction: max delta=0.5000 rad/s — controller may jerk
+2026-03-24 15:41:34,195 - DEBUG - [C++:motion_server] [MoveWaypoints] Combined trajectory: 166 points, total planning duration: 4.967s
+2026-03-24 15:41:34,196 - DEBUG - [C++:motion_server] [TRAJ] 166 points, total duration: 16.4436s, joints: 6
+2026-03-24 15:41:52,002 - INFO - Waypoints movement successful: Waypoint sequence executed successfully (4.967217s)
+2026-03-24 15:41:54,033 - INFO - Virtual cage modification requested (Enable=False)
+2026-03-24 15:41:54,041 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-24 15:43:58,259 - INFO - Waiting for ROS 2 services...
+2026-03-24 15:43:58,260 - INFO - All ROS 2 services are connected.
+2026-03-24 15:44:28,075 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-24 15:44:28,156 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:44:28,160 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:44:28,161 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:44:28,161 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:44:28,162 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:44:28,163 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:44:28,163 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:44:28,164 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:44:28,164 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:44:28,165 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.076707 seconds
+2026-03-24 15:44:28,236 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.mode: string = global
+2026-03-24 15:44:28,237 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.center_joints_weight: double = 0.000000
+2026-03-24 15:44:28,238 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.avoid_joint_limits_weight: double = 0.000000
+2026-03-24 15:44:28,238 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.minimal_displacement_weight: double = 0.001000
+2026-03-24 15:44:28,238 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:44:28,239 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:44:28,240 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:44:28,240 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:44:28,241 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:44:28,241 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:44:28,242 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:44:28,242 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:44:28,243 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:44:28,243 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.033064 seconds
+2026-03-24 15:44:28,302 - DEBUG - [C++:motion_server] Link: world
+2026-03-24 15:44:28,303 - DEBUG - [C++:motion_server] Link: base_link
+2026-03-24 15:44:28,303 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                 planning_frame=world, ee_link=tool_link
+2026-03-24 15:44:28,305 - DEBUG - [C++:motion_server] Link: J1
+2026-03-24 15:44:28,306 - DEBUG - [C++:motion_server] Link: J2
+2026-03-24 15:44:28,307 - DEBUG - [C++:motion_server] Link: J3
+2026-03-24 15:44:28,308 - DEBUG - [C++:motion_server] Link: J4
+2026-03-24 15:44:28,316 - DEBUG - [C++:motion_server] Link: J5
+2026-03-24 15:44:28,318 - DEBUG - [C++:motion_server] Link: J6
+2026-03-24 15:44:28,319 - DEBUG - [C++:motion_server] Link: tool_link
+2026-03-24 15:44:28,320 - DEBUG - [C++:motion_server] Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                  planning_frame=world, ee_link=tool_link
+2026-03-24 15:44:30,349 - INFO - Requesting IK solver info from C++ node...
+2026-03-24 15:44:30,356 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-24 15:44:32,386 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-24 15:44:32,389 - DEBUG - [C++:motion_server] Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:44:32,393 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:44:34,416 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-24 15:44:34,418 - DEBUG - [C++:motion_server] [MoveJoints] Request: 6 joints, relative=false, execute=true
+2026-03-24 15:44:34,420 - DEBUG - [C++:motion_server] [PlanJoints] current=[0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000] target=[0.0000, 0.0000, 1.5700, 0.0000, 1.5700, 0.0000] relative=false
+                                  execute=true
+2026-03-24 15:44:34,535 - DEBUG - [C++:motion_server] [PlanJoints] Plan OK: 1 points, planning took 0.114s
+2026-03-24 15:44:34,536 - DEBUG - [C++:motion_server] [TRAJ] 1 points, total duration: 0.0000s, joints: 6
+2026-03-24 15:44:34,597 - INFO - Joint movement successful: Joint trajectory executed (took 0.113907s)
+2026-03-24 15:44:36,613 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-24 15:44:36,619 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-24 15:44:38,666 - INFO - Waypoints movement requested: 5 points (Cartesian=False, execute=True)
+2026-03-24 15:44:38,669 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#0 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:44:38,670 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#1 resolved: pos=[0.5000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:44:38,672 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#2 resolved: pos=[0.5000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:44:38,673 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#3 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:44:38,673 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#4 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:44:38,675 - DEBUG - [C++:motion_server] [MoveWaypoints] 5 waypoints resolved, cartesian=false, execute=true
+2026-03-24 15:44:38,896 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 1/5: OK (0.224s, 17 pts)
+2026-03-24 15:44:39,835 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 2/5: OK (0.940s, 27 pts)
+2026-03-24 15:44:44,798 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 3/5: OK (4.962s, 9 pts)
+2026-03-24 15:44:44,990 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 4/5: OK (0.192s, 23 pts)
+2026-03-24 15:44:46,221 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 5/5: OK (1.220s, 21 pts)
+2026-03-24 15:44:46,252 - DEBUG - [C++:motion_server] [MoveWaypoints] Combined: 199 points, 7.582s planning
+2026-03-24 15:44:46,254 - DEBUG - [C++:motion_server] [TRAJ] 199 points, total duration: 19.7138s, joints: 6
+2026-03-24 15:45:07,309 - INFO - Waypoints movement successful: Waypoint sequence executed (7.581600s)
+2026-03-24 15:45:09,351 - INFO - Virtual cage modification requested (Enable=False)
+2026-03-24 15:45:09,365 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-24 15:50:12,222 - INFO - Waiting for ROS 2 services...
+2026-03-24 15:50:12,223 - INFO - All ROS 2 services are connected.
+2026-03-24 15:50:36,834 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-24 15:50:36,918 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.minimal_displacement_weight: double = 0.001000
+2026-03-24 15:50:36,920 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:50:36,920 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:50:36,921 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:50:36,922 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:50:36,923 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:50:36,932 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:50:36,933 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:50:36,934 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:50:36,935 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:50:36,935 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.082765 seconds
+2026-03-24 15:50:37,019 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.mode: string = global
+2026-03-24 15:50:37,021 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.gd_step_size: double = 0.000100
+2026-03-24 15:50:37,028 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.gd_max_iters: integer = 100
+2026-03-24 15:50:37,035 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:50:37,037 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:50:37,038 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:50:37,038 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:50:37,039 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:50:37,039 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:50:37,040 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:50:37,041 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:50:37,041 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:50:37,041 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.035743 seconds
+2026-03-24 15:50:37,112 - WARNING - [C++:motion_server] PlanningSceneMonitor: timed out waiting for robot state. Diagnostics may be incomplete on first call.
+2026-03-24 15:50:37,113 - DEBUG - [C++:motion_server] Link: world
+2026-03-24 15:50:37,114 - DEBUG - [C++:motion_server] Link: base_link
+2026-03-24 15:50:37,115 - DEBUG - [C++:motion_server] Link: J1
+2026-03-24 15:50:37,116 - DEBUG - [C++:motion_server] Link: J2
+2026-03-24 15:50:37,116 - DEBUG - [C++:motion_server] Link: J3
+2026-03-24 15:50:37,116 - DEBUG - [C++:motion_server] Link: J4
+2026-03-24 15:50:37,117 - DEBUG - [C++:motion_server] Link: J5
+2026-03-24 15:50:37,118 - DEBUG - [C++:motion_server] Link: J6
+2026-03-24 15:50:37,118 - DEBUG - [C++:motion_server] Link: tool_link
+2026-03-24 15:50:37,119 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                 planning_frame=world, ee_link=tool_link
+2026-03-24 15:50:37,120 - DEBUG - [C++:motion_server] Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                  planning_frame=world, ee_link=tool_link
+2026-03-24 15:50:39,150 - INFO - Requesting IK solver info from C++ node...
+2026-03-24 15:50:39,156 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-24 15:50:41,200 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-24 15:50:41,203 - DEBUG - [C++:motion_server] Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:50:41,206 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:50:43,303 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-24 15:50:43,311 - DEBUG - [C++:motion_server] [MoveJoints] Request: 6 joints, relative=false, execute=true
+2026-03-24 15:50:43,314 - DEBUG - [C++:motion_server] [PlanJoints] current=[0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000] target=[0.0000, 0.0000, 1.5700, 0.0000, 1.5700, 0.0000] relative=false
+                                  execute=true
+2026-03-24 15:50:43,443 - DEBUG - [C++:motion_server] [PlanJoints] Plan OK: 1 points, planning took 0.128s
+2026-03-24 15:50:43,444 - DEBUG - [C++:motion_server] [TRAJ] 1 points, total duration: 0.0000s, joints: 6
+2026-03-24 15:50:43,509 - INFO - Joint movement successful: Joint trajectory executed (took 0.127700s)
+2026-03-24 15:50:45,596 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-24 15:50:45,601 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-24 15:50:47,649 - INFO - Waypoints movement requested: 5 points (Cartesian=False, execute=True)
+2026-03-24 15:50:47,651 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#0 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:50:47,651 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#1 resolved: pos=[0.5000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:50:47,652 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#2 resolved: pos=[0.5000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:50:47,653 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#3 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:50:47,653 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#4 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:50:47,654 - DEBUG - [C++:motion_server] [MoveWaypoints] 5 waypoints resolved, cartesian=false, execute=true
+2026-03-24 15:50:47,801 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 1/5: OK (0.148s, 9 pts)
+2026-03-24 15:50:48,835 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 2/5: OK (1.035s, 23 pts)
+2026-03-24 15:50:52,495 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 3/5: OK (3.660s, 30 pts)
+2026-03-24 15:50:52,733 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 4/5: OK (0.237s, 25 pts)
+2026-03-24 15:50:53,008 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 5/5: OK (0.275s, 24 pts)
+2026-03-24 15:50:53,083 - DEBUG - [C++:motion_server] [MoveWaypoints] Combined: 230 points, 5.427s planning
+2026-03-24 15:50:53,086 - DEBUG - [C++:motion_server] [TRAJ] 230 points, total duration: 22.8830s, joints: 6
+2026-03-24 15:51:17,514 - INFO - Waypoints movement successful: Waypoint sequence executed (5.427271s)
+2026-03-24 15:51:19,566 - INFO - Virtual cage modification requested (Enable=False)
+2026-03-24 15:51:19,579 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-24 15:51:45,228 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-24 15:51:45,362 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.mode: string = global
+2026-03-24 15:51:45,363 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.approximate_solution_joint_threshold: double = 0.000000
+2026-03-24 15:51:45,363 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:51:45,364 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:51:45,364 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:51:45,365 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:51:45,365 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:51:45,366 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:51:45,366 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:51:45,367 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:51:45,368 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:51:45,368 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.026751 seconds
+2026-03-24 15:51:45,454 - WARNING - [C++:motion_server] PlanningSceneMonitor: timed out waiting for robot state. Diagnostics may be incomplete on first call.
+2026-03-24 15:51:45,455 - DEBUG - [C++:motion_server] Link: world
+2026-03-24 15:51:45,456 - DEBUG - [C++:motion_server] Link: base_link
+2026-03-24 15:51:45,457 - DEBUG - [C++:motion_server] Link: J1
+2026-03-24 15:51:45,458 - DEBUG - [C++:motion_server] Link: J2
+2026-03-24 15:51:45,458 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                 planning_frame=world, ee_link=tool_link
+2026-03-24 15:51:45,459 - DEBUG - [C++:motion_server] Link: J3
+2026-03-24 15:51:45,462 - DEBUG - [C++:motion_server] Link: J4
+2026-03-24 15:51:45,463 - DEBUG - [C++:motion_server] Link: J5
+2026-03-24 15:51:45,464 - DEBUG - [C++:motion_server] Link: J6
+2026-03-24 15:51:45,465 - DEBUG - [C++:motion_server] Link: tool_link
+2026-03-24 15:51:45,466 - DEBUG - [C++:motion_server] Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                  planning_frame=world, ee_link=tool_link
+2026-03-24 15:51:47,567 - INFO - Requesting IK solver info from C++ node...
+2026-03-24 15:51:47,573 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-24 15:51:49,653 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-24 15:51:49,654 - DEBUG - [C++:motion_server] Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:51:49,658 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:51:51,738 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-24 15:51:51,743 - DEBUG - [C++:motion_server] [MoveJoints] Request: 6 joints, relative=false, execute=true
+2026-03-24 15:51:51,744 - DEBUG - [C++:motion_server] [PlanJoints] current=[-0.7858, -0.0221, 1.8957, 0.0002, 1.2669, 3.9265] target=[0.0000, 0.0000, 1.5700, 0.0000, 1.5700, 0.0000] relative=false
+                                  execute=true
+2026-03-24 15:51:51,877 - DEBUG - [C++:motion_server] [PlanJoints] Plan OK: 19 points, planning took 0.132s
+2026-03-24 15:51:51,878 - DEBUG - [C++:motion_server] [TRAJ] 19 points, total duration: 1.7724s, joints: 6
+2026-03-24 15:51:53,796 - INFO - Joint movement successful: Joint trajectory executed (took 0.132413s)
+2026-03-24 15:51:55,852 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-24 15:51:55,859 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-24 15:51:57,890 - INFO - Waypoints movement requested: 5 points (Cartesian=False, execute=True)
+2026-03-24 15:51:57,893 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#0 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:51:57,894 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#1 resolved: pos=[0.5000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:51:57,894 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#2 resolved: pos=[0.5000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:51:57,895 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#3 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:51:57,896 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#4 resolved: pos=[0.2000, -0.4000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:51:57,897 - DEBUG - [C++:motion_server] [MoveWaypoints] 5 waypoints resolved, cartesian=false, execute=true
+2026-03-24 15:51:58,596 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 1/5: OK (0.701s, 26 pts)
+2026-03-24 15:52:04,522 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 2/5: OK (5.926s, 34 pts)
+2026-03-24 15:52:05,834 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 3/5: OK (1.311s, 38 pts)
+2026-03-24 15:52:06,839 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 4/5: OK (1.005s, 12 pts)
+2026-03-24 15:52:18,897 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 5/5: FAILED (12.056s, 0 pts)
+2026-03-24 15:52:18,900 - WARNING - [C++:motion_server] [DIAG] MoveIt error code: 99999 (FAILURE)
+2026-03-24 15:52:18,922 - DEBUG - [C++:motion_server] [DIAG] Singularity OK: manipulability=0.024724, condition=29.2
+2026-03-24 15:52:18,925 - WARNING - [C++:motion_server] [DIAG] Primary cause: UNKNOWN
+  - Planning took 12.056s
+
+2026-03-24 15:52:18,961 - ERROR - Waypoints movement failed: Both strategies failed at waypoint 5: FAILURE | [DIAG] Primary cause: UNKNOWN
+  - Planning took 12.056s
+
+2026-03-24 15:52:46,489 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-24 15:52:46,625 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.mode: string = global
+2026-03-24 15:52:46,626 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.approximate_solution_orientation_threshold: double = 0.010000
+2026-03-24 15:52:46,627 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.avoid_joint_limits_weight: double = 0.000000
+2026-03-24 15:52:46,627 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:52:46,628 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:52:46,628 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:52:46,629 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:52:46,630 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:52:46,631 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:52:46,631 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:52:46,632 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:52:46,633 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:52:46,634 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.029431 seconds
+2026-03-24 15:52:46,735 - DEBUG - [C++:motion_server] Link: world
+2026-03-24 15:52:46,736 - DEBUG - [C++:motion_server] Link: base_link
+2026-03-24 15:52:46,737 - DEBUG - [C++:motion_server] Link: J1
+2026-03-24 15:52:46,737 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                 planning_frame=world, ee_link=tool_link
+2026-03-24 15:52:46,738 - DEBUG - [C++:motion_server] Link: J2
+2026-03-24 15:52:46,739 - DEBUG - [C++:motion_server] Link: J3
+2026-03-24 15:52:46,741 - DEBUG - [C++:motion_server] Link: J4
+2026-03-24 15:52:46,742 - DEBUG - [C++:motion_server] Link: J5
+2026-03-24 15:52:46,742 - DEBUG - [C++:motion_server] Link: J6
+2026-03-24 15:52:46,743 - DEBUG - [C++:motion_server] Link: tool_link
+2026-03-24 15:52:46,744 - DEBUG - [C++:motion_server] Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                  planning_frame=world, ee_link=tool_link
+2026-03-24 15:52:48,767 - INFO - Requesting IK solver info from C++ node...
+2026-03-24 15:52:48,777 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-24 15:52:50,842 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-24 15:52:50,843 - DEBUG - [C++:motion_server] Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:52:50,848 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:52:52,941 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-24 15:52:52,945 - DEBUG - [C++:motion_server] [MoveJoints] Request: 6 joints, relative=false, execute=true
+2026-03-24 15:52:52,946 - DEBUG - [C++:motion_server] [PlanJoints] current=[0.0001, 0.0001, 1.5700, -0.0001, 1.5700, -0.0000] target=[0.0000, 0.0000, 1.5700, 0.0000, 1.5700, 0.0000] relative=false
+                                  execute=true
+2026-03-24 15:52:53,024 - DEBUG - [C++:motion_server] [PlanJoints] Plan OK: 1 points, planning took 0.079s
+2026-03-24 15:52:53,025 - DEBUG - [C++:motion_server] [TRAJ] 1 points, total duration: 0.0000s, joints: 6
+2026-03-24 15:52:53,092 - INFO - Joint movement successful: Joint trajectory executed (took 0.078952s)
+2026-03-24 15:52:55,167 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-24 15:52:55,180 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-24 15:52:57,257 - INFO - Waypoints movement requested: 5 points (Cartesian=True, execute=True)
+2026-03-24 15:52:57,259 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#0 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:52:57,260 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#1 resolved: pos=[0.5000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:52:57,261 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#2 resolved: pos=[0.5000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:52:57,264 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#3 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:52:57,264 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#4 resolved: pos=[0.2000, -0.4000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:52:57,265 - DEBUG - [C++:motion_server] [MoveWaypoints] 5 waypoints resolved, cartesian=true, execute=true
+2026-03-24 15:52:59,700 - WARNING - [C++:motion_server] Cartesian path attempt 1 failed (fraction: 86.3%). Retrying with coarser step...
+2026-03-24 15:53:01,625 - DEBUG - [C++:motion_server] Cartesian path result: FAILED (best fraction: 66.106443%) (4.36s)
+2026-03-24 15:53:01,680 - WARNING - [C++:motion_server] [DIAG-CART] Collision at waypoint #4: 1 pair(s) (0 self, 1 env)
+2026-03-24 15:53:01,680 - WARNING - [C++:motion_server] [DIAG] Primary cause: PATH_COLLISION
+                                      - Goal state IS in collision. Environment: J4 <-> cage_right.
+                                      - Cartesian fraction achieved: 66.1064% (failure near waypoint #4)
+                                      - Planning took 4.36066s
+
+2026-03-24 15:53:01,685 - ERROR - Waypoints movement failed: Cartesian path failed — fraction: 66.106443% | FAILED (best fraction: 66.106443%) | [DIAG] Primary cause: PATH_COLLISION
+                                    - Goal state IS in collision. Environment: J4 <-> cage_right.
+                                    - Cartesian fraction achieved: 66.1064% (failure near waypoint #4)
+                                    - Planning took 4.36066s
+                                   (took 4.360660s)
+2026-03-24 15:54:23,281 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-24 15:54:23,406 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.gd_max_iters: integer = 100
+2026-03-24 15:54:23,407 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.rotation_scale: double = 0.500000
+2026-03-24 15:54:23,408 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.center_joints_weight: double = 0.000000
+2026-03-24 15:54:23,409 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.avoid_joint_limits_weight: double = 0.000000
+2026-03-24 15:54:23,409 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:54:23,418 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:54:23,422 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:54:23,423 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:54:23,424 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:54:23,424 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:54:23,425 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:54:23,425 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:54:23,425 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:54:23,426 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.025396 seconds
+2026-03-24 15:54:23,537 - DEBUG - [C++:motion_server] Link: world
+2026-03-24 15:54:23,542 - DEBUG - [C++:motion_server] Link: base_link
+2026-03-24 15:54:23,543 - DEBUG - [C++:motion_server] Link: J1
+2026-03-24 15:54:23,544 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                 planning_frame=world, ee_link=tool_link
+2026-03-24 15:54:23,546 - DEBUG - [C++:motion_server] Link: J2
+2026-03-24 15:54:23,549 - DEBUG - [C++:motion_server] Link: J3
+2026-03-24 15:54:23,550 - DEBUG - [C++:motion_server] Link: J4
+2026-03-24 15:54:23,554 - DEBUG - [C++:motion_server] Link: J5
+2026-03-24 15:54:23,555 - DEBUG - [C++:motion_server] Link: J6
+2026-03-24 15:54:23,556 - DEBUG - [C++:motion_server] Link: tool_link
+2026-03-24 15:54:23,557 - DEBUG - [C++:motion_server] Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                  planning_frame=world, ee_link=tool_link
+2026-03-24 15:54:25,572 - INFO - Requesting IK solver info from C++ node...
+2026-03-24 15:54:25,579 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-24 15:54:27,619 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-24 15:54:27,629 - DEBUG - [C++:motion_server] Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:54:27,631 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:54:29,746 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-24 15:54:29,748 - DEBUG - [C++:motion_server] [MoveJoints] Request: 6 joints, relative=false, execute=true
+2026-03-24 15:54:29,754 - DEBUG - [C++:motion_server] [PlanJoints] current=[0.0001, 0.0001, 1.5700, -0.0001, 1.5700, -0.0000] target=[0.0000, 0.0000, 1.5700, 0.0000, 1.5700, 0.0000] relative=false
+                                  execute=true
+2026-03-24 15:54:29,834 - DEBUG - [C++:motion_server] [PlanJoints] Plan OK: 1 points, planning took 0.086s
+2026-03-24 15:54:29,836 - DEBUG - [C++:motion_server] [TRAJ] 1 points, total duration: 0.0000s, joints: 6
+2026-03-24 15:54:29,899 - INFO - Joint movement successful: Joint trajectory executed (took 0.086488s)
+2026-03-24 15:54:31,993 - INFO - Virtual cage modification requested (Enable=False)
+2026-03-24 15:54:31,999 - INFO - Virtual cage modification successful: Virtual cage removed
+2026-03-24 15:54:34,059 - INFO - Waypoints movement requested: 5 points (Cartesian=False, execute=True)
+2026-03-24 15:54:34,062 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#0 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:54:34,063 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#1 resolved: pos=[0.5000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:54:34,064 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#2 resolved: pos=[0.5000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:54:34,065 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#3 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:54:34,065 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#4 resolved: pos=[0.2000, -0.9000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:54:34,066 - DEBUG - [C++:motion_server] [MoveWaypoints] 5 waypoints resolved, cartesian=false, execute=true
+2026-03-24 15:54:34,211 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 1/5: OK (0.148s, 9 pts)
+2026-03-24 15:54:38,880 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 2/5: OK (4.668s, 12 pts)
+2026-03-24 15:54:40,148 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 3/5: OK (1.268s, 23 pts)
+2026-03-24 15:54:40,634 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 4/5: OK (0.486s, 25 pts)
+2026-03-24 15:54:52,684 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 5/5: FAILED (12.049s, 0 pts)
+2026-03-24 15:54:52,685 - WARNING - [C++:motion_server] [DIAG] MoveIt error code: 99999 (FAILURE)
+2026-03-24 15:54:52,888 - WARNING - [C++:motion_server] [DIAG] Primary cause: IK_UNREACHABLE
+                                      - IK failed: IK solver returned no solution for the target pose. The pose may be outside the workspace or near a singularity.
+                                      - Planning took 12.0492s
+
+2026-03-24 15:54:53,392 - ERROR - Waypoints movement failed: Both strategies failed at waypoint 5: FAILURE | [DIAG] Primary cause: IK_UNREACHABLE
+                                    - IK failed: IK solver returned no solution for the target pose. The pose may be outside the workspace or near a singularity.
+                                    - Planning took 12.0492s
+
+2026-03-24 15:55:20,492 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-24 15:55:20,625 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 15:55:20,626 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 15:55:20,627 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 15:55:20,628 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 15:55:20,629 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 15:55:20,630 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 15:55:20,630 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 15:55:20,631 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 15:55:20,632 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 15:55:20,632 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.030079 seconds
+2026-03-24 15:55:20,741 - DEBUG - [C++:motion_server] Link: world
+2026-03-24 15:55:20,742 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                 planning_frame=world, ee_link=tool_link
+2026-03-24 15:55:20,743 - DEBUG - [C++:motion_server] Link: base_link
+2026-03-24 15:55:20,744 - DEBUG - [C++:motion_server] Link: J1
+2026-03-24 15:55:20,745 - DEBUG - [C++:motion_server] Link: J2
+2026-03-24 15:55:20,746 - DEBUG - [C++:motion_server] Link: J3
+2026-03-24 15:55:20,747 - DEBUG - [C++:motion_server] Link: J4
+2026-03-24 15:55:20,747 - DEBUG - [C++:motion_server] Link: J5
+2026-03-24 15:55:20,748 - DEBUG - [C++:motion_server] Link: J6
+2026-03-24 15:55:20,748 - DEBUG - [C++:motion_server] Link: tool_link
+2026-03-24 15:55:20,749 - DEBUG - [C++:motion_server] Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                  planning_frame=world, ee_link=tool_link
+2026-03-24 15:55:22,779 - INFO - Requesting IK solver info from C++ node...
+2026-03-24 15:55:22,785 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-24 15:55:24,801 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-24 15:55:24,802 - DEBUG - [C++:motion_server] Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:55:24,812 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 15:55:26,825 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-24 15:55:26,833 - DEBUG - [C++:motion_server] [MoveJoints] Request: 6 joints, relative=false, execute=true
+2026-03-24 15:55:26,834 - DEBUG - [C++:motion_server] [PlanJoints] current=[0.0001, 0.0001, 1.5700, -0.0001, 1.5700, -0.0000] target=[0.0000, 0.0000, 1.5700, 0.0000, 1.5700, 0.0000] relative=false
+                                  execute=true
+2026-03-24 15:55:26,909 - DEBUG - [C++:motion_server] [PlanJoints] Plan OK: 1 points, planning took 0.078s
+2026-03-24 15:55:26,910 - DEBUG - [C++:motion_server] [TRAJ] 1 points, total duration: 0.0000s, joints: 6
+2026-03-24 15:55:26,965 - INFO - Joint movement successful: Joint trajectory executed (took 0.078185s)
+2026-03-24 15:55:29,003 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-24 15:55:29,009 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-24 15:55:31,044 - INFO - Waypoints movement requested: 5 points (Cartesian=False, execute=True)
+2026-03-24 15:55:31,049 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#0 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:55:31,050 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#1 resolved: pos=[0.5000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:55:31,051 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#2 resolved: pos=[0.5000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:55:31,052 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#3 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:55:31,052 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#4 resolved: pos=[0.2000, -0.4000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 15:55:31,053 - DEBUG - [C++:motion_server] [MoveWaypoints] 5 waypoints resolved, cartesian=false, execute=true
+2026-03-24 15:55:32,109 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 1/5: OK (1.061s, 9 pts)
+2026-03-24 15:55:34,543 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 2/5: OK (2.434s, 12 pts)
+2026-03-24 15:55:37,762 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 3/5: OK (3.219s, 38 pts)
+2026-03-24 15:55:38,847 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 4/5: OK (1.084s, 32 pts)
+2026-03-24 15:55:50,873 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 5/5: FAILED (12.026s, 0 pts)
+2026-03-24 15:55:50,874 - WARNING - [C++:motion_server] [DIAG] MoveIt error code: 99999 (FAILURE)
+2026-03-24 15:55:50,883 - DEBUG - [C++:motion_server] [DIAG] Singularity OK: manipulability=0.010322, condition=70.8
+2026-03-24 15:55:50,884 - WARNING - [C++:motion_server] [DIAG] Primary cause: UNKNOWN
+  - Planning took 12.0256s
+
+2026-03-24 15:55:50,930 - ERROR - Waypoints movement failed: Both strategies failed at waypoint 5: FAILURE | [DIAG] Primary cause: UNKNOWN
+  - Planning took 12.0256s
+
+2026-03-24 16:26:53,754 - INFO - Waiting for ROS 2 services...
+2026-03-24 16:26:53,755 - INFO - All ROS 2 services are connected.
+2026-03-24 16:27:01,137 - INFO - Initialization requested (Model: vs060, Group: arm)
+2026-03-24 16:27:01,218 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 16:27:01,220 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 16:27:01,228 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 16:27:01,229 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 16:27:01,230 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 16:27:01,230 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 16:27:01,238 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 16:27:01,239 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 16:27:01,240 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 16:27:01,241 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.067277 seconds
+2026-03-24 16:27:01,293 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.approximate_solution_position_threshold: double = 0.001000
+2026-03-24 16:27:01,294 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.stop_optimization_on_valid_solution: bool = true
+2026-03-24 16:27:01,294 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_num_threads: integer = 1
+2026-03-24 16:27:01,295 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_stop_on_first_solution: bool = true
+2026-03-24 16:27:01,296 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_population_size: integer = 16
+2026-03-24 16:27:01,296 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_elite_size: integer = 4
+2026-03-24 16:27:01,297 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_wipeout_fitness_tol: double = 0.000010
+2026-03-24 16:27:01,298 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_max_generations: integer = 100
+2026-03-24 16:27:01,300 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_iters: integer = 25
+2026-03-24 16:27:01,302 - DEBUG - [C++:motion_server] robot_description_kinematics.arm.memetic_gd_max_time: double = 0.005000
+2026-03-24 16:27:01,306 - DEBUG - [C++:motion_server] Loaded kinematic model in 0.021752 seconds
+2026-03-24 16:27:01,345 - WARNING - [C++:motion_server] PlanningSceneMonitor: timed out waiting for robot state. Diagnostics may be incomplete on first call.
+2026-03-24 16:27:01,347 - DEBUG - [C++:motion_server] Link: world
+2026-03-24 16:27:01,348 - DEBUG - [C++:motion_server] Link: base_link
+2026-03-24 16:27:01,349 - DEBUG - [C++:motion_server] Link: J1
+2026-03-24 16:27:01,351 - DEBUG - [C++:motion_server] Link: J2
+2026-03-24 16:27:01,352 - INFO - Initialization successful: Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                 planning_frame=world, ee_link=tool_link
+2026-03-24 16:27:01,353 - DEBUG - [C++:motion_server] Link: J3
+2026-03-24 16:27:01,356 - DEBUG - [C++:motion_server] Link: J4
+2026-03-24 16:27:01,356 - DEBUG - [C++:motion_server] Link: J5
+2026-03-24 16:27:01,357 - DEBUG - [C++:motion_server] Link: J6
+2026-03-24 16:27:01,358 - DEBUG - [C++:motion_server] Link: tool_link
+2026-03-24 16:27:01,358 - DEBUG - [C++:motion_server] Initialized with model=vs060, group=arm, vel_scale=0.2, accel_scale=0.2, plan_time=10, plan_attempts=20, replan=true,planner_id=RRTConnect,
+                                  planning_frame=world, ee_link=tool_link
+2026-03-24 16:27:03,401 - INFO - Requesting IK solver info from C++ node...
+2026-03-24 16:27:03,408 - INFO - Current IK solver plugin: pick_ik/PickIkPlugin (short name: pick_ik)
+2026-03-24 16:27:05,431 - INFO - Scaling change requested (Vel: 1.0, Acc: 1.0)
+2026-03-24 16:27:05,437 - DEBUG - [C++:motion_server] Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 16:27:05,440 - INFO - Scaling change successful: Scaling updated: velocity_scale=1, accel_scale=1. This will be used for all subsequent motions
+2026-03-24 16:27:07,469 - INFO - Joint movement requested: [0.0, 0.0, 1.57, 0.0, 1.57, 0.0] (Relative=False, Angle Format=RAD, Execute=True)
+2026-03-24 16:27:07,471 - DEBUG - [C++:motion_server] [MoveJoints] Request: 6 joints, relative=false, execute=true
+2026-03-24 16:27:07,472 - DEBUG - [C++:motion_server] [PlanJoints] current=[0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000] target=[0.0000, 0.0000, 1.5700, 0.0000, 1.5700, 0.0000] relative=false
+                                  execute=true
+2026-03-24 16:27:07,566 - DEBUG - [C++:motion_server] [PlanJoints] Plan OK: 1 points, planning took 0.093s
+2026-03-24 16:27:07,567 - DEBUG - [C++:motion_server] [TRAJ] 1 points, total duration: 0.0000s, joints: 6
+2026-03-24 16:27:07,639 - INFO - Joint movement successful: Joint trajectory executed (took 0.093026s)
+2026-03-24 16:27:09,694 - INFO - Virtual cage modification requested (Enable=True)
+2026-03-24 16:27:09,706 - INFO - Virtual cage modification successful: Virtual cage successfully activated
+2026-03-24 16:27:11,729 - INFO - Waypoints movement requested: 5 points (Cartesian=False, execute=True)
+2026-03-24 16:27:11,732 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#0 resolved: pos=[0.2000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 16:27:11,733 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#1 resolved: pos=[0.5000, 0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 16:27:11,733 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#2 resolved: pos=[0.5000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 16:27:11,734 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#3 resolved: pos=[0.2000, -0.2000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 16:27:11,735 - DEBUG - [C++:motion_server] [MoveWaypoints] WP#4 resolved: pos=[0.2000, -0.4000, 0.3000] quat=[0.7071, -0.7071, -0.0000, 0.0000] (rel=false frame=WORLD)
+2026-03-24 16:27:11,735 - DEBUG - [C++:motion_server] [MoveWaypoints] 5 waypoints resolved, cartesian=false, execute=true
+2026-03-24 16:27:11,877 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 1/5: OK (0.144s, 9 pts)
+2026-03-24 16:27:15,371 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 2/5: OK (3.494s, 24 pts)
+2026-03-24 16:27:19,099 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 3/5: OK (3.724s, 38 pts)
+2026-03-24 16:27:20,857 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 4/5: OK (1.760s, 27 pts)
+2026-03-24 16:27:32,880 - DEBUG - [C++:motion_server] [MoveWaypoints] Segment 5/5: FAILED (12.023s, 0 pts)
+2026-03-24 16:27:32,891 - DEBUG - [C++:motion_server] [DIAG] Singularity OK: manipulability=0.014694, condition=49.3
+2026-03-24 16:27:32,892 - WARNING - [C++:motion_server] [DIAG] Primary cause: UNKNOWN
+  - Planning took 12.0232s
+
+2026-03-24 16:27:32,893 - WARNING - [C++:motion_server] [MoveWaypoints] Segment 5 pose-target failed — falling back to IK + joint-space...
+2026-03-24 16:27:32,988 - ERROR - Waypoints movement failed: Both strategies failed at waypoint 5: FAILURE | [DIAG] Primary cause: UNKNOWN
+  - Planning took 12.0232s
+

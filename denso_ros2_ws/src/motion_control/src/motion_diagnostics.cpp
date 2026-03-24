@@ -258,9 +258,6 @@ namespace motion_control
         DiagnosticReport report;
         report.planning_duration_s = planning_duration_s;
 
-        RCLCPP_WARN(logger, "[DIAG] MoveIt error code: %d (%s)",
-            error_code.val, moveitErrorCodeToString(error_code).c_str());
-
         auto formatJoints = [](const std::vector<double>& joints) {
             std::stringstream ss;
             ss << "[";

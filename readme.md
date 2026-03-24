@@ -70,6 +70,7 @@ sudo apt upgrade
 
 sudo apt install ros-humble-desktop
 sudo apt install ros-dev-tools
+sudo apt install ros-humble-pick-ik
 ```
 
 ### Testing the ROS 2 Installation

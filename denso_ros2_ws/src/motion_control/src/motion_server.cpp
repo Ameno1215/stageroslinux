@@ -128,13 +128,13 @@ namespace motion_control
             std::string planner_id = req->planner_id.empty() ? "PRMstar" : req->planner_id;
             
             move_group_->setPlanningTime(p_time); // Maximum time (in seconds) allowed for planning.
-            move_group_->setNumPlanningAttempts(p_attempts);  //Number of attempts simultaneously launched by MoveIt to find a valid plan (with different random seeds).
+            move_group_->setNumPlanningAttempts(p_attempts);  // Number of attempts simultaneously launched by MoveIt to find a valid plan (with different random seeds).
             move_group_->allowReplanning(a_replan); // If true, MoveIt will automatically try to replan if the current plan fails during execution (e.g., due to a new obstacle).
             move_group_->setPlannerId(planner_id);
 
             // Log available joints and links
             auto names = move_group_->getRobotModel()->getLinkModelNames();
-            RCLCPP_INFO(this->get_logger(), "--- Links available for this robot ---");
+            RCLCPP_INFO(this->get_logger(), "Links available for this robot");
             for (const auto& name : names) {
                 RCLCPP_INFO(this->get_logger(), "Link: %s", name.c_str());
             }
@@ -262,7 +262,7 @@ namespace motion_control
         //     target.pose.orientation.z, target.pose.orientation.w,
         //     execute ? "true" : "false");
 
-        // --- Strategy 1: Standard pose target ---
+        // Strategy 1: Standard pose target
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         auto start_time = std::chrono::high_resolution_clock::now();
         auto code = move_group_->plan(plan);
@@ -283,7 +283,7 @@ namespace motion_control
                 diag_msg = moveitErrorCodeToString(code) + " [diagnostic scene unavailable]";
             }
 
-            // --- Strategy 2: Fallback to explicit IK + joint-space planning ---
+            // Strategy 2: Fallback to explicit IK + joint-space planning
             // RCLCPP_WARN(this->get_logger(),
             //     "Pose target planning failed: %s (%.2fs) — Falling back to IK + joint-space...",
             //     diag_msg.c_str(), planning_duration);
@@ -662,7 +662,7 @@ namespace motion_control
                         cart_msg.c_str(), planning_duration);
 
             if (fraction < 0.95) {
-                // --- Cartesian-specific diagnostic ---
+                // Cartesian-specific diagnostic
                 auto scene = getLockedPlanningScene();
                 std::string diag_summary;
                 if (scene) {
@@ -735,7 +735,7 @@ namespace motion_control
             return;
         }
 
-        // --- VERIFY PARALLEL ARRAYS ---
+        // VERIFY PARALLEL ARRAYS
         if (req->is_relative_list.size() != req->waypoints.size() || 
             req->reference_frame_list.size() != req->waypoints.size()) 
         {
@@ -891,42 +891,37 @@ namespace motion_control
             }
         }
         else {
-            moveit_msgs::msg::RobotTrajectory combined_trajectory;
-            combined_trajectory.joint_trajectory.joint_names = move_group_->getJointNames();
-            
-            // Get the current state to use as the starting point for the first segment
+            // 1. Plan each segment with OMPL (collision-aware)
             moveit::core::RobotStatePtr current_start_state = move_group_->getCurrentState();
-            
-            int32_t acc_sec = 0;
-            uint32_t acc_nanosec = 0;
+            const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+
+            // Collect ALL trajectory points across segments into one RobotTrajectory
+            robot_trajectory::RobotTrajectory combined_rt(
+                move_group_->getRobotModel(), planning_group_);
+
             auto start_time = std::chrono::high_resolution_clock::now();
-            
+
             for (size_t i = 0; i < absolute_waypoints.size(); ++i) {
-                // Set the starting state for this segment
                 move_group_->setStartState(*current_start_state);
-                
-                // Set the target
                 move_group_->setPoseTarget(absolute_waypoints[i]);
-                
-                // Plan the segment (Strategy 1: pose target)
+
+                // Strategy 1: pose target via OMPL
                 moveit::planning_interface::MoveGroupInterface::Plan segment_plan;
                 auto seg_t0 = std::chrono::high_resolution_clock::now();
                 auto code = move_group_->plan(segment_plan);
                 double seg_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - seg_t0).count();
 
-                // Hygiene: clear pose targets after planning (same as planAndMaybeExecutePose)
                 move_group_->clearPoseTargets();
 
                 RCLCPP_DEBUG(this->get_logger(),
-                    "[MoveWaypoints] Segment %zu/%zu planning: %s (%.3fs, %zu points)",
+                    "[MoveWaypoints] Segment %zu/%zu: %s (%.3fs, %zu pts)",
                     i + 1, absolute_waypoints.size(),
                     (code == moveit::core::MoveItErrorCode::SUCCESS) ? "OK" : "FAILED",
-                    seg_dt,
-                    segment_plan.trajectory_.joint_trajectory.points.size());
+                    seg_dt, segment_plan.trajectory_.joint_trajectory.points.size());
 
+                // Strategy 2: Fallback IK + joint-space if pose target failed
                 if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-                    // Diagnostics for the pose-target failure
                     std::string diag_msg;
                     auto scene = getLockedPlanningScene();
                     if (scene) {
@@ -937,17 +932,12 @@ namespace motion_control
                         diag_msg = report.summary;
                     }
 
-                    // RCLCPP_WARN(this->get_logger(),
-                    //     "[MoveWaypoints] Segment %zu -space...",
-                    //     i + 1, diag_msg.c_str(), seg_pose-target failed: %s (%.2fs) "
-                    //     "— Falling back to IK + jointdt);
-
-                    // Strategy 2: Explicit IK + joint-space planning 
-                    const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
                     bool fallback_ok = false;
-
                     if (jmg) {
-                        // Use the chained start state for IK, not getCurrentState()
+                        RCLCPP_WARN(this->get_logger(),
+                            "[MoveWaypoints] Segment %zu pose-target failed — falling back to IK + joint-space...",
+                            i + 1);
+
                         moveit::core::RobotState ik_state(*current_start_state);
                         if (ik_state.setFromIK(jmg, absolute_waypoints[i], 0.5)) {
                             ik_state.enforceBounds(jmg);
@@ -955,7 +945,6 @@ namespace motion_control
                             std::vector<double> joint_targets;
                             ik_state.copyJointGroupPositions(jmg, joint_targets);
 
-                            // Set joint target instead of pose target
                             std::map<std::string, double> joint_map;
                             const auto& names = jmg->getVariableNames();
                             for (size_t j = 0; j < names.size(); ++j) {
@@ -965,23 +954,13 @@ namespace motion_control
                             move_group_->setStartState(*current_start_state);
                             move_group_->setJointValueTarget(joint_map);
 
-                            auto fb_t0 = std::chrono::high_resolution_clock::now();
                             code = move_group_->plan(segment_plan);
-                            double fb_dt = std::chrono::duration<double>(
-                                std::chrono::high_resolution_clock::now() - fb_t0).count();
-
-                            RCLCPP_DEBUG(this->get_logger(),
-                                "[MoveWaypoints] Segment %zu fallback IK+Joint: %s (%.3fs)",
-                                i + 1,
-                                (code == moveit::core::MoveItErrorCode::SUCCESS) ? "OK" : "FAILED",
-                                fb_dt);
-
                             if (code == moveit::core::MoveItErrorCode::SUCCESS) {
                                 fallback_ok = true;
-                                RCLCPP_INFO(this->get_logger(),
-                                    "[MoveWaypoints] Segment %zu fallback succeeded", i + 1);
+                                RCLCPP_INFO(this->get_logger(), "[MoveWaypoints] Segment %zu fallback succeeded", i + 1);
                             }
-                        } else {
+                        }
+                        else {
                             RCLCPP_WARN(this->get_logger(),
                                 "[MoveWaypoints] Segment %zu IK failed during fallback", i + 1);
                         }
@@ -990,119 +969,83 @@ namespace motion_control
                     if (!fallback_ok) {
                         res->success = false;
                         res->message = "Both strategies failed at waypoint " + std::to_string(i + 1)
-                                    + ". Pose target: " + moveitErrorCodeToString(code);
-                        if (!diag_msg.empty()) {
-                            res->message += " | " + diag_msg;
-                        }
+                                    + ": " + moveitErrorCodeToString(code);
+                        if (!diag_msg.empty()) res->message += " | " + diag_msg;
                         move_group_->setStartStateToCurrentState();
                         return;
                     }
                 }
-                            
-                // Assemble the trajectory and adjust timing
-                int32_t segment_duration_sec = 0;
-                uint32_t segment_duration_nanosec = 0;
-                
-                // Warn about velocity discontinuity at segment junctions.
-                // MoveIt plans each segment with zero-velocity endpoints. Skipping
-                // points[0] avoids duplicate positions but does NOT guarantee
-                // velocity continuity. The controller may experience a velocity jump.
-                size_t start_index = (i == 0) ? 0 : 1; 
 
-                if (i > 0 && !combined_trajectory.joint_trajectory.points.empty()
-                    && segment_plan.trajectory_.joint_trajectory.points.size() > 1) {
-                    // Log the velocity at the junction for debugging
-                    const auto& last_pt = combined_trajectory.joint_trajectory.points.back();
-                    const auto& next_pt = segment_plan.trajectory_.joint_trajectory.points[1]; // first used point
-                    if (!last_pt.velocities.empty() && !next_pt.velocities.empty()) {
-                        double max_vel_jump = 0.0;
-                        for (size_t j = 0; j < last_pt.velocities.size() && j < next_pt.velocities.size(); ++j) {
-                            max_vel_jump = std::max(max_vel_jump,
-                                std::abs(last_pt.velocities[j] - next_pt.velocities[j]));
-                        }
-                        if (max_vel_jump > 0.1) {  // rad/s threshold
-                            RCLCPP_WARN(this->get_logger(),
-                                "[MoveWaypoints] Velocity discontinuity at segment %zu junction: "
-                                "max delta=%.4f rad/s — controller may jerk", i, max_vel_jump);
-                        }
-                    }
-                }
-                
-                for (size_t j = start_index; j < segment_plan.trajectory_.joint_trajectory.points.size(); ++j) {
-                    auto pt = segment_plan.trajectory_.joint_trajectory.points[j];
-                    
-                    segment_duration_sec = pt.time_from_start.sec;
-                    segment_duration_nanosec = pt.time_from_start.nanosec;
-                    
-                    uint32_t total_nanosec = pt.time_from_start.nanosec + acc_nanosec;
-                    int32_t total_sec = pt.time_from_start.sec + acc_sec + (total_nanosec / 1000000000);
-                    total_nanosec = total_nanosec % 1000000000;
-                    
-                    pt.time_from_start.sec = total_sec;
-                    pt.time_from_start.nanosec = total_nanosec;
-                    
-                    combined_trajectory.joint_trajectory.points.push_back(pt);
-                }
-                
-                // Accumulate time for the next segment
-                acc_sec += segment_duration_sec;
-                acc_nanosec += segment_duration_nanosec;
-                if (acc_nanosec >= 1000000000) {
-                    acc_sec += (acc_nanosec / 1000000000);
-                    acc_nanosec = acc_nanosec % 1000000000;
-                }
-                
-                // Update the start state for the next segment calculation
+                // 2. Append segment points to combined trajectory
                 if (segment_plan.trajectory_.joint_trajectory.points.empty()) {
                     res->success = false;
-                    res->message = "Planner returned an empty trajectory at waypoint " + std::to_string(i+1);
+                    res->message = "Empty trajectory at waypoint " + std::to_string(i + 1);
                     move_group_->setStartStateToCurrentState();
                     return;
                 }
-                std::vector<double> last_positions = segment_plan.trajectory_.joint_trajectory.points.back().positions;
-                current_start_state->setJointGroupPositions(planning_group_, last_positions);
+
+                robot_trajectory::RobotTrajectory seg_rt(
+                    move_group_->getRobotModel(), planning_group_);
+                seg_rt.setRobotTrajectoryMsg(*current_start_state, segment_plan.trajectory_);
+
+                // Skip first point of subsequent segments (duplicate of previous last point)
+                size_t start_idx = (i == 0) ? 0 : 1;
+                for (size_t j = start_idx; j < seg_rt.getWayPointCount(); ++j) {
+                    combined_rt.addSuffixWayPoint(
+                        seg_rt.getWayPoint(j),
+                        (j == 0) ? 0.0 : seg_rt.getWayPointDurationFromPrevious(j));
+                }
+
+                // Update start state for the next segment
+                const auto& last_pts = segment_plan.trajectory_.joint_trajectory.points.back().positions;
+                current_start_state->setJointGroupPositions(planning_group_, last_pts);
             }
-            
-            // Restore normal state
+
+            // 3. TOTG retimes the ENTIRE trajectory as one piece
+            // This eliminates velocity discontinuities at segment junctions
+            // while preserving the collision-free paths from OMPL
             move_group_->clearPoseTargets();
             move_group_->setStartStateToCurrentState();
-            
+
+            trajectory_processing::TimeOptimalTrajectoryGeneration totg;
+            if (!totg.computeTimeStamps(combined_rt, vel_scale_, accel_scale_)) {
+                res->success = false;
+                res->message = "SAFETY: TOTG retiming failed on combined trajectory";
+                return;
+            }
+
+            moveit_msgs::msg::RobotTrajectory trajectory_msg;
+            combined_rt.getRobotTrajectoryMsg(trajectory_msg);
+
             auto end_time = std::chrono::high_resolution_clock::now();
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
-            // Retime the combined trajectory to eliminate velocity discontinuities
-            // at segment junctions (same mechanism as cartesian paths)
-            applyVelocityScaling(combined_trajectory);
-
-            // Summary of the assembled multi-segment trajectory
             RCLCPP_DEBUG(this->get_logger(),
-                "[MoveWaypoints] Combined trajectory: %zu points, total planning duration: %.3fs",
-                combined_trajectory.joint_trajectory.points.size(),
-                planning_duration);
+                "[MoveWaypoints] Combined: %zu points, %.3fs planning",
+                trajectory_msg.joint_trajectory.points.size(), planning_duration);
 
-            // Validate combined trajectory before sending to controller
+            // Validate
             std::string traj_err;
-            if (!validateTrajectory(combined_trajectory, traj_err)) {
+            if (!validateTrajectory(trajectory_msg, traj_err)) {
                 res->success = false;
                 res->message = traj_err;
                 return;
             }
-            
+
             // Execute
             if (req->execute) {
-                auto exec_code = move_group_->execute(combined_trajectory);
+                auto exec_code = move_group_->execute(trajectory_msg);
                 if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-                    // Run post-execution diagnostics
                     res->success = false;
                     res->message = diagnoseExecutionFailure(exec_code);
                 } else {
                     res->success = true;
-                    res->message = "Waypoint sequence executed successfully ("
-                                 + std::to_string(planning_duration) + "s)";
+                    res->message = "Waypoint sequence executed (" 
+                                + std::to_string(planning_duration) + "s)";
                 }
             } else {
                 res->success = true;
-                res->message = "Sequence planned successfully (execute=false).";
+                res->message = "Sequence planned (execute=false)";
             }
         }
     }
@@ -1147,7 +1090,7 @@ namespace motion_control
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        // --- Pre-planning validation (fast-fail before expensive planning) ---
+        // Pre-planning validation (fast-fail before expensive planning)
         auto scene = getLockedPlanningScene();
         if (scene) {
             moveit::core::RobotState goal_state(move_group_->getRobotModel());
@@ -1485,7 +1428,7 @@ namespace motion_control
         std::string why;
         if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
 
-        // --- 1. Math and Pose Calculations ---
+        // 1. Math and Pose Calculations
         tf2::Quaternion q;
         if (req->rotation_format == "RPY") {
             q.setRPY(req->r1, req->r2, req->r3);
@@ -1511,7 +1454,7 @@ namespace motion_control
         pose.orientation.z = q.z();
         pose.orientation.w = q.w();
 
-        // --- 2. Setup MoveIt Object and RViz Marker ---
+        // 2. Setup MoveIt Object and RViz Marker
         moveit_msgs::msg::CollisionObject obj;
         obj.header.frame_id = "world";
         obj.id = req->box_id;
@@ -1525,7 +1468,7 @@ namespace motion_control
         moveit_msgs::msg::PlanningScene planning_scene_msg;
         planning_scene_msg.is_diff = true; 
 
-        // --- 3. Collision vs Visual Logic ---
+        // 3. Collision vs Visual Logic
         if (req->action == "REMOVE") {
             // Remove from both MoveIt and RViz
             obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
@@ -1569,7 +1512,7 @@ namespace motion_control
             }
         }
 
-        // --- 4. Apply changes ---
+        // 4. Apply changes
         planning_scene_msg.world.collision_objects.push_back(obj);
         planning_scene_->applyPlanningScene(planning_scene_msg);
         visual_marker_pub_->publish(marker); 
