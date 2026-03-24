@@ -400,17 +400,27 @@ namespace motion_control
         // Otherwise, we need the current position to calculate the relative or tool coordinate system
         geometry_msgs::msg::PoseStamped current_pose_msg;
         try {
-            current_pose_msg = move_group_->getCurrentPose();
-        } catch (const std::exception& e) {
-            out_error_msg = std::string("Failed to get current pose for relative motion: ") + e.what();
-            return std::nullopt;
-        }
-        // Validate that we got a non-zero pose (getCurrentPose can silently return zeros if TF is not ready)
-        const auto& p = current_pose_msg.pose;
-        const auto& o = p.orientation;
-        if (p.position.x == 0.0 && p.position.y == 0.0 && p.position.z == 0.0 &&
-            o.x == 0.0 && o.y == 0.0 && o.z == 0.0 && o.w == 0.0) {
-            out_error_msg = "getCurrentPose() returned a zero pose. TF tree may not be ready";
+            std::string ee_link = move_group_->getEndEffectorLink();
+            geometry_msgs::msg::TransformStamped t = tf_buffer_->lookupTransform(
+                "world", ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
+
+            current_pose_msg.header = t.header;
+            current_pose_msg.pose.position.x = t.transform.translation.x;
+            current_pose_msg.pose.position.y = t.transform.translation.y;
+            current_pose_msg.pose.position.z = t.transform.translation.z;
+            current_pose_msg.pose.orientation = t.transform.rotation;
+
+            RCLCPP_DEBUG(this->get_logger(),
+                "Current pose (TF2): position(%.3f, %.3f, %.3f) orientation(%.4f, %.4f, %.4f, %.4f)",
+                current_pose_msg.pose.position.x,
+                current_pose_msg.pose.position.y,
+                current_pose_msg.pose.position.z,
+                current_pose_msg.pose.orientation.x,
+                current_pose_msg.pose.orientation.y,
+                current_pose_msg.pose.orientation.z,
+                current_pose_msg.pose.orientation.w);
+        } catch (const tf2::TransformException& e) {
+            out_error_msg = std::string("TF2 lookup failed for current pose: ") + e.what();
             return std::nullopt;
         }
         
@@ -735,9 +745,23 @@ namespace motion_control
         }
 
         // Initial base point: The current position of the robot
-        geometry_msgs::msg::PoseStamped current_pose_msg = move_group_->getCurrentPose();
         tf2::Transform current_base_tf;
-        tf2::fromMsg(current_pose_msg.pose, current_base_tf);
+        try {
+            std::string ee_link = move_group_->getEndEffectorLink();
+            geometry_msgs::msg::TransformStamped t = tf_buffer_->lookupTransform(
+                "world", ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
+
+            geometry_msgs::msg::Pose current_pose;
+            current_pose.position.x = t.transform.translation.x;
+            current_pose.position.y = t.transform.translation.y;
+            current_pose.position.z = t.transform.translation.z;
+            current_pose.orientation = t.transform.rotation;
+            tf2::fromMsg(current_pose, current_base_tf);
+        } catch (const tf2::TransformException& e) {
+            res->success = false;
+            res->message = std::string("TF2 lookup failed for current pose: ") + e.what();
+            return;
+        }
 
         std::vector<geometry_msgs::msg::Pose> absolute_waypoints;
 
