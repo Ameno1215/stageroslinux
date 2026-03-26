@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox, ManageMesh
+from denso_robot_core_interfaces.srv import SetServoOn
 from geometry_msgs.msg import PoseStamped, Pose
 from rcl_interfaces.srv import GetParameters
 from moveit_msgs.msg import PlanningScene, CollisionObject, ObjectColor
@@ -240,6 +241,9 @@ class ManageMeshReq(BaseModel):
     a: float = 1.0
     action: SupportedBoxAction = "ADD"
 
+class ServoOnReq(BaseModel):
+    enable: bool
+
 # ----------------------------
 # ROS2 client node
 # ----------------------------
@@ -260,6 +264,7 @@ class MotionRosClient(Node):
         self.manage_box_cli = self.create_client(ManageBox, "/manage_box")
         self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
         self.move_pose_via_joint_cli = self.create_client(MoveToPose, "/move_to_pose_via_joint")
+        self.servo_on_cli = self.create_client(SetServoOn, "/vs060/SetServoOn")
         
         self.create_subscription(Log, "/rosout", self._on_rosout, 10)
 
@@ -277,7 +282,8 @@ class MotionRosClient(Node):
             (self.param_client, "/motion_server/get_parameters"),
             (self.manage_box_cli, "/manage_box"),
             (self.manage_mesh_cli, "/manage_mesh"),
-            (self.move_pose_via_joint_cli, "/move_to_pose_via_joint")
+            (self.move_pose_via_joint_cli, "/move_to_pose_via_joint"),
+            (self.servo_on_cli, "/vs060/SetServoOn")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 logger.error(f"Service {name} not available. Is motion_server running?")
@@ -358,6 +364,23 @@ class MotionRosClient(Node):
             logger.error(f"Critical error during SetScaling call: {e}")
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"SetScaling failed: {e}")
+
+    def call_set_servo_on(self, enable: bool) -> Dict[str, Any]:
+        logger.info(f"Motors {'ON' if enable else 'OFF'} requested")
+        ros_req = SetServoOn.Request()
+        ros_req.enable = enable
+        fut = self.servo_on_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=10.0)
+            if res.success:
+                logger.info(f"Motor state changed: {res.message}")
+            else:
+                logger.error(f"Motor state change failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during SetServoOn call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"SetServoOn failed: {e}")
 
     def call_move_joints(self, req: JointReq) -> Dict[str, Any]:
         logger.info(f"Joint movement requested: {req.joints} (Relative={req.is_relative}, Angle Format={req.angle_format}, Execute={req.execute})")
@@ -916,6 +939,13 @@ def manage_mesh(req: ManageMeshReq):
 def move_to_pose_via_joint(req: MoveToPoseReq):
     try:
         return _ros_client.call_move_to_pose_via_joint(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/set_servo_on")
+def set_servo_on(req: ServoOnReq):
+    try:
+        return _ros_client.call_set_servo_on(req.enable)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

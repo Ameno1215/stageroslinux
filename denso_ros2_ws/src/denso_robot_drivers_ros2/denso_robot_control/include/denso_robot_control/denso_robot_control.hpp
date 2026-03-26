@@ -49,6 +49,7 @@
 #include "denso_robot_core/denso_variable.h"
 #include "denso_robot_core_interfaces/msg/user_io.hpp"
 #include "denso_robot_core_interfaces/srv/change_mode.hpp"
+#include "denso_robot_core_interfaces/srv/set_servo_on.hpp"
 
 using namespace denso_robot_core;
 using namespace std_msgs;
@@ -129,6 +130,10 @@ private:
   bool ChangeModeFunction(
     const std::shared_ptr<denso_robot_core_interfaces::srv::ChangeMode::Request> request,
     std::shared_ptr<denso_robot_core_interfaces::srv::ChangeMode::Response> response);
+  
+  void SetServoOnFunction(
+    const std::shared_ptr<denso_robot_core_interfaces::srv::SetServoOn::Request> request,
+    std::shared_ptr<denso_robot_core_interfaces::srv::SetServoOn::Response> response);
 
   bool hasError();
   void printErrorDescription(HRESULT error_code, const std::string & error_message);
@@ -151,6 +156,9 @@ private:
 
   // ChangeMode Service
   rclcpp::Service<denso_robot_core_interfaces::srv::ChangeMode>::SharedPtr change_mode_srv_;
+
+  // SetServoOn Service  ← cette ligne et la suivante doivent être là
+  rclcpp::Service<denso_robot_core_interfaces::srv::SetServoOn>::SharedPtr servo_on_srv_;
 
   std::mutex mtx_mode_;
 

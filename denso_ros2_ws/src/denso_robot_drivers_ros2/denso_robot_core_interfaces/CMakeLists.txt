@@ -36,6 +36,7 @@ rosidl_generate_interfaces(
   "msg/Joints.msg"
   "msg/PoseData.msg"
   "srv/ChangeMode.srv"
+  "srv/SetServoOn.srv"
   "msg/UserIO.msg")
 
 

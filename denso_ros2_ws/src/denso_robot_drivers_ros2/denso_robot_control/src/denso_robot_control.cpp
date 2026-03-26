@@ -289,6 +289,12 @@ HRESULT DensoRobotControl::Initialize(
       &DensoRobotControl::ChangeModeFunction, this, std::placeholders::_1,
       std::placeholders::_2));
 
+  servo_on_srv_ = node_->create_service<denso_robot_core_interfaces::srv::SetServoOn>(
+    "SetServoOn",
+    std::bind(
+      &DensoRobotControl::SetServoOnFunction, this, std::placeholders::_1,
+      std::placeholders::_2));
+
   pub_cur_mode_ = node_->create_publisher<std_msgs::msg::Int32>("CurMode", 1);
 
   if (verbose_) {
@@ -614,6 +620,56 @@ void DensoRobotControl::Stop()
     printErrorDescription(hr, "Failed to change to slave mode");
   }
   eng_->Stop();
+}
+
+void DensoRobotControl::SetServoOnFunction(
+  const std::shared_ptr<denso_robot_core_interfaces::srv::SetServoOn::Request> request,
+  std::shared_ptr<denso_robot_core_interfaces::srv::SetServoOn::Response> response)
+{
+  std::unique_lock<std::mutex> lock_mode(mtx_mode_);
+
+  // Step 1: Exit slave mode to free b-CAP communication
+  HRESULT hr = ChangeModeWithClearError(DensoRobot::SLVMODE_NONE);
+  if (FAILED(hr)) {
+    printErrorDescription(hr, "SetServoOn: Failed to exit slave mode");
+    response->success = false;
+    response->message = "Failed to exit slave mode (HRESULT: " + std::to_string(hr) + ")";
+    return;
+  }
+
+  // Step 2: Set servo state
+  DensoVariable_Ptr p_var;
+  rob_->AddVariable("@SERVO_ON");
+  hr = rob_->get_Variable("@SERVO_ON", &p_var);
+  if (SUCCEEDED(hr)) {
+    VARIANT_Ptr vnt_val(new VARIANT());
+    vnt_val->vt = VT_BOOL;
+    vnt_val->boolVal = request->enable ? VARIANT_TRUE : VARIANT_FALSE;
+    hr = p_var->ExecPutValue(vnt_val);
+  }
+
+  if (FAILED(hr)) {
+    printErrorDescription(hr, "SetServoOn: Failed to set servo state");
+    response->success = false;
+    response->message = "Failed to set servo state (HRESULT: " + std::to_string(hr) + ")";
+    // Step 3: Return to slave mode even on failure
+    ChangeModeWithClearError(DensoRobot::SLVMODE_SYNC_WAIT | DensoRobot::SLVMODE_POSE_J);
+    return;
+  }
+
+  // Step 3: Return to slave mode
+  if (request->enable) {
+    hr = ChangeModeWithClearError(DensoRobot::SLVMODE_SYNC_WAIT | DensoRobot::SLVMODE_POSE_J);
+    if (FAILED(hr)) {
+      printErrorDescription(hr, "SetServoOn: Failed to return to slave mode");
+      response->success = false;
+      response->message = "Servo set but failed to return to slave mode (HRESULT: " + std::to_string(hr) + ")";
+      return;
+    }
+  }
+
+  response->success = true;
+  response->message = request->enable ? "Motors ON" : "Motors OFF";
 }
 
 }  // namespace denso_robot_control
