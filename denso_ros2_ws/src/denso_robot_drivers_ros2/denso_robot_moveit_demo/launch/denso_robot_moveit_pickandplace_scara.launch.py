@@ -145,7 +145,7 @@ def generate_launch_description():
     denso_robot_moveit_pickandplace_node = Node(
         package='denso_robot_moveit_demo',
         executable='denso_robot_moveit_pickandplace_scara',
-        output='screen',
+        output='log',
         parameters=[
             moveit_cpp_yaml_file_name,
             robot_description,

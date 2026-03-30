@@ -78,6 +78,7 @@ def generate_launch_description():
         executable='denso_robot_core_exec',
         name='denso_robot_core_node',
         namespace=denso_robot_model,
+        output='log',
         parameters=[
             denso_robot_core_parameters,
         ])

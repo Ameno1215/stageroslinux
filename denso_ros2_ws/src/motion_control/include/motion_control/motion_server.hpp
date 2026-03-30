@@ -34,6 +34,9 @@
 #include "motion_control/motion_diagnostics.hpp"
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 
+#include "motion_control/robot_health_monitor.hpp"
+
+
 #include "motion_control/srv/init_robot.hpp"
 #include "motion_control/srv/set_scaling.hpp"
 #include "motion_control/srv/get_joint_state.hpp"
@@ -69,6 +72,7 @@ namespace motion_control
             std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
             std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
+            std::unique_ptr<RobotHealthMonitor> health_monitor_;
 
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
 

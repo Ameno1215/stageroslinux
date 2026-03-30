@@ -37,6 +37,7 @@ include_directories(include)
 
 add_library(motion_server_lib
   src/motion_server.cpp
+  src/robot_health_monitor.cpp
   src/motion_diagnostics.cpp
 )
 ament_target_dependencies(motion_server_lib

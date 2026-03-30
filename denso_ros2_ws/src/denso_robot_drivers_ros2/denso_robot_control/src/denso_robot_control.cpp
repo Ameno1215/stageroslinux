@@ -296,7 +296,8 @@ HRESULT DensoRobotControl::Initialize(
       std::placeholders::_2));
 
   pub_cur_mode_ = node_->create_publisher<std_msgs::msg::Int32>("CurMode", 1);
-
+  pub_robot_error_ = node_->create_publisher<std_msgs::msg::Int32>("RobotError", 1);
+  pub_robot_error_description_ = node_->create_publisher<std_msgs::msg::String>("RobotErrorDescription", 1);
   if (verbose_) {
     RCLCPP_INFO(rclcpp::get_logger(node_->get_name()), "[DEBUG] Changing to slave mode ...");
   }
@@ -525,24 +526,17 @@ void DensoRobotControl::write(std::vector<double> & cmd_interface)
     for (int i = 0; i < robot_joints_; i++) {
       cmd_[i] = cmd_interface[i];
       switch (type_[i]) {
-        case 0:    // prismatic
-          pose[i] = M_2_MM(cmd_[i]);
-          break;
-        case 1:    // revolute
-          pose[i] = RAD_2_DEG(cmd_[i]);
-          break;
-        case -1:    // fixed
-        default:
-          pose[i] = 0.0;
-          break;
+        case 0:    pose[i] = M_2_MM(cmd_[i]);  break;
+        case 1:    pose[i] = RAD_2_DEG(cmd_[i]); break;
+        case -1:
+        default:   pose[i] = 0.0; break;
       }
       bits |= (1 << i);
     }
-    // TODO: what is the purpose of this "push_back" function call ?
-    // why "0x400000 | bits" ?
     pose.push_back(0x400000 | bits);
 
     HRESULT hr = rob_->ExecSlaveMove(pose, joint_);
+
     if (SUCCEEDED(hr)) {
       if (recv_format_ & DensoRobot::RECVFMT_HANDIO) {
         std_msgs::msg::UInt32 msg;
@@ -560,38 +554,83 @@ void DensoRobotControl::write(std::vector<double> & cmd_interface)
         pub_mini_io_->publish(msg);
       }
       if (recv_format_ & DensoRobot::RECVFMT_USERIO) {
-        denso_robot_core_interfaces::msg::UserIO::SharedPtr msg(new denso_robot_core_interfaces::msg
-          ::UserIO());
+        denso_robot_core_interfaces::msg::UserIO::SharedPtr msg(
+          new denso_robot_core_interfaces::msg::UserIO());
         rob_->get_RecvUserIO(msg);
         pub_recv_user_io_->publish(*msg);
       }
-    } else if (FAILED(hr) && (hr != DensoRobot::E_BUF_FULL)) {
-      int error_count = 0;
 
-      printErrorDescription(hr, "Failed to write");
-      if (!hasError()) {
-        return;
+    } else if (hr == DensoRobot::E_BUF_FULL) {
+      if (hasError()) {
+        VARIANT_Ptr vnt_err(new VARIANT());
+        if (SUCCEEDED(var_err_->ExecGetValue(vnt_err)) && vnt_err->vt == VT_I4) {
+          std_msgs::msg::Int32 code_msg;
+          code_msg.data = vnt_err->lVal;
+          pub_robot_error_->publish(code_msg);
+        }
+        RCLCPP_FATAL(rclcpp::get_logger(node_->get_name()),
+          "E_BUF_FULL + RC8 error — E-Stop or fault.");
+        ChangeModeWithClearError(DensoRobot::SLVMODE_NONE);
+
+        int error_count = 0;
+        hr = ctrl_->ExecGetCurErrorCount(error_count);
+        if (SUCCEEDED(hr) && error_count > 0) {
+          std::ostringstream all_errors;
+          for (int i = error_count - 1; 0 <= i; i--) {
+            HRESULT error_code;
+            std::string error_message;
+            hr = ctrl_->ExecGetCurErrorInfo(i, error_code, error_message);
+            if (SUCCEEDED(hr)) {
+              RCLCPP_FATAL(rclcpp::get_logger(node_->get_name()),
+                "  [%d] %s (0x%X)", i+1, error_message.c_str(), error_code);
+              all_errors << "[" << (i+1) << "] " << error_message
+                         << " (0x" << std::hex << std::uppercase << error_code << ")";
+              if (i > 0) all_errors << " | ";
+            }
+          }
+          std_msgs::msg::String desc_msg;
+          desc_msg.data = all_errors.str();
+          pub_robot_error_description_->publish(desc_msg);
+        }
       }
-      RCLCPP_FATAL(
-        rclcpp::get_logger(node_->get_name()), "Automatically change to normal mode.");
+
+    } else if (FAILED(hr)) {
+      printErrorDescription(hr, "Failed to write");
+
+      VARIANT_Ptr vnt_err(new VARIANT());
+      if (SUCCEEDED(var_err_->ExecGetValue(vnt_err)) && vnt_err->vt == VT_I4) {
+        std_msgs::msg::Int32 code_msg;
+        code_msg.data = vnt_err->lVal;
+        pub_robot_error_->publish(code_msg);
+      }
+
+      if (!hasError()) { return; }
+      RCLCPP_FATAL(rclcpp::get_logger(node_->get_name()), "Automatically change to normal mode.");
       ChangeModeWithClearError(DensoRobot::SLVMODE_NONE);
 
+      int error_count = 0;
       hr = ctrl_->ExecGetCurErrorCount(error_count);
-      if (SUCCEEDED(hr)) {
+      if (SUCCEEDED(hr) && error_count > 0) {
+        std::ostringstream all_errors;
         for (int i = error_count - 1; 0 <= i; i--) {
           HRESULT error_code;
           std::string error_message;
           hr = ctrl_->ExecGetCurErrorInfo(i, error_code, error_message);
-          if (FAILED(hr)) {
-            return;
-          }
-          RCLCPP_FATAL(
-            rclcpp::get_logger(node_->get_name()), "  [%d] %s (%X)", i + 1,
-            error_message.c_str(), error_code);
+          if (FAILED(hr)) { return; }
+          RCLCPP_FATAL(rclcpp::get_logger(node_->get_name()),
+            "  [%d] %s (%X)", i+1, error_message.c_str(), error_code);
+          all_errors << "[" << (i+1) << "] " << error_message
+                     << " (0x" << std::hex << std::uppercase << error_code << ")";
+          if (i > 0) all_errors << " | ";
         }
+        std_msgs::msg::String desc_msg;
+        desc_msg.data = all_errors.str();
+        pub_robot_error_description_->publish(desc_msg);
       }
     }
+
   } else {
+    // Mode normal — renvoyer la position actuelle
     for (int i = 0; i < robot_joints_; i++) {
       cmd_interface[i] = pos_[i];
     }

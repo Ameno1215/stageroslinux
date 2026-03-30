@@ -65,13 +65,31 @@ namespace motion_control
             "manage_mesh",
             std::bind(&MotionServer::onManageMesh, this, std::placeholders::_1, std::placeholders::_2));
 
+        health_monitor_ = std::make_unique<RobotHealthMonitor>(this, "/vs060/CurMode", "/joint_states");
+
+        // Stop MoveIt immediately when RC8 faults
+        health_monitor_->onError([this](const std::string& reason) {
+        RCLCPP_ERROR(this->get_logger(), 
+            "[MotionServer] Halting MoveIt — hardware fault: %s", reason.c_str());
+        if (move_group_) move_group_->stop();
+        });
+
+        health_monitor_->onCleared([this]() {
+        RCLCPP_INFO(this->get_logger(),
+            "[MotionServer] Hardware fault cleared — call /init_robot to resume");
+        });
+
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
-    bool MotionServer::ensureInitialized(std::string& why) const
-        {
+    bool MotionServer::ensureInitialized(std::string& why) const {
         if (!initialized_ || !move_group_) {
-            why = "Robot not initialized. Call service /init_robot first";
+            why = "Robot not initialized. Call /init_robot first";
+            return false;
+        }
+        if (health_monitor_ && health_monitor_->hasError()) {
+            why = "[RC8 FAULT] " + health_monitor_->getErrorMessage()
+                + " | Reset error on teach pendant, then call /init_robot again";
             return false;
         }
         return true;
@@ -150,6 +168,9 @@ namespace motion_control
                 << ",planner_id=" << planner_id
                 << ", planning_frame=" << move_group_->getPlanningFrame()
                 << ", ee_link=" << move_group_->getEndEffectorLink();
+
+            health_monitor_->setActive(true);
+            health_monitor_->clearError(); // clear any stale error from previous session
 
             initialized_ = true;
             res->success = true;
