@@ -123,6 +123,7 @@ SupportedBoxAction = Literal["ADD", "REMOVE"]
 
 class InitReq(BaseModel):
     model: SupportedModels = "vs060"
+    sim: bool = True
     planning_group: SupportedPlanningGroup = "arm"
     velocity_scale: float = 0.1
     accel_scale: float = 0.1
@@ -252,6 +253,8 @@ class MotionRosClient(Node):
     def __init__(self):
         super().__init__("motion_http_bridge")
 
+        self.motors_on = False
+
         self.init_cli = self.create_client(InitRobot, "/init_robot")
         self.scale_cli = self.create_client(SetScaling, "/set_scaling")
         self.get_joints_cli = self.create_client(GetJointState, "/get_joint_state")
@@ -264,7 +267,7 @@ class MotionRosClient(Node):
         self.manage_box_cli = self.create_client(ManageBox, "/manage_box")
         self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
         self.move_pose_via_joint_cli = self.create_client(MoveToPose, "/move_to_pose_via_joint")
-        self.servo_on_cli = self.create_client(SetServoOn, "/vs060/SetServoOn")
+        self.servo_on_cli = None
         
         self.create_subscription(Log, "/rosout", self._on_rosout, 10)
 
@@ -282,8 +285,7 @@ class MotionRosClient(Node):
             (self.param_client, "/motion_server/get_parameters"),
             (self.manage_box_cli, "/manage_box"),
             (self.manage_mesh_cli, "/manage_mesh"),
-            (self.move_pose_via_joint_cli, "/move_to_pose_via_joint"),
-            (self.servo_on_cli, "/vs060/SetServoOn")
+            (self.move_pose_via_joint_cli, "/move_to_pose_via_joint")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 logger.error(f"Service {name} not available. Is motion_server running?")
@@ -321,6 +323,7 @@ class MotionRosClient(Node):
         ros_req = InitRobot.Request()
         ros_req.model = str(req.model)
         ros_req.planning_group = str(req.planning_group)
+        self.sim = req.sim
         ros_req.velocity_scale = float(req.velocity_scale)
         ros_req.accel_scale = float(req.accel_scale)
         ros_req.planning_time = float(req.planning_time)
@@ -329,7 +332,12 @@ class MotionRosClient(Node):
         ros_req.planner_id = str(req.planner_id)
 
         fut = self.init_cli.call_async(ros_req)
-        
+
+        if not self.sim and self.servo_on_cli is None:
+            self.servo_on_cli = self.create_client(SetServoOn, f"/{req.model}/SetServoOn")
+            if not self.servo_on_cli.wait_for_service(timeout_sec=10.0):
+                logger.warning(f"SetServoOn service not available for {req.model}")
+
         try:
             # 60 seconds for initialization (loading robot model, setting up MoveIt, etc.)
             res = self._wait_for_future(fut, timeout=60.0)
@@ -366,6 +374,8 @@ class MotionRosClient(Node):
             raise RuntimeError(f"SetScaling failed: {e}")
 
     def call_set_servo_on(self, enable: bool) -> Dict[str, Any]:
+        self.motors_on = enable
+
         logger.info(f"Motors {'ON' if enable else 'OFF'} requested")
         ros_req = SetServoOn.Request()
         ros_req.enable = enable
@@ -384,6 +394,12 @@ class MotionRosClient(Node):
 
     def call_move_joints(self, req: JointReq) -> Dict[str, Any]:
         logger.info(f"Joint movement requested: {req.joints} (Relative={req.is_relative}, Angle Format={req.angle_format}, Execute={req.execute})")
+
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
+
         ros_req = MoveJoints.Request()
 
         if req.angle_format.upper() == "DEG":
@@ -408,6 +424,10 @@ class MotionRosClient(Node):
             raise RuntimeError(f"MoveJoints failed: {e}")
 
     def call_move_to_pose(self, req: MoveToPoseReq) -> Dict[str, Any]:
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
         if req.rotation_format.upper() == "RPY":
             logger.info(f"Request for movement received : X={req.x}, Y={req.y}, Z={req.z}, RX={req.r1}, RY={req.r2}, RZ={req.r3}, (Relative={req.is_relative}, Cartesian={req.cartesian_path}, Angle Format={req.angle_format}, Execute={req.execute})")
         else:
@@ -448,6 +468,10 @@ class MotionRosClient(Node):
             raise RuntimeError(f"MoveToPose failed: {e}")
 
     def call_move_waypoints(self, req: MoveWaypointsReq) -> Dict[str, Any]:
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
         logger.info(f"Waypoints movement requested: {len(req.waypoints)} points (Cartesian={req.cartesian_path}, execute={req.execute})")
         ros_req = MoveWaypoints.Request()
         ros_req.cartesian_path = bool(req.cartesian_path)
@@ -626,6 +650,11 @@ class MotionRosClient(Node):
             return {"success": False, "message": str(e)}
 
     def call_move_approach(self, req: MoveApproachReq):
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
+
         if req.rotation_format.upper() == "RPY":
             logger.info(f"Approach pose requested: target=(position: {req.x:.3f}, {req.y:.3f}, {req.z:.3f} - orientation: {req.r1:.3f}, {req.r2:.3f}, {req.r3:.3f}), z_offset={req.z_offset}m, cartesian={req.cartesian_path}")
         else:
@@ -759,6 +788,10 @@ class MotionRosClient(Node):
             return {"success": False, "message": str(e)}
     
     def call_move_to_pose_via_joint(self, req: MoveToPoseReq) -> Dict[str, Any]:
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
         logger.info(
             f"MoveToPoseViaJoint requested: X={req.x}, Y={req.y}, Z={req.z}, "
             f"Relative={req.is_relative}, Execute={req.execute}"
