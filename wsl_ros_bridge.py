@@ -25,6 +25,7 @@ from fastapi import Request
 import textwrap
 
 from rcl_interfaces.msg import Log
+from std_srvs.srv import SetBool
 
 
 
@@ -268,7 +269,10 @@ class MotionRosClient(Node):
         self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
         self.move_pose_via_joint_cli = self.create_client(MoveToPose, "/move_to_pose_via_joint")
         self.servo_on_cli = None
-        
+        self.pump_grab_cli = None
+        self.pump_release_cli = None
+        self.pump_is_grabbed_cli = None
+
         self.create_subscription(Log, "/rosout", self._on_rosout, 10)
 
         # Wait for services
@@ -337,6 +341,20 @@ class MotionRosClient(Node):
             self.servo_on_cli = self.create_client(SetServoOn, f"/{req.model}/SetServoOn")
             if not self.servo_on_cli.wait_for_service(timeout_sec=10.0):
                 logger.warning(f"SetServoOn service not available for {req.model}")
+        
+        if not self.sim:
+            self.pump_grab_cli = self.create_client(SetBool, f"/{req.model}/pump/grab")
+            self.pump_release_cli = self.create_client(SetBool, f"/{req.model}/pump/release")
+            self.pump_is_grabbed_cli = self.create_client(SetBool, f"/{req.model}/pump/is_grabbed")
+            for cli, name in [
+                (self.pump_grab_cli, "pump/grab"),
+                (self.pump_release_cli, "pump/release"),
+                (self.pump_is_grabbed_cli, "pump/is_grabbed"),
+            ]:
+                if not cli.wait_for_service(timeout_sec=10.0):
+                    logger.warning(f"Pump service {name} not available for {req.model}")
+            
+            logger.info("Pump control services connected.")
 
         try:
             # 60 seconds for initialization (loading robot model, setting up MoveIt, etc.)
@@ -830,6 +848,63 @@ class MotionRosClient(Node):
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"MoveToPoseViaJoint failed: {e}")
     
+    def call_pump_grab(self) -> Dict[str, Any]:
+        logger.info("Pump GRAB requested")
+        if self.pump_grab_cli is None:
+            return {"success": False, "message": "Pump services not initialized. Call /init first."}
+ 
+        ros_req = SetBool.Request()
+        ros_req.data = True
+        fut = self.pump_grab_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            if res.success:
+                logger.info(f"Pump grab successful: {res.message}")
+            else:
+                logger.error(f"Pump grab failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during pump grab: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"Pump grab failed: {e}")
+ 
+    def call_pump_release(self) -> Dict[str, Any]:
+        logger.info("Pump RELEASE requested")
+        if self.pump_release_cli is None:
+            return {"success": False, "message": "Pump services not initialized. Call /init first."}
+ 
+        ros_req = SetBool.Request()
+        ros_req.data = True
+        fut = self.pump_release_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            if res.success:
+                logger.info(f"Pump release successful: {res.message}")
+            else:
+                logger.error(f"Pump release failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during pump release: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"Pump release failed: {e}")
+ 
+    def call_pump_is_grabbed(self) -> Dict[str, Any]:
+        logger.info("Pump IS_GRABBED check requested")
+        if self.pump_is_grabbed_cli is None:
+            return {"success": False, "message": "Pump services not initialized. Call /init first."}
+ 
+        ros_req = SetBool.Request()
+        ros_req.data = True
+        fut = self.pump_is_grabbed_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            logger.info(f"Pump is_grabbed: grabbed={res.success}, message={res.message}")
+            return {"success": True, "grabbed": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during pump is_grabbed: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"Pump is_grabbed failed: {e}")
+    
 
 # ----------------------------
 # FastAPI app
@@ -979,6 +1054,27 @@ def move_to_pose_via_joint(req: MoveToPoseReq):
 def set_servo_on(req: ServoOnReq):
     try:
         return _ros_client.call_set_servo_on(req.enable)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/pump/grab")
+def pump_grab():
+    try:
+        return _ros_client.call_pump_grab()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+ 
+@app.post("/pump/release")
+def pump_release():
+    try:
+        return _ros_client.call_pump_release()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+ 
+@app.get("/pump/is_grabbed")
+def pump_is_grabbed():
+    try:
+        return _ros_client.call_pump_is_grabbed()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
