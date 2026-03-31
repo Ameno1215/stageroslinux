@@ -7,7 +7,7 @@
 #include <vector>
 #include <iomanip>
 #include <sstream>
-
+#include <set>
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -47,6 +47,7 @@
 #include "motion_control/srv/set_virtual_cage.hpp"
 #include "motion_control/srv/manage_box.hpp"
 #include "motion_control/srv/manage_mesh.hpp"
+#include <std_srvs/srv/trigger.hpp>
 
 
 
@@ -84,6 +85,7 @@ namespace motion_control
             // This dictionary maps string IDs to integer IDs.
             std::unordered_map<std::string, int32_t> marker_ids_;
             int32_t next_marker_id_ = 0;
+            std::set<std::string> visual_only_boxes_;
 
             int32_t getMarkerId(const std::string& name) {
                 if (marker_ids_.find(name) == marker_ids_.end()) {
@@ -383,6 +385,9 @@ namespace motion_control
              */
             bool solveIKAndPlanJoints(const geometry_msgs::msg::Pose& target_pose, bool execute, std::string& out_msg);
 
+            void onClearEnvironment(
+                const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
 
 
@@ -415,6 +420,7 @@ namespace motion_control
             rclcpp::Service<srv::SetVirtualCage>::SharedPtr srv_virtual_cage_;
             rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;
             rclcpp::Service<motion_control::srv::ManageMesh>::SharedPtr srv_manage_mesh_;
+            rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_env_;
     };
 
 }  // namespace motion_control

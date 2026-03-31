@@ -65,6 +65,10 @@ namespace motion_control
             "manage_mesh",
             std::bind(&MotionServer::onManageMesh, this, std::placeholders::_1, std::placeholders::_2));
 
+        srv_clear_env_ = this->create_service<std_srvs::srv::Trigger>(
+            "clear_environment",
+            std::bind(&MotionServer::onClearEnvironment, this, std::placeholders::_1, std::placeholders::_2));
+
         health_monitor_ = std::make_unique<RobotHealthMonitor>(this, "/vs060/CurMode", "/joint_states");
 
         // Stop MoveIt immediately when RC8 faults
@@ -1548,9 +1552,9 @@ namespace motion_control
 
         // --- 3. Collision vs Visual Logic ---
         if (req->action == "REMOVE") {
-            // Remove from both MoveIt and RViz
             obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
             marker.action = visualization_msgs::msg::Marker::DELETE;
+            visual_only_boxes_.erase(req->box_id); 
         } else {
             if (req->enable_collision) {
                 // COLLISION ON: MoveIt handles it
@@ -1573,6 +1577,7 @@ namespace motion_control
 
                 // Hide RViz marker
                 marker.action = visualization_msgs::msg::Marker::DELETE;
+                visual_only_boxes_.erase(req->box_id);
             } else {
                 // COLLISION OFF: Purely visual in RViz
                 obj.operation = moveit_msgs::msg::CollisionObject::REMOVE; 
@@ -1587,6 +1592,7 @@ namespace motion_control
                 marker.color.g = req->g;
                 marker.color.b = req->b;
                 marker.color.a = req->a;
+                visual_only_boxes_.erase(req->box_id);
             }
         }
 
@@ -1680,6 +1686,93 @@ namespace motion_control
 
         res->success = true;
         res->message = "Mesh '" + req->mesh_id + "' action '" + req->action + "' applied with color.";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onClearEnvironment(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*req*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        std::string why;
+        if (!ensureInitialized(why)) {
+            res->success = false;
+            res->message = why;
+            return;
+        }
+
+        auto object_ids = planning_scene_->getKnownObjectNames();
+        
+        auto attached = planning_scene_->getAttachedObjects();
+        std::set<std::string> attached_ids;
+        for (const auto& [id, _] : attached) {
+            attached_ids.insert(id);
+        }
+
+        std::vector<std::string> to_remove;
+        for (const auto& id : object_ids) {
+            if (attached_ids.count(id) == 0) {
+                to_remove.push_back(id);
+            }
+        }
+
+        visualization_msgs::msg::Marker deleteall;
+        deleteall.header.frame_id = "world";
+        deleteall.header.stamp = this->now();
+        deleteall.ns = "boxes";
+        deleteall.action = visualization_msgs::msg::Marker::DELETEALL;
+        visual_marker_pub_->publish(deleteall);
+        
+        // Build REMOVE operations for collision objects
+        std::vector<moveit_msgs::msg::CollisionObject> removals;
+        for (const auto& id : to_remove) {
+            moveit_msgs::msg::CollisionObject obj;
+            obj.id = id;
+            obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
+            removals.push_back(obj);
+
+            visualization_msgs::msg::Marker marker;
+            marker.header.frame_id = "world";
+            marker.header.stamp = this->now();
+            marker.ns = "boxes";
+            marker.id = getMarkerId(id);
+            marker.action = visualization_msgs::msg::Marker::DELETE;
+            visual_marker_pub_->publish(marker);
+        }
+
+        if (!removals.empty()) {
+            planning_scene_->applyCollisionObjects(removals);
+        }
+
+        // Also clean up visual-only boxes (not in planning scene, only RViz markers)
+        for (const auto& id : visual_only_boxes_) {
+            to_remove.push_back(id);
+
+            visualization_msgs::msg::Marker marker;
+            marker.header.frame_id = "world";
+            marker.header.stamp = this->now();
+            marker.ns = "boxes";
+            marker.id = getMarkerId(id);
+            marker.action = visualization_msgs::msg::Marker::DELETE;
+            visual_marker_pub_->publish(marker);
+        }
+        visual_only_boxes_.clear();
+
+        if (to_remove.empty()) {
+            res->success = true;
+            res->message = "Environment already clean (0 objects)";
+            return;
+        }
+
+        std::ostringstream oss;
+        oss << "Removed " << to_remove.size() << " object(s): ";
+        for (size_t i = 0; i < to_remove.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << to_remove[i];
+        }
+
+        res->success = true;
+        res->message = oss.str();
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 

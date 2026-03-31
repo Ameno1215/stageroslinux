@@ -25,7 +25,7 @@ from fastapi import Request
 import textwrap
 
 from rcl_interfaces.msg import Log
-from std_srvs.srv import SetBool
+from std_srvs.srv import SetBool, Trigger
 
 
 
@@ -268,6 +268,7 @@ class MotionRosClient(Node):
         self.manage_box_cli = self.create_client(ManageBox, "/manage_box")
         self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
         self.move_pose_via_joint_cli = self.create_client(MoveToPose, "/move_to_pose_via_joint")
+        self.clear_env_cli = self.create_client(Trigger, "/clear_environment")
         self.servo_on_cli = None
         self.pump_grab_cli = None
         self.pump_release_cli = None
@@ -289,6 +290,7 @@ class MotionRosClient(Node):
             (self.param_client, "/motion_server/get_parameters"),
             (self.manage_box_cli, "/manage_box"),
             (self.manage_mesh_cli, "/manage_mesh"),
+            (self.clear_env_cli, "/clear_environment"),
             (self.move_pose_via_joint_cli, "/move_to_pose_via_joint")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
@@ -395,6 +397,11 @@ class MotionRosClient(Node):
         self.motors_on = enable
 
         logger.info(f"Motors {'ON' if enable else 'OFF'} requested")
+
+        if self.sim:
+            logger.info("Simulation mode: skipping actual motor state change.")
+            return {"success": True, "message": "Simulation mode: motors state not changed."}
+
         ros_req = SetServoOn.Request()
         ros_req.enable = enable
         fut = self.servo_on_cli.call_async(ros_req)
@@ -804,6 +811,22 @@ class MotionRosClient(Node):
         except Exception as e:
             logger.error(f"Failed to manage mesh: {e}")
             return {"success": False, "message": str(e)}
+        
+    def call_clear_environment(self) -> Dict[str, Any]:
+        logger.info("Clear environment requested")
+        ros_req = Trigger.Request()
+        fut = self.clear_env_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=10.0)
+            if res.success:
+                logger.info(f"Environment cleared: {res.message}")
+            else:
+                logger.error(f"Clear environment failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during ClearEnvironment call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"ClearEnvironment failed: {e}")
     
     def call_move_to_pose_via_joint(self, req: MoveToPoseReq) -> Dict[str, Any]:
         if not self.motors_on:
@@ -1040,6 +1063,13 @@ def manage_box(req: ManageBoxReq):
 def manage_mesh(req: ManageMeshReq):
     try:
         return _ros_client.call_manage_mesh(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/clear_environment")
+def clear_environment():
+    try:
+        return _ros_client.call_clear_environment()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
