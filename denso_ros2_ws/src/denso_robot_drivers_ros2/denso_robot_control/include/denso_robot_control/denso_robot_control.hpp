@@ -42,6 +42,8 @@
 // Message (std_msgs)
 #include "std_msgs/msg/u_int32.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
+#include "std_msgs/msg/string.hpp"
+
 // DENSO libraries
 #include "denso_robot_core/denso_robot_core.h"
 #include "denso_robot_core/denso_controller.h"
@@ -49,6 +51,7 @@
 #include "denso_robot_core/denso_variable.h"
 #include "denso_robot_core_interfaces/msg/user_io.hpp"
 #include "denso_robot_core_interfaces/srv/change_mode.hpp"
+#include "denso_robot_core_interfaces/srv/set_servo_on.hpp"
 
 using namespace denso_robot_core;
 using namespace std_msgs;
@@ -129,6 +132,10 @@ private:
   bool ChangeModeFunction(
     const std::shared_ptr<denso_robot_core_interfaces::srv::ChangeMode::Request> request,
     std::shared_ptr<denso_robot_core_interfaces::srv::ChangeMode::Response> response);
+  
+  void SetServoOnFunction(
+    const std::shared_ptr<denso_robot_core_interfaces::srv::SetServoOn::Request> request,
+    std::shared_ptr<denso_robot_core_interfaces::srv::SetServoOn::Response> response);
 
   bool hasError();
   void printErrorDescription(HRESULT error_code, const std::string & error_message);
@@ -143,14 +150,20 @@ private:
   rclcpp::Subscription<denso_robot_core_interfaces::msg::UserIO>::SharedPtr sub_send_user_io_;
   rclcpp::Subscription<denso_robot_core_interfaces::msg::UserIO>::SharedPtr sub_recv_user_io_;
 
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr pub_cur_mode_;
   rclcpp::Publisher<std_msgs::msg::UInt32>::SharedPtr pub_mini_io_;
   rclcpp::Publisher<std_msgs::msg::UInt32>::SharedPtr pub_hand_io_;
   rclcpp::Publisher<denso_robot_core_interfaces::msg::UserIO>::SharedPtr pub_recv_user_io_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pub_current_;
 
+  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr pub_cur_mode_;
+  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr pub_robot_error_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_robot_error_description_;
+
   // ChangeMode Service
   rclcpp::Service<denso_robot_core_interfaces::srv::ChangeMode>::SharedPtr change_mode_srv_;
+
+  // SetServoOn Service  ← cette ligne et la suivante doivent être là
+  rclcpp::Service<denso_robot_core_interfaces::srv::SetServoOn>::SharedPtr servo_on_srv_;
 
   std::mutex mtx_mode_;
 

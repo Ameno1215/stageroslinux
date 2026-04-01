@@ -300,7 +300,7 @@ def generate_launch_description():
     move_group_node = Node(
         package='moveit_ros_move_group',
         executable='move_group',
-        output='screen',
+        output='both',
         parameters=[
             robot_description,
             robot_description_semantic,
@@ -333,8 +333,8 @@ def generate_launch_description():
             denso_robot_control_parameters
         ],
         output={
-            'stdout': 'screen',
-            'stderr': 'screen',
+            'stdout': 'log',
+            'stderr': 'log',
         })
 
     robot_state_publisher_node = Node(
@@ -378,7 +378,7 @@ def generate_launch_description():
 #        condition=IfCondition(launch_rviz),
         executable='rviz2',
         name='rviz2_moveit',
-        output='log',
+        output='both',
         arguments=['-d', rviz_config_file],
         parameters=[
             robot_description,
@@ -393,7 +393,7 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_transform_publisher',
-        output='log',
+        output='both',
         arguments=[
             '--frame-id', 'world',
             '--child-frame-id', TextJoinSubstitution([namespace], 'base_link', '')
@@ -403,14 +403,14 @@ def generate_launch_description():
     gazebo = ExecuteProcess(
         condition=IfCondition(sim),
         cmd=['gazebo', '--verbose', 'worlds/empty.world', '-s', 'libgazebo_ros_factory.so'],
-        output='screen')
+        output='both')
 
     spawn_entity = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
         condition=IfCondition(sim),
         arguments=['-topic', 'robot_description', '-entity', denso_robot_model],
-        output='screen')
+        output='both')
 
     nodes_to_start = [
         control_node,

@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox, ManageMesh
+from denso_robot_core_interfaces.srv import SetServoOn
 from geometry_msgs.msg import PoseStamped, Pose
 from rcl_interfaces.srv import GetParameters
 from moveit_msgs.msg import PlanningScene, CollisionObject, ObjectColor
@@ -21,16 +22,64 @@ from shape_msgs.msg import SolidPrimitive
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi import Request
+import textwrap
 
+from rcl_interfaces.msg import Log
+from std_srvs.srv import SetBool, Trigger
 
 
 
 # ----------------------------
 # Logger Configuration
 # ----------------------------
+
+# ROS 2 log level mapping to Python logging levels
+_ROS_TO_PY_LEVEL = {
+    10: logging.DEBUG,
+    20: logging.DEBUG,
+    30: logging.WARNING,
+    40: logging.ERROR,
+    50: logging.CRITICAL, 
+}
+
+class WrappingFormatter(logging.Formatter):
+    """Wraps long log lines, indenting continuation lines to align with the message start."""
+
+    def __init__(self, fmt, datefmt=None, width=200):
+        super().__init__(fmt, datefmt)
+        self.width = width
+
+    def format(self, record):
+        full = super().format(record)
+
+        if len(full) <= self.width:
+            return full
+
+        msg_start = full.find(record.message)
+        if msg_start == -1:
+            return full
+
+        prefix = full[:msg_start]
+        indent = " " * len(prefix)
+        max_msg_width = self.width - len(prefix)
+
+        # Process each existing line separately to preserve original \n
+        result_lines = []
+        for i, line in enumerate(record.message.split("\n")):
+            wrapped = textwrap.fill(
+                line,
+                width=max_msg_width,
+                initial_indent="" if i == 0 else indent,
+                subsequent_indent=indent,
+            )
+            result_lines.append(wrapped)
+
+        return prefix + "\n".join(result_lines)
+
+
 logger = logging.getLogger("MotionBridge")
 logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+formatter = WrappingFormatter('%(asctime)s - %(levelname)s - %(message)s', width=200)
 
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
@@ -75,6 +124,7 @@ SupportedBoxAction = Literal["ADD", "REMOVE"]
 
 class InitReq(BaseModel):
     model: SupportedModels = "vs060"
+    sim: bool = True
     planning_group: SupportedPlanningGroup = "arm"
     velocity_scale: float = 0.1
     accel_scale: float = 0.1
@@ -193,6 +243,9 @@ class ManageMeshReq(BaseModel):
     a: float = 1.0
     action: SupportedBoxAction = "ADD"
 
+class ServoOnReq(BaseModel):
+    enable: bool
+
 # ----------------------------
 # ROS2 client node
 # ----------------------------
@@ -200,6 +253,8 @@ class ManageMeshReq(BaseModel):
 class MotionRosClient(Node):
     def __init__(self):
         super().__init__("motion_http_bridge")
+
+        self.motors_on = False
 
         self.init_cli = self.create_client(InitRobot, "/init_robot")
         self.scale_cli = self.create_client(SetScaling, "/set_scaling")
@@ -213,7 +268,13 @@ class MotionRosClient(Node):
         self.manage_box_cli = self.create_client(ManageBox, "/manage_box")
         self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
         self.move_pose_via_joint_cli = self.create_client(MoveToPose, "/move_to_pose_via_joint")
-        
+        self.clear_env_cli = self.create_client(Trigger, "/clear_environment")
+        self.servo_on_cli = None
+        self.pump_grab_cli = None
+        self.pump_release_cli = None
+        self.pump_is_grabbed_cli = None
+
+        self.create_subscription(Log, "/rosout", self._on_rosout, 10)
 
         # Wait for services
         logger.info("Waiting for ROS 2 services...")
@@ -229,11 +290,22 @@ class MotionRosClient(Node):
             (self.param_client, "/motion_server/get_parameters"),
             (self.manage_box_cli, "/manage_box"),
             (self.manage_mesh_cli, "/manage_mesh"),
+            (self.clear_env_cli, "/clear_environment"),
             (self.move_pose_via_joint_cli, "/move_to_pose_via_joint")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
                 logger.error(f"Service {name} not available. Is motion_server running?")
         logger.info("All ROS 2 services are connected.")
+
+    def _on_rosout(self, msg: Log):
+        # Only forward messages from the C++ motion_server node
+        if msg.name != "motion_server":
+            return
+        
+        print(f"[ROSOUT-DBG] level={msg.level} type={type(msg.level)} repr={repr(msg.level)}")
+    
+        py_level = _ROS_TO_PY_LEVEL.get(msg.level, logging.DEBUG)
+        logger.log(py_level, f"[C++:{msg.name}] {msg.msg}")
 
     def _wait_for_future(self, fut, timeout: Optional[float]):
         """
@@ -257,6 +329,7 @@ class MotionRosClient(Node):
         ros_req = InitRobot.Request()
         ros_req.model = str(req.model)
         ros_req.planning_group = str(req.planning_group)
+        self.sim = req.sim
         ros_req.velocity_scale = float(req.velocity_scale)
         ros_req.accel_scale = float(req.accel_scale)
         ros_req.planning_time = float(req.planning_time)
@@ -265,7 +338,26 @@ class MotionRosClient(Node):
         ros_req.planner_id = str(req.planner_id)
 
         fut = self.init_cli.call_async(ros_req)
+
+        if not self.sim and self.servo_on_cli is None:
+            self.servo_on_cli = self.create_client(SetServoOn, f"/{req.model}/SetServoOn")
+            if not self.servo_on_cli.wait_for_service(timeout_sec=10.0):
+                logger.warning(f"SetServoOn service not available for {req.model}")
         
+        if not self.sim:
+            self.pump_grab_cli = self.create_client(SetBool, f"/{req.model}/pump/grab")
+            self.pump_release_cli = self.create_client(SetBool, f"/{req.model}/pump/release")
+            self.pump_is_grabbed_cli = self.create_client(SetBool, f"/{req.model}/pump/is_grabbed")
+            for cli, name in [
+                (self.pump_grab_cli, "pump/grab"),
+                (self.pump_release_cli, "pump/release"),
+                (self.pump_is_grabbed_cli, "pump/is_grabbed"),
+            ]:
+                if not cli.wait_for_service(timeout_sec=10.0):
+                    logger.warning(f"Pump service {name} not available for {req.model}")
+            
+            logger.info("Pump control services connected.")
+
         try:
             # 60 seconds for initialization (loading robot model, setting up MoveIt, etc.)
             res = self._wait_for_future(fut, timeout=60.0)
@@ -294,15 +386,45 @@ class MotionRosClient(Node):
             if res.success:
                 logger.info(f"Scaling change successful: {res.message}")
             else:
-                logger.error(f"Scaling change failed: {res.message}")
+                logger.error(f"Scaling change failed")
             return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
             logger.error(f"Critical error during SetScaling call: {e}")
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"SetScaling failed: {e}")
 
+    def call_set_servo_on(self, enable: bool) -> Dict[str, Any]:
+        self.motors_on = enable
+
+        logger.info(f"Motors {'ON' if enable else 'OFF'} requested")
+
+        if self.sim:
+            logger.info("Simulation mode: skipping actual motor state change.")
+            return {"success": True, "message": "Simulation mode: motors state not changed."}
+
+        ros_req = SetServoOn.Request()
+        ros_req.enable = enable
+        fut = self.servo_on_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=10.0)
+            if res.success:
+                logger.info(f"Motor state changed: {res.message}")
+            else:
+                logger.error(f"Motor state change failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during SetServoOn call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"SetServoOn failed: {e}")
+
     def call_move_joints(self, req: JointReq) -> Dict[str, Any]:
         logger.info(f"Joint movement requested: {req.joints} (Relative={req.is_relative}, Angle Format={req.angle_format}, Execute={req.execute})")
+
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
+
         ros_req = MoveJoints.Request()
 
         if req.angle_format.upper() == "DEG":
@@ -327,6 +449,10 @@ class MotionRosClient(Node):
             raise RuntimeError(f"MoveJoints failed: {e}")
 
     def call_move_to_pose(self, req: MoveToPoseReq) -> Dict[str, Any]:
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
         if req.rotation_format.upper() == "RPY":
             logger.info(f"Request for movement received : X={req.x}, Y={req.y}, Z={req.z}, RX={req.r1}, RY={req.r2}, RZ={req.r3}, (Relative={req.is_relative}, Cartesian={req.cartesian_path}, Angle Format={req.angle_format}, Execute={req.execute})")
         else:
@@ -367,6 +493,10 @@ class MotionRosClient(Node):
             raise RuntimeError(f"MoveToPose failed: {e}")
 
     def call_move_waypoints(self, req: MoveWaypointsReq) -> Dict[str, Any]:
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
         logger.info(f"Waypoints movement requested: {len(req.waypoints)} points (Cartesian={req.cartesian_path}, execute={req.execute})")
         ros_req = MoveWaypoints.Request()
         ros_req.cartesian_path = bool(req.cartesian_path)
@@ -545,6 +675,11 @@ class MotionRosClient(Node):
             return {"success": False, "message": str(e)}
 
     def call_move_approach(self, req: MoveApproachReq):
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
+
         if req.rotation_format.upper() == "RPY":
             logger.info(f"Approach pose requested: target=(position: {req.x:.3f}, {req.y:.3f}, {req.z:.3f} - orientation: {req.r1:.3f}, {req.r2:.3f}, {req.r3:.3f}), z_offset={req.z_offset}m, cartesian={req.cartesian_path}")
         else:
@@ -676,8 +811,28 @@ class MotionRosClient(Node):
         except Exception as e:
             logger.error(f"Failed to manage mesh: {e}")
             return {"success": False, "message": str(e)}
+        
+    def call_clear_environment(self) -> Dict[str, Any]:
+        logger.info("Clear environment requested")
+        ros_req = Trigger.Request()
+        fut = self.clear_env_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=10.0)
+            if res.success:
+                logger.info(f"Environment cleared: {res.message}")
+            else:
+                logger.error(f"Clear environment failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during ClearEnvironment call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"ClearEnvironment failed: {e}")
     
     def call_move_to_pose_via_joint(self, req: MoveToPoseReq) -> Dict[str, Any]:
+        if not self.motors_on:
+            logger.error("Motors are OFF. Rejecting movement command.")
+            return {"success": False, "message": "Motors are OFF. Turn them ON before sending movement commands."}
+
         logger.info(
             f"MoveToPoseViaJoint requested: X={req.x}, Y={req.y}, Z={req.z}, "
             f"Relative={req.is_relative}, Execute={req.execute}"
@@ -715,6 +870,63 @@ class MotionRosClient(Node):
             logger.error(f"Critical error during MoveToPoseViaJoint call: {e}")
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"MoveToPoseViaJoint failed: {e}")
+    
+    def call_pump_grab(self) -> Dict[str, Any]:
+        logger.info("Pump GRAB requested")
+        if self.pump_grab_cli is None:
+            return {"success": False, "message": "Pump services not initialized. Call /init first."}
+ 
+        ros_req = SetBool.Request()
+        ros_req.data = True
+        fut = self.pump_grab_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            if res.success:
+                logger.info(f"Pump grab successful: {res.message}")
+            else:
+                logger.error(f"Pump grab failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during pump grab: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"Pump grab failed: {e}")
+ 
+    def call_pump_release(self) -> Dict[str, Any]:
+        logger.info("Pump RELEASE requested")
+        if self.pump_release_cli is None:
+            return {"success": False, "message": "Pump services not initialized. Call /init first."}
+ 
+        ros_req = SetBool.Request()
+        ros_req.data = True
+        fut = self.pump_release_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            if res.success:
+                logger.info(f"Pump release successful: {res.message}")
+            else:
+                logger.error(f"Pump release failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during pump release: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"Pump release failed: {e}")
+ 
+    def call_pump_is_grabbed(self) -> Dict[str, Any]:
+        logger.info("Pump IS_GRABBED check requested")
+        if self.pump_is_grabbed_cli is None:
+            return {"success": False, "message": "Pump services not initialized. Call /init first."}
+ 
+        ros_req = SetBool.Request()
+        ros_req.data = True
+        fut = self.pump_is_grabbed_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            logger.info(f"Pump is_grabbed: grabbed={res.success}, message={res.message}")
+            return {"success": True, "grabbed": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during pump is_grabbed: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"Pump is_grabbed failed: {e}")
     
 
 # ----------------------------
@@ -853,11 +1065,46 @@ def manage_mesh(req: ManageMeshReq):
         return _ros_client.call_manage_mesh(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/clear_environment")
+def clear_environment():
+    try:
+        return _ros_client.call_clear_environment()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/move_to_pose_via_joint")
 def move_to_pose_via_joint(req: MoveToPoseReq):
     try:
         return _ros_client.call_move_to_pose_via_joint(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/set_servo_on")
+def set_servo_on(req: ServoOnReq):
+    try:
+        return _ros_client.call_set_servo_on(req.enable)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/pump/grab")
+def pump_grab():
+    try:
+        return _ros_client.call_pump_grab()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+ 
+@app.post("/pump/release")
+def pump_release():
+    try:
+        return _ros_client.call_pump_release()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+ 
+@app.get("/pump/is_grabbed")
+def pump_is_grabbed():
+    try:
+        return _ros_client.call_pump_is_grabbed()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

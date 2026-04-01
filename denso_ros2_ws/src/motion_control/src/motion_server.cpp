@@ -65,37 +65,35 @@ namespace motion_control
             "manage_mesh",
             std::bind(&MotionServer::onManageMesh, this, std::placeholders::_1, std::placeholders::_2));
 
+        srv_clear_env_ = this->create_service<std_srvs::srv::Trigger>(
+            "clear_environment",
+            std::bind(&MotionServer::onClearEnvironment, this, std::placeholders::_1, std::placeholders::_2));
+
+        health_monitor_ = std::make_unique<RobotHealthMonitor>(this, "/vs060/CurMode", "/joint_states");
+
+        // Stop MoveIt immediately when RC8 faults
+        health_monitor_->onError([this](const std::string& reason) {
+        RCLCPP_ERROR(this->get_logger(), 
+            "[MotionServer] Halting MoveIt — hardware fault: %s", reason.c_str());
+        if (move_group_) move_group_->stop();
+        });
+
+        health_monitor_->onCleared([this]() {
+        RCLCPP_INFO(this->get_logger(),
+            "[MotionServer] Hardware fault cleared — call /init_robot to resume");
+        });
+
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
-    std::string MotionServer:: moveitErrorCodeToString(const moveit::core::MoveItErrorCode& code)
-    {
-        switch (code.val) {
-            case moveit::core::MoveItErrorCode::SUCCESS: return "SUCCESS";
-            case moveit::core::MoveItErrorCode::FAILURE: return "FAILURE";
-            case moveit::core::MoveItErrorCode::PLANNING_FAILED: return "PLANNING_FAILED: No path found";
-            case moveit::core::MoveItErrorCode::INVALID_MOTION_PLAN: return "INVALID_MOTION_PLAN: Trajectory contains errors";
-            case moveit::core::MoveItErrorCode::MOTION_PLAN_INVALIDATED_BY_ENVIRONMENT_CHANGE: return "PLAN_INVALIDATED: Environment changed during execution";
-            case moveit::core::MoveItErrorCode::CONTROL_FAILED: return "CONTROL_FAILED: Controller execution failed";
-            case moveit::core::MoveItErrorCode::UNABLE_TO_AQUIRE_SENSOR_DATA: return "UNABLE_TO_AQUIRE_SENSOR_DATA";
-            case moveit::core::MoveItErrorCode::TIMED_OUT: return "TIMED_OUT: Planning took too long";
-            case moveit::core::MoveItErrorCode::PREEMPTED: return "PREEMPTED: Motion interrupted";
-            case moveit::core::MoveItErrorCode::INVALID_OBJECT_NAME: return "INVALID_OBJECT_NAME: Unrecognized frame or object";
-            case moveit::core::MoveItErrorCode::FRAME_TRANSFORM_FAILURE: return "FRAME_TRANSFORM_FAILURE: TF tree error";
-            case moveit::core::MoveItErrorCode::COLLISION_CHECKING_UNAVAILABLE: return "COLLISION_CHECKING_UNAVAILABLE";
-            case moveit::core::MoveItErrorCode::ROBOT_STATE_STALE: return "ROBOT_STATE_STALE: Robot state is too old";
-            case moveit::core::MoveItErrorCode::SENSOR_INFO_STALE: return "SENSOR_INFO_STALE: Sensor data is too old";
-            case moveit::core::MoveItErrorCode::CRASH: return "CRASH: Internal MoveIt crash";
-            case moveit::core::MoveItErrorCode::ABORT: return "ABORT: Motion aborted";
-            case moveit::core::MoveItErrorCode::NO_IK_SOLUTION: return "NO_IK_SOLUTION: Position unreachable (Out of workspace or singularity)";
-            default: return "UNKNOWN_ERROR_CODE";
-        }
-    }
-
-    bool MotionServer::ensureInitialized(std::string& why) const
-        {
+    bool MotionServer::ensureInitialized(std::string& why) const {
         if (!initialized_ || !move_group_) {
-            why = "Robot not initialized. Call service /init_robot first";
+            why = "Robot not initialized. Call /init_robot first";
+            return false;
+        }
+        if (health_monitor_ && health_monitor_->hasError()) {
+            why = "[RC8 FAULT] " + health_monitor_->getErrorMessage()
+                + " | Reset error on teach pendant, then call /init_robot again";
             return false;
         }
         return true;
@@ -129,7 +127,7 @@ namespace motion_control
             // This gives us access to the full PlanningScene (collision world,
             // allowed collision matrix, robot state) needed by diagnostic helpers.
             psm_ = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
-                shared_from_this(), "robot_description");
+            shared_from_this(), "robot_description");
             
             // Start listening to the planning scene topic published by move_group
             psm_->startSceneMonitor("/monitored_planning_scene");
@@ -141,7 +139,6 @@ namespace motion_control
                     "PlanningSceneMonitor: timed out waiting for robot state. "
                     "Diagnostics may be incomplete on first call.");
             }
-            RCLCPP_INFO(this->get_logger(), "PlanningSceneMonitor initialized for diagnostics");
 
             move_group_->setMaxVelocityScalingFactor(vel_scale_);
             move_group_->setMaxAccelerationScalingFactor(accel_scale_);
@@ -163,7 +160,6 @@ namespace motion_control
             for (const auto& name : names) {
                 RCLCPP_INFO(this->get_logger(), "Link: %s", name.c_str());
             }
-            RCLCPP_INFO(this->get_logger(), "---------------------------------------");
 
             std::ostringstream oss;
             oss << "Initialized with model=" << model_
@@ -176,6 +172,9 @@ namespace motion_control
                 << ",planner_id=" << planner_id
                 << ", planning_frame=" << move_group_->getPlanningFrame()
                 << ", ee_link=" << move_group_->getEndEffectorLink();
+
+            health_monitor_->setActive(true);
+            health_monitor_->clearError(); // clear any stale error from previous session
 
             initialized_ = true;
             res->success = true;
@@ -194,15 +193,10 @@ namespace motion_control
     planning_scene::PlanningSceneConstPtr MotionServer::getLockedPlanningScene() const
     {
         if (!psm_) return nullptr;
-        
-        // LockedPlanningSceneRO gives a const, thread-safe snapshot.
-        // The clone may be stale by the time diagnostics run — this is expected
-        // for post-failure analysis but should be noted in logs.
+
         planning_scene_monitor::LockedPlanningSceneRO locked_scene(psm_);
-        auto cloned = planning_scene::PlanningScene::clone(locked_scene.operator->()->shared_from_this());
-        RCLCPP_DEBUG(this->get_logger(),
-            "[DIAG] Cloned planning scene for diagnostics (snapshot — may be stale if world changed during execution)");
-        return cloned;
+        return planning_scene::PlanningScene::clone(
+            locked_scene.operator->()->shared_from_this());
     }
 
     bool MotionServer::solveIKAndPlanJoints(
@@ -216,23 +210,65 @@ namespace motion_control
             return false;
         }
 
-        moveit::core::RobotStatePtr robot_state = move_group_->getCurrentState(2.0);
-        if (!robot_state) {
+        moveit::core::RobotStatePtr current_state = move_group_->getCurrentState(2.0);
+        if (!current_state) {
             out_msg = "Failed to obtain current robot state";
             return false;
         }
 
-        if (!robot_state->setFromIK(jmg, target_pose, 0.5)) {
-            out_msg = "IK failed: pose is unreachable (out of workspace or near singularity)";
+        // Capture current joint positions as the reference for cost comparison
+        std::vector<double> current_joints;
+        current_state->copyJointGroupPositions(jmg, current_joints);
+
+        // Multi-seed IK search: keep the solution closest to current config
+        constexpr int    NUM_ATTEMPTS  = 32;
+        constexpr double IK_TIMEOUT    = 0.1;   // per-attempt timeout (seconds)
+
+        double best_cost = std::numeric_limits<double>::max();
+        std::vector<double> best_joints;
+
+        // Reusable scratch state (avoids repeated allocation)
+        auto candidate = std::make_shared<moveit::core::RobotState>(*current_state);
+
+        for (int i = 0; i < NUM_ATTEMPTS; ++i)
+        {
+            if (i == 0) {
+                // First attempt: seed with the actual current state (often already good)
+                *candidate = *current_state;
+            } else {
+                // Subsequent attempts: random seed to explore other IK branches
+                candidate->setToRandomPositions(jmg);
+            }
+
+            if (!candidate->setFromIK(jmg, target_pose, IK_TIMEOUT)) {
+                continue;  // This seed didn't converge — try next
+            }
+
+            candidate->enforceBounds(jmg);
+
+            std::vector<double> candidate_joints;
+            candidate->copyJointGroupPositions(jmg, candidate_joints);
+            
+            std::vector<double> weights = {1.0, 3.0, 3.0, 1.0, 1.0, 1.0};
+            double cost = 0.0;
+            for (std::size_t j = 0; j < candidate_joints.size(); ++j) {
+                double diff = candidate_joints[j] - current_joints[j];
+                cost += weights[j] * diff * diff;
+            }
+
+            if (cost < best_cost) {
+                best_cost   = cost;
+                best_joints = std::move(candidate_joints);
+            }
+        }
+
+        if (best_joints.empty()) {
+            out_msg = "IK failed: pose is unreachable (out of workspace or near singularity) "
+                    "after " + std::to_string(NUM_ATTEMPTS) + " attempts";
             return false;
         }
 
-        robot_state->enforceBounds(jmg);
-
-        std::vector<double> joint_targets;
-        robot_state->copyJointGroupPositions(jmg, joint_targets);
-
-        return planAndExecuteJoints(joint_targets, false, execute, out_msg);
+        return planAndExecuteJoints(best_joints, false, execute, out_msg);
     }
 
     bool MotionServer::planAndMaybeExecutePose(
@@ -244,12 +280,12 @@ namespace motion_control
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        RCLCPP_DEBUG(this->get_logger(),
-            "[PlanPose] Target: pos=[%.4f, %.4f, %.4f] quat=[%.4f, %.4f, %.4f, %.4f] execute=%s",
-            target.pose.position.x, target.pose.position.y, target.pose.position.z,
-            target.pose.orientation.x, target.pose.orientation.y,
-            target.pose.orientation.z, target.pose.orientation.w,
-            execute ? "true" : "false");
+        // RCLCPP_DEBUG(this->get_logger(),
+        //     "[PlanPose] Target: pos=[%.4f, %.4f, %.4f] quat=[%.4f, %.4f, %.4f, %.4f] execute=%s",
+        //     target.pose.position.x, target.pose.position.y, target.pose.position.z,
+        //     target.pose.orientation.x, target.pose.orientation.y,
+        //     target.pose.orientation.z, target.pose.orientation.w,
+        //     execute ? "true" : "false");
 
         // --- Strategy 1: Standard pose target ---
         moveit::planning_interface::MoveGroupInterface::Plan plan;
@@ -273,9 +309,9 @@ namespace motion_control
             }
 
             // --- Strategy 2: Fallback to explicit IK + joint-space planning ---
-            RCLCPP_WARN(this->get_logger(),
-                "Pose target planning failed: %s (%.2fs) — Falling back to IK + joint-space...",
-                diag_msg.c_str(), planning_duration);
+            // RCLCPP_WARN(this->get_logger(),
+            //     "Pose target planning failed: %s (%.2fs) — Falling back to IK + joint-space...",
+            //     diag_msg.c_str(), planning_duration);
 
             move_group_->clearPoseTargets();
 
@@ -284,7 +320,7 @@ namespace motion_control
 
             if (fallback_ok) {
                 out_msg = "[FALLBACK IK+Joint] " + fallback_msg;
-                RCLCPP_INFO(this->get_logger(), "Fallback succeeded: %s", fallback_msg.c_str());
+                // RCLCPP_INFO(this->get_logger(), "Fallback succeeded: %s", fallback_msg.c_str());
                 return true;
             }
 
@@ -389,17 +425,27 @@ namespace motion_control
         // Otherwise, we need the current position to calculate the relative or tool coordinate system
         geometry_msgs::msg::PoseStamped current_pose_msg;
         try {
-            current_pose_msg = move_group_->getCurrentPose();
-        } catch (const std::exception& e) {
-            out_error_msg = std::string("Failed to get current pose for relative motion: ") + e.what();
-            return std::nullopt;
-        }
-        // Validate that we got a non-zero pose (getCurrentPose can silently return zeros if TF is not ready)
-        const auto& p = current_pose_msg.pose;
-        const auto& o = p.orientation;
-        if (p.position.x == 0.0 && p.position.y == 0.0 && p.position.z == 0.0 &&
-            o.x == 0.0 && o.y == 0.0 && o.z == 0.0 && o.w == 0.0) {
-            out_error_msg = "getCurrentPose() returned a zero pose. TF tree may not be ready";
+            std::string ee_link = move_group_->getEndEffectorLink();
+            geometry_msgs::msg::TransformStamped t = tf_buffer_->lookupTransform(
+                "world", ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
+
+            current_pose_msg.header = t.header;
+            current_pose_msg.pose.position.x = t.transform.translation.x;
+            current_pose_msg.pose.position.y = t.transform.translation.y;
+            current_pose_msg.pose.position.z = t.transform.translation.z;
+            current_pose_msg.pose.orientation = t.transform.rotation;
+
+            RCLCPP_DEBUG(this->get_logger(),
+                "Current pose (TF2): position(%.3f, %.3f, %.3f) orientation(%.4f, %.4f, %.4f, %.4f)",
+                current_pose_msg.pose.position.x,
+                current_pose_msg.pose.position.y,
+                current_pose_msg.pose.position.z,
+                current_pose_msg.pose.orientation.x,
+                current_pose_msg.pose.orientation.y,
+                current_pose_msg.pose.orientation.z,
+                current_pose_msg.pose.orientation.w);
+        } catch (const tf2::TransformException& e) {
+            out_error_msg = std::string("TF2 lookup failed for current pose: ") + e.what();
             return std::nullopt;
         }
         
@@ -724,9 +770,23 @@ namespace motion_control
         }
 
         // Initial base point: The current position of the robot
-        geometry_msgs::msg::PoseStamped current_pose_msg = move_group_->getCurrentPose();
         tf2::Transform current_base_tf;
-        tf2::fromMsg(current_pose_msg.pose, current_base_tf);
+        try {
+            std::string ee_link = move_group_->getEndEffectorLink();
+            geometry_msgs::msg::TransformStamped t = tf_buffer_->lookupTransform(
+                "world", ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
+
+            geometry_msgs::msg::Pose current_pose;
+            current_pose.position.x = t.transform.translation.x;
+            current_pose.position.y = t.transform.translation.y;
+            current_pose.position.z = t.transform.translation.z;
+            current_pose.orientation = t.transform.rotation;
+            tf2::fromMsg(current_pose, current_base_tf);
+        } catch (const tf2::TransformException& e) {
+            res->success = false;
+            res->message = std::string("TF2 lookup failed for current pose: ") + e.what();
+            return;
+        }
 
         std::vector<geometry_msgs::msg::Pose> absolute_waypoints;
 
@@ -873,42 +933,6 @@ namespace motion_control
                 // Set the target
                 move_group_->setPoseTarget(absolute_waypoints[i]);
                 
-                // // Plan the segment
-                // moveit::planning_interface::MoveGroupInterface::Plan segment_plan;
-                // auto seg_t0 = std::chrono::high_resolution_clock::now();
-                // auto code = move_group_->plan(segment_plan);
-                // double seg_dt = std::chrono::duration<double>(
-                //     std::chrono::high_resolution_clock::now() - seg_t0).count();
-
-                // // Log per-segment planning time
-                // RCLCPP_DEBUG(this->get_logger(),
-                //     "[MoveWaypoints] Segment %zu/%zu planning: %s (%.3fs, %zu points)",
-                //     i + 1, absolute_waypoints.size(),
-                //     (code == moveit::core::MoveItErrorCode::SUCCESS) ? "OK" : "FAILED",
-                //     seg_dt,
-                //     segment_plan.trajectory_.joint_trajectory.points.size());
-
-                // if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-                //     auto scene = getLockedPlanningScene();
-                //     std::string diag_summary;
-                //     if (scene) {
-                //         auto report = diagnosePlanningFailure(
-                //             code, *move_group_, scene, planning_group_,
-                //             &absolute_waypoints[i], nullptr,
-                //             seg_dt, this->get_logger());
-                //         diag_summary = report.summary;
-                //     }
-
-                //     res->success = false;
-                //     res->message = "Planning failed at waypoint " + std::to_string(i + 1)
-                //                 + ": " + moveitErrorCodeToString(code);
-                //     if (!diag_summary.empty()) {
-                //         res->message += " | " + diag_summary;
-                //     }
-                //     move_group_->setStartStateToCurrentState();
-                //     return;
-                // }
-
                 // Plan the segment (Strategy 1: pose target)
                 moveit::planning_interface::MoveGroupInterface::Plan segment_plan;
                 auto seg_t0 = std::chrono::high_resolution_clock::now();
@@ -938,10 +962,10 @@ namespace motion_control
                         diag_msg = report.summary;
                     }
 
-                    RCLCPP_WARN(this->get_logger(),
-                        "[MoveWaypoints] Segment %zu pose-target failed: %s (%.2fs) "
-                        "— Falling back to IK + joint-space...",
-                        i + 1, diag_msg.c_str(), seg_dt);
+                    // RCLCPP_WARN(this->get_logger(),
+                    //     "[MoveWaypoints] Segment %zu -space...",
+                    //     i + 1, diag_msg.c_str(), seg_pose-target failed: %s (%.2fs) "
+                    //     "— Falling back to IK + jointdt);
 
                     // Strategy 2: Explicit IK + joint-space planning 
                     const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
@@ -1148,15 +1172,47 @@ namespace motion_control
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
+        // --- Pre-planning validation (fast-fail before expensive planning) ---
+        auto scene = getLockedPlanningScene();
+        if (scene) {
+            moveit::core::RobotState goal_state(move_group_->getRobotModel());
+            std::vector<double> goal_vec;
+            for (const auto& name : names) {
+                goal_vec.push_back(target[name]);
+            }
+            goal_state.setJointGroupPositions(jmg, goal_vec);
+            goal_state.update();
+
+            // Check joint limits
+            auto violations = checkJointLimits(goal_state, planning_group_);
+            if (!violations.empty()) {
+                out_msg = "Goal violates joint limits: ";
+                for (size_t i = 0; i < violations.size(); ++i) {
+                    if (i > 0) out_msg += ", ";
+                    out_msg += violations[i];
+                }
+                return false;
+            }
+
+            // Check goal collision
+            std::vector<std::string> pairs, self_pairs, env_pairs;
+            if (checkStateCollision(scene, goal_state, planning_group_, pairs, self_pairs, env_pairs)) {
+                out_msg = "Goal state is in collision: ";
+                for (size_t i = 0; i < pairs.size() && i < 5; ++i) {
+                    if (i > 0) out_msg += ", ";
+                    out_msg += pairs[i];
+                }
+                return false;
+            }
+        }
+
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         auto t0 = std::chrono::high_resolution_clock::now();
         auto code = move_group_->plan(plan);
         double dt = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count();
 
         if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-            // Run full diagnostic analysis — this was previously missing entirely
             std::string diag_msg;
-            auto scene = getLockedPlanningScene();
             if (scene) {
                 // Convert target map to vector for diagnostics
                 std::vector<double> goal_joints_vec;
@@ -1496,9 +1552,9 @@ namespace motion_control
 
         // --- 3. Collision vs Visual Logic ---
         if (req->action == "REMOVE") {
-            // Remove from both MoveIt and RViz
             obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
             marker.action = visualization_msgs::msg::Marker::DELETE;
+            visual_only_boxes_.erase(req->box_id); 
         } else {
             if (req->enable_collision) {
                 // COLLISION ON: MoveIt handles it
@@ -1521,6 +1577,7 @@ namespace motion_control
 
                 // Hide RViz marker
                 marker.action = visualization_msgs::msg::Marker::DELETE;
+                visual_only_boxes_.erase(req->box_id);
             } else {
                 // COLLISION OFF: Purely visual in RViz
                 obj.operation = moveit_msgs::msg::CollisionObject::REMOVE; 
@@ -1535,6 +1592,7 @@ namespace motion_control
                 marker.color.g = req->g;
                 marker.color.b = req->b;
                 marker.color.a = req->a;
+                visual_only_boxes_.erase(req->box_id);
             }
         }
 
@@ -1628,6 +1686,93 @@ namespace motion_control
 
         res->success = true;
         res->message = "Mesh '" + req->mesh_id + "' action '" + req->action + "' applied with color.";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onClearEnvironment(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*req*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        std::string why;
+        if (!ensureInitialized(why)) {
+            res->success = false;
+            res->message = why;
+            return;
+        }
+
+        auto object_ids = planning_scene_->getKnownObjectNames();
+        
+        auto attached = planning_scene_->getAttachedObjects();
+        std::set<std::string> attached_ids;
+        for (const auto& [id, _] : attached) {
+            attached_ids.insert(id);
+        }
+
+        std::vector<std::string> to_remove;
+        for (const auto& id : object_ids) {
+            if (attached_ids.count(id) == 0) {
+                to_remove.push_back(id);
+            }
+        }
+
+        visualization_msgs::msg::Marker deleteall;
+        deleteall.header.frame_id = "world";
+        deleteall.header.stamp = this->now();
+        deleteall.ns = "boxes";
+        deleteall.action = visualization_msgs::msg::Marker::DELETEALL;
+        visual_marker_pub_->publish(deleteall);
+
+        // Build REMOVE operations for collision objects
+        std::vector<moveit_msgs::msg::CollisionObject> removals;
+        for (const auto& id : to_remove) {
+            moveit_msgs::msg::CollisionObject obj;
+            obj.id = id;
+            obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
+            removals.push_back(obj);
+
+            visualization_msgs::msg::Marker marker;
+            marker.header.frame_id = "world";
+            marker.header.stamp = this->now();
+            marker.ns = "boxes";
+            marker.id = getMarkerId(id);
+            marker.action = visualization_msgs::msg::Marker::DELETE;
+            visual_marker_pub_->publish(marker);
+        }
+
+        if (!removals.empty()) {
+            planning_scene_->applyCollisionObjects(removals);
+        }
+
+        // Also clean up visual-only boxes (not in planning scene, only RViz markers)
+        for (const auto& id : visual_only_boxes_) {
+            to_remove.push_back(id);
+
+            visualization_msgs::msg::Marker marker;
+            marker.header.frame_id = "world";
+            marker.header.stamp = this->now();
+            marker.ns = "boxes";
+            marker.id = getMarkerId(id);
+            marker.action = visualization_msgs::msg::Marker::DELETE;
+            visual_marker_pub_->publish(marker);
+        }
+        visual_only_boxes_.clear();
+
+        if (to_remove.empty()) {
+            res->success = true;
+            res->message = "Environment already clean (0 objects)";
+            return;
+        }
+
+        std::ostringstream oss;
+        oss << "Removed " << to_remove.size() << " object(s): ";
+        for (size_t i = 0; i < to_remove.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << to_remove[i];
+        }
+
+        res->success = true;
+        res->message = oss.str();
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 

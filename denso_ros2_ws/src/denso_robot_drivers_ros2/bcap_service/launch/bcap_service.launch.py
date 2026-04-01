@@ -97,6 +97,7 @@ def generate_launch_description():
         name='bcap_service_node',
         namespace=denso_robot_model,
         executable='bcap_service_exec',
+        output='log',
         parameters=[
             os.path.join(bcap_service_pkg, 'config', 'bcap_service.yaml'),
             bcap_service_parameters])

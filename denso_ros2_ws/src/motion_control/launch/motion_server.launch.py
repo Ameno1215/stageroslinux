@@ -136,7 +136,8 @@ def generate_launch_description():
         package="motion_control",
         executable="motion_server",
         output="screen",
-        arguments=['--ros-args', '--log-level', 'DEBUG'],
+        arguments=['--ros-args',
+           '--log-level', 'motion_server:=DEBUG'],
         parameters=[
             robot_description,
             robot_description_semantic,

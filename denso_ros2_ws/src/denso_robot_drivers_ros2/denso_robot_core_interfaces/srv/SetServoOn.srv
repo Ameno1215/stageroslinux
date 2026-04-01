@@ -1,0 +1,4 @@
+bool enable   # true = moteurs ON, false = moteurs OFF
+---
+bool success
+string message

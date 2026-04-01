@@ -32,7 +32,6 @@ from typing import Iterable
 from typing import Text
 from launch.some_substitutions_type import SomeSubstitutionsType
 
-
 """ Substitution class for appending LaunchConfig parameters to a string.
 
 Helpful for namespaces and/or MULTI-ROBOT applications.
@@ -204,8 +203,8 @@ def generate_launch_description():
             denso_robot_control_parameters
         ],
         output={
-            'stdout': 'screen',
-            'stderr': 'screen',
+            'stdout': 'log',
+            'stderr': 'log',
         })
 
     robot_state_publisher_node = Node(
