@@ -58,6 +58,16 @@
       </actuator>
     </transmission>
 
+    <transmission name="${namespace}trans_6">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${namespace}joint_6">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${namespace}motor_6">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
   </xacro:macro>
 
 </robot>

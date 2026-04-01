@@ -38,7 +38,7 @@
    </xacro:if>
 
    <xacro:if value="${'$(arg model)' == 'vp5243'}">
-     <xacro:property name="tool_parent_link" value="$(arg namespace)J5" />
+     <xacro:property name="tool_parent_link" value="$(arg namespace)J6" />
    </xacro:if>
 
    <xacro:unless value="${'$(arg tool)' == 'none'}">
