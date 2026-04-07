@@ -17,6 +17,8 @@
     namespace
     transmission_hw_interface:=hardware_interface/PositionJointInterface
     sim:=false
+    include_ros2_control:=true
+    include_gazebo_plugin:=true
     ip_address
     send_format
     recv_format
@@ -42,27 +44,29 @@
     <xacro:include filename="$(find denso_robot_descriptions)/robots/$(arg model)/urdf/denso_robot_transmissions.xacro" />
     <!-- robot kinematics include -->
     <xacro:include filename="$(find denso_robot_descriptions)/robots/$(arg model)/urdf/denso_robot_kinematics.xacro" />
-    <!-- ros2 control include -->
-    <xacro:include filename="$(find denso_robot_descriptions)/robots/$(arg model)/urdf/denso_robot.ros2_control.xacro" />
-    <!-- ros2 control instance -->
-    <xacro:denso_robot_ros2_control
-      name="GazeboSystem" namespace="$(arg namespace)"
-      sim="$(arg sim)"
-      model="$(arg model)"
-      ip_address="$(arg ip_address)"
-      robot_name="$(arg robot_name)"
-      robot_joints="$(arg robot_joints)"
-      joint_1="$(arg joint_1)"
-      joint_2="$(arg joint_2)"
-      joint_3="$(arg joint_3)"
-      joint_4="$(arg joint_4)"
-      joint_5="$(arg joint_5)"
-      joint_6="$(arg joint_6)"
-      arm_group="$(arg arm_group)"
-      controller_type="$(arg controller_type)"
-      verbose="$(arg verbose)"
-      send_format="$(arg send_format)"
-      recv_format="$(arg recv_format)" />
+    <xacro:if value="${include_ros2_control == 'true'}">
+      <!-- ros2 control include -->
+      <xacro:include filename="$(find denso_robot_descriptions)/robots/$(arg model)/urdf/denso_robot.ros2_control.xacro" />
+      <!-- ros2 control instance -->
+      <xacro:denso_robot_ros2_control
+        name="GazeboSystem" namespace="$(arg namespace)"
+        sim="$(arg sim)"
+        model="$(arg model)"
+        ip_address="$(arg ip_address)"
+        robot_name="$(arg robot_name)"
+        robot_joints="$(arg robot_joints)"
+        joint_1="$(arg joint_1)"
+        joint_2="$(arg joint_2)"
+        joint_3="$(arg joint_3)"
+        joint_4="$(arg joint_4)"
+        joint_5="$(arg joint_5)"
+        joint_6="$(arg joint_6)"
+        arm_group="$(arg arm_group)"
+        controller_type="$(arg controller_type)"
+        verbose="$(arg verbose)"
+        send_format="$(arg send_format)"
+        recv_format="$(arg recv_format)" />
+    </xacro:if>
 
     <!-- Add URDF transmission elements (for ros_control) -->
     <xacro:denso_robot_arm_transmission namespace="$(arg namespace)" hw_interface="$(arg transmission_hw_interface)" />
@@ -71,11 +75,13 @@
     <!-- links -  main serial chain -->
     <xacro:denso_robot_arm_kinematics namespace="$(arg namespace)" model="$(arg model)" />
 
-    <gazebo>
-	    <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
-      		<parameters>$(find denso_robot_moveit_config)/robots/$(arg model)/config/denso_robot_controllers.yaml</parameters>
-    	</plugin>
-  	</gazebo>
+    <xacro:if value="${include_gazebo_plugin == 'true'}">
+      <gazebo>
+        <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
+          <parameters>$(find denso_robot_moveit_config)/robots/$(arg model)/config/denso_robot_controllers.yaml</parameters>
+        </plugin>
+      </gazebo>
+    </xacro:if>
 
 
   </xacro:macro>

@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg model)">
+  <xacro:arg name="tool" default="none"/>
+  <xacro:arg name="model" default="denso_robot"/>
+
+  <xacro:include filename="$(find denso_robot_descriptions)/robots/$(arg model)/urdf/denso_robot_macro.xacro"/>
+
+  <xacro:arg name="namespace" default="" />
+  <xacro:arg name="transmission_hw_interface" default=""/>
+  <xacro:arg name="verbose" default="false" />
+  <xacro:arg name="sim" default="true" />
+  <xacro:arg name="ip_address" default="192.168.0.1" />
+  <xacro:arg name="send_format" default="288" />
+  <xacro:arg name="recv_format" default="292" />
+
+  <xacro:denso_robot
+    model="$(arg model)"
+    namespace="$(arg namespace)"
+    transmission_hw_interface="$(arg transmission_hw_interface)"
+    sim="$(arg sim)"
+    include_ros2_control="false"
+    include_gazebo_plugin="false"
+    ip_address="$(arg ip_address)"
+    verbose="$(arg verbose)"
+    send_format="$(arg send_format)"
+    recv_format="$(arg recv_format)" />
+
+  <xacro:property name="tool_parent_link" value="$(arg namespace)J6" />
+
+  <xacro:if value="${'$(arg model)' == 'hsr065a1_n32'}">
+    <xacro:property name="tool_parent_link" value="$(arg namespace)J4" />
+  </xacro:if>
+
+  <xacro:if value="${'$(arg model)' == 'vp5243'}">
+    <xacro:property name="tool_parent_link" value="$(arg namespace)J6" />
+  </xacro:if>
+
+  <xacro:unless value="${'$(arg tool)' == 'none'}">
+    <xacro:include filename="$(find denso_robot_descriptions)/tools/$(arg tool)/$(arg tool).xacro"/>
+    <xacro:call macro="$(arg tool)" namespace="$(arg namespace)" parent_link="${tool_parent_link}" />
+  </xacro:unless>
+</robot>

@@ -80,6 +80,7 @@ namespace motion_control
 
             planning_scene_monitor::PlanningSceneMonitorPtr psm_;
             planning_scene::PlanningSceneConstPtr getLockedPlanningScene() const;
+            moveit::core::RobotStatePtr getFreshCurrentState(double wait_seconds) const;
     
             // RViz requires a numeric ID (int32), but MoveIt uses names (string).
             // This dictionary maps string IDs to integer IDs.
@@ -310,7 +311,9 @@ namespace motion_control
              * 
              * @param trajectory The robot trajectory to retime (modified in place).
              */
-            void applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory);
+            bool applyVelocityScaling(
+                moveit_msgs::msg::RobotTrajectory& trajectory,
+                std::string& out_msg);
 
             /**
              * Validates a trajectory before execution.

@@ -21,7 +21,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition, UnlessCondition
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from launch.actions import ExecuteProcess
@@ -31,7 +31,7 @@ from launch.substitution import Substitution
 from typing import Iterable
 from typing import Text
 from launch.some_substitutions_type import SomeSubstitutionsType
-
+from launch_ros.descriptions import ParameterValue
 
 """ Function for loading a yaml file. """
 
@@ -165,6 +165,31 @@ def generate_launch_description():
             description='Start robot with fake hardware mirroring command to its states.'))
     declared_arguments.append(
         DeclareLaunchArgument(
+            'sim_backend', default_value='gazebo',
+            description='Simulation backend: gazebo (default) or isaac.'))
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'use_sim_time',
+            default_value=PythonExpression([
+                "'true' if '", LaunchConfiguration('sim'),
+                "' == 'true' else 'false'"
+            ]),
+            description='Use /clock if available. Gazebo defaults to true, Isaac defaults to false.'))
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'isaac_joint_command_topic', default_value='/joint_command',
+            description='ROS 2 topic consumed by Isaac Sim for joint commands.'))
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'isaac_joint_states_topic', default_value='/joint_states',
+            description='ROS 2 topic published by Isaac Sim for joint states.'))
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            'isaac_follow_joint_trajectory_action',
+            default_value='/denso_joint_trajectory_controller/follow_joint_trajectory',
+            description='FollowJointTrajectory action exposed to MoveIt when using Isaac Sim.'))
+    declared_arguments.append(
+        DeclareLaunchArgument(
             'verbose', default_value='false',
             description='Print out additional debug information.'))
 
@@ -181,13 +206,17 @@ def generate_launch_description():
     namespace = LaunchConfiguration('namespace')
 #    launch_rviz = LaunchConfiguration('launch_rviz')
     sim = LaunchConfiguration('sim')
+    sim_backend = LaunchConfiguration('sim_backend')
+    use_sim_time = LaunchConfiguration('use_sim_time')
+    isaac_joint_command_topic = LaunchConfiguration('isaac_joint_command_topic')
+    isaac_joint_states_topic = LaunchConfiguration('isaac_joint_states_topic')
+    isaac_follow_joint_trajectory_action = LaunchConfiguration('isaac_follow_joint_trajectory_action')
     verbose = LaunchConfiguration('verbose')
     controllers_file = LaunchConfiguration('controllers_file')
     robot_controller = LaunchConfiguration('robot_controller')
     tool = LaunchConfiguration('tool')
     ik_solver = LaunchConfiguration('ik_solver')
 
-    from launch.substitutions import PythonExpression
     kinematics_plugin_name = PythonExpression([
         "'pick_ik/PickIkPlugin' if '", ik_solver, "' == 'pick_ik' else 'kdl_kinematics_plugin/KDLKinematicsPlugin'"
     ])
@@ -312,7 +341,7 @@ def generate_launch_description():
             moveit_controllers_file,
             occupancy_map_monitor_parameters,
             planning_scene_monitor_parameters,
-            {'use_sim_time': sim},
+            {'use_sim_time': ParameterValue(use_sim_time, value_type=bool)},
             {'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name}
         ])
 
@@ -341,17 +370,23 @@ def generate_launch_description():
         package='robot_state_publisher',
         executable='robot_state_publisher',
         output='both',
-        parameters=[{'use_sim_time': sim}, robot_description]
+        parameters=[{'use_sim_time': ParameterValue(use_sim_time, value_type=bool)}, robot_description]
     )
 
     joint_state_broadcaster_spawner = Node(
         package='controller_manager',
         executable='spawner',
+        condition=UnlessCondition(PythonExpression([
+            "'", sim, "' == 'true' and '", sim_backend, "' == 'isaac'"
+        ])),
         arguments=['denso_joint_state_broadcaster', '--controller-manager', '/controller_manager'])
 
     robot_controller_spawner = Node(
         package='controller_manager',
         executable='spawner',
+        condition=UnlessCondition(PythonExpression([
+            "'", sim, "' == 'true' and '", sim_backend, "' == 'isaac'"
+        ])),
         arguments=[robot_controller, '-c', '/controller_manager'])
 
 # TODO: do we need the Warehouse mongodb server ?
@@ -385,6 +420,7 @@ def generate_launch_description():
             robot_description_semantic,
             ompl_planning_pipeline_config,
             robot_description_kinematics,
+            {'use_sim_time': ParameterValue(use_sim_time, value_type=bool)},
             {'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name}
         ])
 
@@ -401,16 +437,51 @@ def generate_launch_description():
 
 # --------- Gazebo Nodes (only if 'sim:=true') ---------
     gazebo = ExecuteProcess(
-        condition=IfCondition(sim),
+        condition=IfCondition(PythonExpression([
+            "'", sim, "' == 'true' and '", sim_backend, "' == 'gazebo'"
+        ])),
         cmd=['gazebo', '--verbose', 'worlds/empty.world', '-s', 'libgazebo_ros_factory.so'],
         output='both')
 
     spawn_entity = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
-        condition=IfCondition(sim),
+        condition=IfCondition(PythonExpression([
+            "'", sim, "' == 'true' and '", sim_backend, "' == 'gazebo'"
+        ])),
         arguments=['-topic', 'robot_description', '-entity', denso_robot_model],
         output='both')
+
+    isaac_joint_trajectory_bridge = Node(
+        package='isaac_joint_trajectory_bridge',
+        executable='follow_joint_trajectory_bridge',
+        name='denso_joint_trajectory_controller',
+        condition=IfCondition(PythonExpression([
+            "'", sim, "' == 'true' and '", sim_backend, "' == 'isaac'"
+        ])),
+        parameters=[
+            {'joint_command_topic': isaac_joint_command_topic},
+            {'joint_states_topic': isaac_joint_states_topic},
+            {'action_name': isaac_follow_joint_trajectory_action},
+            {'use_sim_time': ParameterValue(use_sim_time, value_type=bool)},
+        ],
+        output='screen')
+
+    isaac_joint_state_relay = Node(
+        package='isaac_joint_trajectory_bridge',
+        executable='joint_state_relay',
+        name='isaac_joint_state_relay',
+        condition=IfCondition(PythonExpression([
+            "'", sim, "' == 'true' and '", sim_backend, "' == 'isaac' and '",
+            isaac_joint_states_topic, "' != '/joint_states'"
+        ])),
+        parameters=[
+            {'input_topic': isaac_joint_states_topic},
+            {'output_topic': '/joint_states'},
+            {'restamp': True},
+            {'use_sim_time': ParameterValue(use_sim_time, value_type=bool)},
+        ],
+        output='screen')
 
     nodes_to_start = [
         control_node,
@@ -421,6 +492,8 @@ def generate_launch_description():
         static_tf,
         gazebo,
         spawn_entity,
+        isaac_joint_trajectory_bridge,
+        isaac_joint_state_relay,
         robot_state_publisher_node,
         joint_state_broadcaster_spawner
     ]

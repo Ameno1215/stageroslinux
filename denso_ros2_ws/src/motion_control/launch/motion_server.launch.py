@@ -7,7 +7,7 @@ from launch.substitutions import Command, FindExecutable, LaunchConfiguration, P
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
-
+from launch_ros.descriptions import ParameterValue
 
 def load_yaml(package_name, file_path):
     package_path = get_package_share_directory(package_name)
@@ -28,6 +28,28 @@ def generate_launch_description():
     )
     declared_arguments.append(
         DeclareLaunchArgument("sim", default_value="true", description="Use simulated/fake hardware.")
+    )
+    declared_arguments.append(
+        DeclareLaunchArgument("sim_backend", default_value="gazebo", description="Simulation backend: gazebo or isaac.")
+    )
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "use_sim_time",
+            default_value=PythonExpression([
+                "'true' if '", LaunchConfiguration("sim"),
+                "' == 'true' else 'false'"
+            ]),
+            description="Use /clock if available. Enabled for all simulation backends.",
+        )
+    )
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "enable_health_monitor",
+            default_value=PythonExpression([
+                "'false' if '", LaunchConfiguration("sim"), "' == 'true' else 'true'"
+            ]),
+            description="Enable RC8/joint-state watchdog health monitoring. Disabled automatically in simulation.",
+        )
     )
     declared_arguments.append(
         DeclareLaunchArgument("planning_group", default_value="arm", description="MoveIt planning group name.")
@@ -77,6 +99,8 @@ def generate_launch_description():
     # --- Launch configs ---
     model = LaunchConfiguration("model")
     sim = LaunchConfiguration("sim")
+    use_sim_time = LaunchConfiguration("use_sim_time")
+    enable_health_monitor = LaunchConfiguration("enable_health_monitor")
     planning_group = LaunchConfiguration("planning_group")
     velocity_scale = LaunchConfiguration("velocity_scale")
     accel_scale = LaunchConfiguration("accel_scale")
@@ -127,9 +151,11 @@ def generate_launch_description():
     # --- Node parameters for your motion server ---
     motion_server_params = {
         "model": model,
+        "sim": sim,
         "planning_group": planning_group,
         "velocity_scale": velocity_scale,
         "accel_scale": accel_scale,
+        "enable_health_monitor": enable_health_monitor,
     }
 
     motion_server_node = Node(
@@ -143,8 +169,10 @@ def generate_launch_description():
             robot_description_semantic,
             robot_description_kinematics,
             motion_server_params,
+            {'use_sim_time': ParameterValue(use_sim_time, value_type=bool)},
             {'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name}
         ],
     )
 
     return LaunchDescription(declared_arguments + [motion_server_node])
+    

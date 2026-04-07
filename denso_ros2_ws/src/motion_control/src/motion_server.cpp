@@ -1,89 +1,114 @@
 #include "motion_control/motion_server.hpp"
 
-
+// with isaac sim
 namespace motion_control
 {
 
     MotionServer::MotionServer(const rclcpp::NodeOptions& options)
     : rclcpp::Node("motion_server", options)
     {
-        // Declare parameters for convenient launch-time configuration
-        this->declare_parameter<std::string>("model", "vs060");
-        this->declare_parameter<std::string>("planning_group", "arm");
-        this->declare_parameter<double>("velocity_scale", 1.0);
-        this->declare_parameter<double>("accel_scale", 1.0);
-        this->set_parameter(rclcpp::Parameter("use_sim_time", true));
+        try {
+            RCLCPP_INFO(this->get_logger(), "[MotionServer] Constructor start");
 
-        // Initialisation du système d'écoute TF
-        tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-        rclcpp::QoS qos(10);
-        qos.transient_local();
-        visual_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("motion_server_markers", qos);
+            // Declare parameters for convenient launch-time configuration
+            this->declare_parameter<std::string>("model", "vs060");
+            this->declare_parameter<bool>("sim", true);
+            this->declare_parameter<std::string>("planning_group", "arm");
+            this->declare_parameter<double>("velocity_scale", 1.0);
+            this->declare_parameter<double>("accel_scale", 1.0);
+            this->declare_parameter<bool>("enable_health_monitor", true);
+            if (!this->has_parameter("use_sim_time")) {
+                this->declare_parameter<bool>("use_sim_time", false);
+            }
 
-        srv_init_ = this->create_service<srv::InitRobot>(
-            "init_robot",
-            std::bind(&MotionServer::onInitRobot, this, std::placeholders::_1, std::placeholders::_2));
+            RCLCPP_INFO(this->get_logger(), "[MotionServer] Parameters declared");
 
-        srv_move_joints_ = this->create_service<srv::MoveJoints>(
-            "move_joints",
-            std::bind(&MotionServer::onMoveJoints, this, std::placeholders::_1, std::placeholders::_2));
+            // Initialisation du systeme d'ecoute TF
+            tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+            tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+            rclcpp::QoS qos(10);
+            qos.transient_local();
+            visual_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("motion_server_markers", qos);
 
-        srv_move_pose_ = this->create_service<srv::MoveToPose>(
-            "move_to_pose",
-            std::bind(&MotionServer::onMoveToPose, this, std::placeholders::_1, std::placeholders::_2));
+            RCLCPP_INFO(this->get_logger(), "[MotionServer] TF and publishers ready");
 
-        srv_move_pose_via_joint_ = this->create_service<srv::MoveToPose>(
-            "move_to_pose_via_joint",
-            std::bind(&MotionServer::onMoveToPoseViaJoint, this, std::placeholders::_1, std::placeholders::_2));
+            srv_init_ = this->create_service<srv::InitRobot>(
+                "init_robot",
+                std::bind(&MotionServer::onInitRobot, this, std::placeholders::_1, std::placeholders::_2));
 
-        srv_move_waypoints_ = this->create_service<srv::MoveWaypoints>(
-            "move_waypoints",
-            std::bind(&MotionServer::onMoveWaypoints, this, std::placeholders::_1, std::placeholders::_2));
+            srv_move_joints_ = this->create_service<srv::MoveJoints>(
+                "move_joints",
+                std::bind(&MotionServer::onMoveJoints, this, std::placeholders::_1, std::placeholders::_2));
 
-        srv_scaling_ = this->create_service<srv::SetScaling>(
-            "set_scaling",
-            std::bind(&MotionServer::onSetScaling, this, std::placeholders::_1, std::placeholders::_2));
+            srv_move_pose_ = this->create_service<srv::MoveToPose>(
+                "move_to_pose",
+                std::bind(&MotionServer::onMoveToPose, this, std::placeholders::_1, std::placeholders::_2));
 
-        srv_get_joints_ = this->create_service<srv::GetJointState>(
-            "get_joint_state",
-            std::bind(&MotionServer::onGetJointState, this, std::placeholders::_1, std::placeholders::_2));
+            srv_move_pose_via_joint_ = this->create_service<srv::MoveToPose>(
+                "move_to_pose_via_joint",
+                std::bind(&MotionServer::onMoveToPoseViaJoint, this, std::placeholders::_1, std::placeholders::_2));
 
-        srv_get_pose_ = this->create_service<srv::GetCurrentPose>(
-            "get_current_pose",
-            std::bind(&MotionServer::onGetCurrentPose, this, std::placeholders::_1, std::placeholders::_2));
-        
-        srv_virtual_cage_ = this->create_service<srv::SetVirtualCage>(
-            "set_virtual_cage",
-            std::bind(&MotionServer::onSetVirtualCage, this, std::placeholders::_1, std::placeholders::_2));
+            srv_move_waypoints_ = this->create_service<srv::MoveWaypoints>(
+                "move_waypoints",
+                std::bind(&MotionServer::onMoveWaypoints, this, std::placeholders::_1, std::placeholders::_2));
 
-        srv_manage_box_ = this->create_service<srv::ManageBox>(
-            "manage_box",
-            std::bind(&MotionServer::onManageBox, this, std::placeholders::_1, std::placeholders::_2));
-        
-        srv_manage_mesh_ = this->create_service<srv::ManageMesh>(
-            "manage_mesh",
-            std::bind(&MotionServer::onManageMesh, this, std::placeholders::_1, std::placeholders::_2));
+            srv_scaling_ = this->create_service<srv::SetScaling>(
+                "set_scaling",
+                std::bind(&MotionServer::onSetScaling, this, std::placeholders::_1, std::placeholders::_2));
 
-        srv_clear_env_ = this->create_service<std_srvs::srv::Trigger>(
-            "clear_environment",
-            std::bind(&MotionServer::onClearEnvironment, this, std::placeholders::_1, std::placeholders::_2));
+            srv_get_joints_ = this->create_service<srv::GetJointState>(
+                "get_joint_state",
+                std::bind(&MotionServer::onGetJointState, this, std::placeholders::_1, std::placeholders::_2));
 
-        health_monitor_ = std::make_unique<RobotHealthMonitor>(this, "/vs060/CurMode", "/joint_states");
+            srv_get_pose_ = this->create_service<srv::GetCurrentPose>(
+                "get_current_pose",
+                std::bind(&MotionServer::onGetCurrentPose, this, std::placeholders::_1, std::placeholders::_2));
 
-        // Stop MoveIt immediately when RC8 faults
-        health_monitor_->onError([this](const std::string& reason) {
-        RCLCPP_ERROR(this->get_logger(), 
-            "[MotionServer] Halting MoveIt — hardware fault: %s", reason.c_str());
-        if (move_group_) move_group_->stop();
-        });
+            srv_virtual_cage_ = this->create_service<srv::SetVirtualCage>(
+                "set_virtual_cage",
+                std::bind(&MotionServer::onSetVirtualCage, this, std::placeholders::_1, std::placeholders::_2));
 
-        health_monitor_->onCleared([this]() {
-        RCLCPP_INFO(this->get_logger(),
-            "[MotionServer] Hardware fault cleared — call /init_robot to resume");
-        });
+            srv_manage_box_ = this->create_service<srv::ManageBox>(
+                "manage_box",
+                std::bind(&MotionServer::onManageBox, this, std::placeholders::_1, std::placeholders::_2));
 
-        RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
+            srv_manage_mesh_ = this->create_service<srv::ManageMesh>(
+                "manage_mesh",
+                std::bind(&MotionServer::onManageMesh, this, std::placeholders::_1, std::placeholders::_2));
+
+            srv_clear_env_ = this->create_service<std_srvs::srv::Trigger>(
+                "clear_environment",
+                std::bind(&MotionServer::onClearEnvironment, this, std::placeholders::_1, std::placeholders::_2));
+
+            RCLCPP_INFO(this->get_logger(), "[MotionServer] Services created");
+
+            const bool enable_health_monitor = this->get_parameter("enable_health_monitor").as_bool();
+            if (enable_health_monitor) {
+                health_monitor_ = std::make_unique<RobotHealthMonitor>(this, "/vs060/CurMode", "/joint_states");
+
+                // Stop MoveIt immediately when RC8 faults
+                health_monitor_->onError([this](const std::string& reason) {
+                    RCLCPP_ERROR(this->get_logger(),
+                        "[MotionServer] Halting MoveIt - hardware fault: %s", reason.c_str());
+                    if (move_group_) move_group_->stop();
+                });
+
+                health_monitor_->onCleared([this]() {
+                    RCLCPP_INFO(this->get_logger(),
+                        "[MotionServer] Hardware fault cleared - call /init_robot to resume");
+                });
+            } else {
+                RCLCPP_INFO(this->get_logger(), "[MotionServer] Health monitor disabled for simulation");
+            }
+
+            RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
+        } catch (const std::exception& e) {
+            RCLCPP_FATAL(this->get_logger(), "[MotionServer] Constructor failed: %s", e.what());
+            throw;
+        } catch (...) {
+            RCLCPP_FATAL(this->get_logger(), "[MotionServer] Constructor failed with non-std exception");
+            throw;
+        }
     }
 
     bool MotionServer::ensureInitialized(std::string& why) const {
@@ -133,6 +158,7 @@ namespace motion_control
             psm_->startSceneMonitor("/monitored_planning_scene");
             // Start listening to the robot's joint state for state updates
             psm_->startStateMonitor("/joint_states");
+            move_group_->startStateMonitor(2.0);
             // Wait briefly for the first scene to arrive
             if (!psm_->waitForCurrentRobotState(this->now(), 2.0)) {
                 RCLCPP_WARN(this->get_logger(),
@@ -173,8 +199,10 @@ namespace motion_control
                 << ", planning_frame=" << move_group_->getPlanningFrame()
                 << ", ee_link=" << move_group_->getEndEffectorLink();
 
-            health_monitor_->setActive(true);
-            health_monitor_->clearError(); // clear any stale error from previous session
+            if (health_monitor_) {
+                health_monitor_->setActive(true);
+                health_monitor_->clearError(); // clear any stale error from previous session
+            }
 
             initialized_ = true;
             res->success = true;
@@ -199,6 +227,24 @@ namespace motion_control
             locked_scene.operator->()->shared_from_this());
     }
 
+    moveit::core::RobotStatePtr MotionServer::getFreshCurrentState(double wait_seconds) const
+    {
+        if (!move_group_) {
+            return nullptr;
+        }
+
+        // Prime MoveIt's internal state monitor early. This is the intended API for reducing
+        // first-call failures when the current-state monitor is still warming up.
+        move_group_->startStateMonitor(wait_seconds);
+
+        if (psm_ && psm_->waitForCurrentRobotState(this->now(), wait_seconds)) {
+            planning_scene_monitor::LockedPlanningSceneRO locked_scene(psm_);
+            return std::make_shared<moveit::core::RobotState>(locked_scene->getCurrentState());
+        }
+
+        return move_group_->getCurrentState(wait_seconds);
+    }
+
     bool MotionServer::solveIKAndPlanJoints(
         const geometry_msgs::msg::Pose& target_pose,
         bool execute,
@@ -210,7 +256,7 @@ namespace motion_control
             return false;
         }
 
-        moveit::core::RobotStatePtr current_state = move_group_->getCurrentState(2.0);
+        moveit::core::RobotStatePtr current_state = getFreshCurrentState(2.0);
         if (!current_state) {
             out_msg = "Failed to obtain current robot state";
             return false;
@@ -503,14 +549,33 @@ namespace motion_control
         return fraction;
     }
 
-    void MotionServer::applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory)
+    bool MotionServer::applyVelocityScaling(
+        moveit_msgs::msg::RobotTrajectory& trajectory,
+        std::string& out_msg)
     {
+        if (trajectory.joint_trajectory.points.empty()) {
+            out_msg = "Cannot retime an empty trajectory";
+            RCLCPP_ERROR(this->get_logger(), "[TrajectoryScaling] %s", out_msg.c_str());
+            return false;
+        }
+
         // computeCartesianPath does NOT respect setMaxVelocityScalingFactor.
         // We must manually retime the trajectory using TOTG (Time Optimal Trajectory Generation).
         robot_trajectory::RobotTrajectory rt(
             move_group_->getRobotModel(), planning_group_);
 
-        rt.setRobotTrajectoryMsg(*move_group_->getCurrentState(), trajectory);
+        auto current_state = getFreshCurrentState(2.0);
+        if (!current_state) {
+            out_msg =
+                "Current robot state unavailable for trajectory retiming. "
+                "Refusing to synthesize a fallback start state. Check that /joint_states is "
+                "published frequently enough and stamped with the active ROS clock.";
+            RCLCPP_ERROR(this->get_logger(), "[TrajectoryScaling] %s", out_msg.c_str());
+            trajectory.joint_trajectory.points.clear();
+            return false;
+        }
+
+        rt.setRobotTrajectoryMsg(*current_state, trajectory);
 
         trajectory_processing::TimeOptimalTrajectoryGeneration totg;
 
@@ -519,6 +584,7 @@ namespace motion_control
         // This is a SAFETY-CRITICAL check.
         bool ok = totg.computeTimeStamps(rt, vel_scale_, accel_scale_);
         if (!ok) {
+            out_msg = "Trajectory retiming failed";
             RCLCPP_ERROR(this->get_logger(),
                 "SAFETY: TOTG retiming FAILED (vel=%.2f, accel=%.2f). "
                 "Trajectory will NOT be executed to prevent uncontrolled speed. "
@@ -526,11 +592,13 @@ namespace motion_control
                 vel_scale_, accel_scale_);
             // Clear the trajectory to prevent execution with raw timestamps
             trajectory.joint_trajectory.points.clear();
-            return;
+            return false;
         }
 
         // Convert back to message with correct timestamps
         rt.getRobotTrajectoryMsg(trajectory);
+        out_msg.clear();
+        return true;
     }
 
     // Trajectory sanity check before sending to the controller
@@ -581,7 +649,7 @@ namespace motion_control
         oss << "Execution failed: " << moveitErrorCodeToString(exec_code);
 
         // Log the current joint state at the point of failure
-        auto current_state = move_group_->getCurrentState(1.0);
+        auto current_state = getFreshCurrentState(1.0);
         if (current_state) {
             std::vector<double> joint_vals;
             current_state->copyJointGroupPositions(planning_group_, joint_vals);
@@ -710,7 +778,12 @@ namespace motion_control
             }
 
             // Apply velocity/acceleration scaling to the raw Cartesian trajectory
-            applyVelocityScaling(trajectory);
+            std::string scaling_msg;
+            if (!applyVelocityScaling(trajectory, scaling_msg)) {
+                res->success = false;
+                res->message = scaling_msg;
+                return;
+            }
 
             // Validate trajectory before sending to controller
             std::string traj_err;
@@ -888,7 +961,12 @@ namespace motion_control
             }
 
             // Apply velocity/acceleration scaling to the raw Cartesian trajectory
-            applyVelocityScaling(trajectory);
+            std::string scaling_msg;
+            if (!applyVelocityScaling(trajectory, scaling_msg)) {
+                res->success = false;
+                res->message = scaling_msg;
+                return;
+            }
 
             // Validate trajectory before sending to controller
             std::string traj_err;
@@ -920,7 +998,12 @@ namespace motion_control
             combined_trajectory.joint_trajectory.joint_names = move_group_->getJointNames();
             
             // Get the current state to use as the starting point for the first segment
-            moveit::core::RobotStatePtr current_start_state = move_group_->getCurrentState();
+            moveit::core::RobotStatePtr current_start_state = getFreshCurrentState(2.0);
+            if (!current_start_state) {
+                res->success = false;
+                res->message = "Current robot state unavailable for waypoint planning";
+                return;
+            }
             
             int32_t acc_sec = 0;
             uint32_t acc_nanosec = 0;
@@ -1097,7 +1180,12 @@ namespace motion_control
 
             // Retime the combined trajectory to eliminate velocity discontinuities
             // at segment junctions (same mechanism as cartesian paths)
-            applyVelocityScaling(combined_trajectory);
+            std::string scaling_msg;
+            if (!applyVelocityScaling(combined_trajectory, scaling_msg)) {
+                res->success = false;
+                res->message = scaling_msg;
+                return;
+            }
 
             // Summary of the assembled multi-segment trajectory
             RCLCPP_DEBUG(this->get_logger(),
@@ -1136,6 +1224,10 @@ namespace motion_control
         const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg)
     {
         const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+        if (!jmg) {
+            out_msg = "Unknown planning group: " + planning_group_;
+            return false;
+        }
         const auto& names = jmg->getVariableNames();
 
         if (joints.size() != names.size()) {
@@ -1144,7 +1236,18 @@ namespace motion_control
         }
 
         std::map<std::string, double> target;
-        std::vector<double> current = move_group_->getCurrentJointValues();
+        std::vector<double> current;
+
+        auto current_state = getFreshCurrentState(2.0);
+        if (current_state) {
+            current_state->copyJointGroupPositions(jmg, current);
+        }
+
+        if (is_relative && current.size() != names.size()) {
+            out_msg = "Current joint state unavailable or incomplete for relative motion";
+            RCLCPP_ERROR(this->get_logger(), "%s", out_msg.c_str());
+            return false;
+        }
 
         for (size_t i = 0; i < names.size(); ++i) {
             target[names[i]] = is_relative ? current[i] + joints[i] : joints[i];
@@ -1153,14 +1256,24 @@ namespace motion_control
         // Log target and current joints on the happy path
         {
             std::ostringstream oss_cur, oss_tgt;
-            oss_cur << std::fixed << std::setprecision(4) << "[";
+            oss_cur << std::fixed << std::setprecision(4);
             oss_tgt << std::fixed << std::setprecision(4) << "[";
-            for (size_t i = 0; i < names.size(); ++i) {
-                if (i > 0) { oss_cur << ", "; oss_tgt << ", "; }
-                oss_cur << current[i];
-                oss_tgt << target[names[i]];
+            if (current.size() == names.size()) {
+                oss_cur << "[";
+                for (size_t i = 0; i < names.size(); ++i) {
+                    if (i > 0) { oss_cur << ", "; oss_tgt << ", "; }
+                    oss_cur << current[i];
+                    oss_tgt << target[names[i]];
+                }
+                oss_cur << "]";
+            } else {
+                oss_cur << "<unavailable>";
+                for (size_t i = 0; i < names.size(); ++i) {
+                    if (i > 0) { oss_tgt << ", "; }
+                    oss_tgt << target[names[i]];
+                }
             }
-            oss_cur << "]"; oss_tgt << "]";
+            oss_tgt << "]";
             RCLCPP_DEBUG(this->get_logger(),
                 "[PlanJoints] current=%s target=%s relative=%s execute=%s",
                 oss_cur.str().c_str(), oss_tgt.str().c_str(),
@@ -1168,7 +1281,11 @@ namespace motion_control
                 execute ? "true" : "false");
         }
 
-        move_group_->setJointValueTarget(target);
+        bool target_ok = move_group_->setJointValueTarget(target);
+        if (!target_ok) {
+            out_msg = "Failed to set joint target";
+            return false;
+        }
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
