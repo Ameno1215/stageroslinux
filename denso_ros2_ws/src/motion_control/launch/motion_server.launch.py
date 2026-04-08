@@ -163,7 +163,8 @@ def generate_launch_description():
         executable="motion_server",
         output="screen",
         arguments=['--ros-args',
-           '--log-level', 'motion_server:=DEBUG'],
+            '--log-level', 'motion_server:=DEBUG',
+            '--log-level', 'motion_server.rclcpp_action:=INFO'],
         parameters=[
             robot_description,
             robot_description_semantic,

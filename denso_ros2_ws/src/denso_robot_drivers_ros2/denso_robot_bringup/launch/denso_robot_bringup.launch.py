@@ -292,9 +292,9 @@ def generate_launch_description():
         ])
     trajectory_execution = {
         'moveit_manage_controllers': False,
-        'trajectory_execution.allowed_execution_duration_scaling': 1.2,
+        'trajectory_execution.allowed_execution_duration_scaling': 1.3,
         'trajectory_execution.allowed_goal_duration_margin': 0.5,
-        'trajectory_execution.allowed_start_tolerance': 0.01,
+        'trajectory_execution.allowed_start_tolerance': 0.02,
     }
 
     planning_scene_monitor_parameters = {
@@ -366,11 +366,29 @@ def generate_launch_description():
             'stderr': 'log',
         })
 
-    robot_state_publisher_node = Node(
+    # Node for simulation (sim=true) with high publish_frequency
+    robot_state_publisher_sim_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         output='both',
-        parameters=[{'use_sim_time': ParameterValue(use_sim_time, value_type=bool)}, robot_description]
+        condition=IfCondition(sim),
+        parameters=[
+            {'use_sim_time': ParameterValue(use_sim_time, value_type=bool)},
+            {'publish_frequency': 100.0}, # Add parameter only for simulation
+            robot_description
+        ]
+    )
+
+    # Node for real hardware (sim=false) using default publish_frequency
+    robot_state_publisher_real_node = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        output='both',
+        condition=UnlessCondition(sim),
+        parameters=[
+            {'use_sim_time': ParameterValue(use_sim_time, value_type=bool)},
+            robot_description
+        ]
     )
 
     joint_state_broadcaster_spawner = Node(
@@ -494,7 +512,8 @@ def generate_launch_description():
         spawn_entity,
         isaac_joint_trajectory_bridge,
         isaac_joint_state_relay,
-        robot_state_publisher_node,
+        robot_state_publisher_sim_node,
+        robot_state_publisher_real_node,
         joint_state_broadcaster_spawner
     ]
 

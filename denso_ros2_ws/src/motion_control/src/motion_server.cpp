@@ -3,6 +3,31 @@
 // with isaac sim
 namespace motion_control
 {
+    namespace
+    {
+        double trajectoryDurationSeconds(const moveit_msgs::msg::RobotTrajectory& trajectory)
+        {
+            const auto& points = trajectory.joint_trajectory.points;
+            if (points.empty()) {
+                return 0.0;
+            }
+
+            const auto& total = points.back().time_from_start;
+            return static_cast<double>(total.sec) + static_cast<double>(total.nanosec) * 1e-9;
+        }
+
+        std::string executionTimingSuffix(
+            double planning_duration,
+            double exec_duration,
+            double total_traj_time)
+        {
+            std::ostringstream oss;
+            oss << " (planning: " << planning_duration
+                << "s, execution: " << exec_duration
+                << "s, trajectory duration: " << total_traj_time << "s)";
+            return oss.str();
+        }
+    }
 
     MotionServer::MotionServer(const rclcpp::NodeOptions& options)
     : rclcpp::Node("motion_server", options)
@@ -392,13 +417,19 @@ namespace motion_control
                 return false;
             }
 
+            const double total_traj_time = trajectoryDurationSeconds(plan.trajectory_);
+            const auto exec_start = std::chrono::high_resolution_clock::now();
             auto exec_code = move_group_->execute(plan);
+            const double exec_duration = std::chrono::duration<double>(
+                std::chrono::high_resolution_clock::now() - exec_start).count();
             if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
                 // Run post-execution diagnostics
-                out_msg = diagnoseExecutionFailure(exec_code);
+                out_msg = diagnoseExecutionFailure(exec_code)
+                        + executionTimingSuffix(planning_duration, exec_duration, total_traj_time);
                 return false;
             }
-            out_msg = "Planned and executed pose target successfully (took " + std::to_string(planning_duration) + "s)";
+            out_msg = "Planned and executed pose target successfully"
+                    + executionTimingSuffix(planning_duration, exec_duration, total_traj_time);
             return true;
         }
 
@@ -794,15 +825,20 @@ namespace motion_control
             }
 
             if (req->execute) {
+                const double total_traj_time = trajectoryDurationSeconds(trajectory);
+                const auto exec_start = std::chrono::high_resolution_clock::now();
                 auto exec_code = move_group_->execute(trajectory);
+                const double exec_duration = std::chrono::duration<double>(
+                    std::chrono::high_resolution_clock::now() - exec_start).count();
                 if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
                     // Run post-execution diagnostics
                     res->success = false;
-                    res->message = diagnoseExecutionFailure(exec_code);
+                    res->message = diagnoseExecutionFailure(exec_code)
+                                 + executionTimingSuffix(planning_duration, exec_duration, total_traj_time);
                 } else {
                     res->success = true;
                     res->message = "Cartesian path executed. " + cart_msg
-                                 + " (took " + std::to_string(planning_duration) + "s)";
+                                 + executionTimingSuffix(planning_duration, exec_duration, total_traj_time);
                 }
             } else {
                 res->success = true;
@@ -977,15 +1013,20 @@ namespace motion_control
             }
 
             if (req->execute) {
+                const double total_traj_time = trajectoryDurationSeconds(trajectory);
+                const auto exec_start = std::chrono::high_resolution_clock::now();
                 auto exec_code = move_group_->execute(trajectory);
+                const double exec_duration = std::chrono::duration<double>(
+                    std::chrono::high_resolution_clock::now() - exec_start).count();
                 if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
                     // Run post-execution diagnostics
                     res->success = false;
-                    res->message = diagnoseExecutionFailure(exec_code);
+                    res->message = diagnoseExecutionFailure(exec_code)
+                                 + executionTimingSuffix(planning_duration, exec_duration, total_traj_time);
                 } else {
                     res->success = true;
                     res->message = "Cartesian path executed. " + cart_msg
-                                 + " (took " + std::to_string(planning_duration) + "s)";
+                                 + executionTimingSuffix(planning_duration, exec_duration, total_traj_time);
                 }
             } else {
                 res->success = true;
@@ -1203,15 +1244,20 @@ namespace motion_control
             
             // Execute
             if (req->execute) {
+                const double total_traj_time = trajectoryDurationSeconds(combined_trajectory);
+                const auto exec_start = std::chrono::high_resolution_clock::now();
                 auto exec_code = move_group_->execute(combined_trajectory);
+                const double exec_duration = std::chrono::duration<double>(
+                    std::chrono::high_resolution_clock::now() - exec_start).count();
                 if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
                     // Run post-execution diagnostics
                     res->success = false;
-                    res->message = diagnoseExecutionFailure(exec_code);
+                    res->message = diagnoseExecutionFailure(exec_code)
+                                 + executionTimingSuffix(planning_duration, exec_duration, total_traj_time);
                 } else {
                     res->success = true;
-                    res->message = "Waypoint sequence executed successfully ("
-                                 + std::to_string(planning_duration) + "s)";
+                    res->message = "Waypoint sequence executed successfully"
+                                 + executionTimingSuffix(planning_duration, exec_duration, total_traj_time);
                 }
             } else {
                 res->success = true;
@@ -1364,13 +1410,19 @@ namespace motion_control
                 return false;
             }
 
+            const double total_traj_time = trajectoryDurationSeconds(plan.trajectory_);
+            const auto exec_start = std::chrono::high_resolution_clock::now();
             auto exec = move_group_->execute(plan);
+            const double exec_duration = std::chrono::duration<double>(
+                std::chrono::high_resolution_clock::now() - exec_start).count();
             if (exec != moveit::core::MoveItErrorCode::SUCCESS) {
                 // Run post-execution diagnostics
-                out_msg = diagnoseExecutionFailure(exec);
+                out_msg = diagnoseExecutionFailure(exec)
+                        + executionTimingSuffix(dt, exec_duration, total_traj_time);
                 return false;
             }
-            out_msg = "Joint trajectory executed (took " + std::to_string(dt) + "s)";
+            out_msg = "Joint trajectory executed"
+                    + executionTimingSuffix(dt, exec_duration, total_traj_time);
         } else {
             out_msg = "Joint trajectory planned (execute=false) (took " + std::to_string(dt) + "s)";
         }
