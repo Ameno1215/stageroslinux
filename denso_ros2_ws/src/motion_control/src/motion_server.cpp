@@ -249,7 +249,7 @@ namespace motion_control
             std::vector<double> candidate_joints;
             candidate->copyJointGroupPositions(jmg, candidate_joints);
             
-            std::vector<double> weights = {1.0, 3.0, 3.0, 1.0, 1.0, 1.0};
+            std::vector<double> weights = {1.0, 2.0, 2.0, 4.0, 1.0, 1.0};
             double cost = 0.0;
             for (std::size_t j = 0; j < candidate_joints.size(); ++j) {
                 double diff = candidate_joints[j] - current_joints[j];

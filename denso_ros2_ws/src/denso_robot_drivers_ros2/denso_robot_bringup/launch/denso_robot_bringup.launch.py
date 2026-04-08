@@ -273,6 +273,10 @@ def generate_launch_description():
         'publish_geometry_updates': True,
         'publish_state_updates': True,
         'publish_transforms_updates': True,
+        # Default monitored planning scene update frequency in MoveIt can feel choppy in RViz.
+        # Push higher to improve visual smoothness of the MotionPlanning display.
+        'publish_planning_scene_frequency': 30.0,
+        'planning_scene_monitor.publish_planning_scene_frequency': 30.0,
         'planning_scene_monitor_options': {
             'name': 'planning_scene_monitor',
             'robot_description': 'robot_description',
@@ -281,6 +285,7 @@ def generate_launch_description():
             'publish_planning_scene_topic': '/move_group/publish_planning_scene',
             'monitored_planning_scene_topic': '/move_group/monitored_planning_scene',
             'wait_for_initial_state_timeout': 10.0,
+            'publish_planning_scene_frequency': 30.0,
         },
     }
 
@@ -385,6 +390,7 @@ def generate_launch_description():
             robot_description_semantic,
             ompl_planning_pipeline_config,
             robot_description_kinematics,
+            {'use_sim_time': sim},
             {'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name}
         ])
 
