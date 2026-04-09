@@ -13,6 +13,10 @@ float64 r4
 string rotation_format     # "QUAT" ou "RPY"
 string reference_frame     # "WORLD" ou "TOOL"
 
+string[]  constrained_joints    # Joint names (e.g., ["joint_1", "joint_4"])
+float64[] joint_min
+float64[] joint_max 
+
 # Drapeaux de comportement
 bool is_relative           # True = mouvement relatif, False = cible absolue
 bool cartesian_path        # True = ligne droite, False = mouvement articulaire fluide

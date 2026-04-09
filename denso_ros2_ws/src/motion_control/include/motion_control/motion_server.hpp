@@ -385,6 +385,25 @@ namespace motion_control
              */
             bool solveIKAndPlanJoints(const geometry_msgs::msg::Pose& target_pose, bool execute, std::string& out_msg);
 
+            /**
+             * @brief Applies joint path constraints to restrict joint amplitude during planning.
+             *
+             * Builds moveit_msgs::msg::Constraints from parallel arrays of joint names
+             * and [min, max] bounds, then sets them on the MoveGroupInterface.
+             * The caller MUST call move_group_->clearPathConstraints() after planning.
+             *
+             * @param joint_names  Names of joints to constrain.
+             * @param joint_min    Lower bounds in radians (parallel to joint_names).
+             * @param joint_max    Upper bounds in radians (parallel to joint_names).
+             * @param out_msg      Error message if validation fails.
+             * @return true if constraints were applied successfully, false on validation error.
+             */
+            bool applyJointConstraints(
+                const std::vector<std::string>& joint_names,
+                const std::vector<double>& joint_min,
+                const std::vector<double>& joint_max,
+                std::string& out_msg);
+
             void onClearEnvironment(
                 const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                 std::shared_ptr<std_srvs::srv::Trigger::Response> res);

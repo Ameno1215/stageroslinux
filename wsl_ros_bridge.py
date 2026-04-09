@@ -137,8 +137,16 @@ class ScalingReq(BaseModel):
     velocity_scale: float = Field(ge=0.0, le=1.0)
     accel_scale: float = Field(ge=0.0, le=1.0)
 
+
+class JointConstraintItem(BaseModel):
+    joint_name: str
+    min: float
+    max: float 
+    relative: bool = False
+
 class JointReq(BaseModel):
     joints: List[float]
+    joint_constraints: Optional[List[JointConstraintItem]] = None
     angle_format: SupportedAngleFormat = "RAD"
     is_relative: bool = False
     execute: bool = True
@@ -151,6 +159,7 @@ class MoveToPoseReq(BaseModel):
     r2: float = 0.0
     r3: float = 0.0
     r4: float = 0.0
+    joint_constraints: Optional[List[JointConstraintItem]] = None
     angle_format: SupportedAngleFormat = "RAD"
     rotation_format: SupportedRotationFormat = "RPY"
     reference_frame: SupportedReferenceFrame = "WORLD"
@@ -184,7 +193,9 @@ class MoveApproachReq(BaseModel):
     r2: float = 0.0
     r3: float = 0.0
     r4: float = 0.0
+    joint_constraints: Optional[List[JointConstraintItem]] = None
     rotation_format: SupportedRotationFormat = "RPY"
+    angle_format: SupportedAngleFormat = "RAD"
     z_offset: float = 0.1
     cartesian_path: bool = False
     execute: bool = True
@@ -242,6 +253,7 @@ class ManageMeshReq(BaseModel):
     b: float = 0.8
     a: float = 1.0
     action: SupportedBoxAction = "ADD"
+
 
 class ServoOnReq(BaseModel):
     enable: bool
@@ -435,6 +447,11 @@ class MotionRosClient(Node):
         ros_req.is_relative = bool(req.is_relative)
         ros_req.execute = bool(req.execute)
 
+        names, mins, maxs = self._resolve_constraints(req.joint_constraints, req.angle_format)
+        ros_req.constrained_joints = names
+        ros_req.joint_min = mins
+        ros_req.joint_max = maxs
+
         fut = self.move_joints_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=None)
@@ -478,6 +495,11 @@ class MotionRosClient(Node):
         ros_req.cartesian_path = bool(req.cartesian_path)
         ros_req.execute = bool(req.execute)
 
+        names, mins, maxs = self._resolve_constraints(req.joint_constraints, req.angle_format)
+        ros_req.constrained_joints = names
+        ros_req.joint_min = mins
+        ros_req.joint_max = maxs
+
         fut = self.move_pose_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=None)
@@ -515,7 +537,7 @@ class MotionRosClient(Node):
                 if wp.angle_format.upper() == "DEG":
                     r1, r2, r3 = math.radians(r1), math.radians(r2), math.radians(r3)
 
-                qx, qy, qz, qw = euler_to_quaternion(wp.r1, wp.r2, wp.r3)
+                qx, qy, qz, qw = euler_to_quaternion(r1, r2, r3)
                 p.orientation.x = qx
                 p.orientation.y = qy
                 p.orientation.z = qz
@@ -681,23 +703,16 @@ class MotionRosClient(Node):
 
 
         if req.rotation_format.upper() == "RPY":
-            logger.info(f"Approach pose requested: target=(position: {req.x:.3f}, {req.y:.3f}, {req.z:.3f} - orientation: {req.r1:.3f}, {req.r2:.3f}, {req.r3:.3f}), z_offset={req.z_offset}m, cartesian={req.cartesian_path}")
+            logger.info(f"Approach pose requested: target=(position: {req.x:.3f}, {req.y:.3f}, {req.z:.3f} - orientation: {req.r1:.3f}, {req.r2:.3f}, {req.r3:.3f}), z_offset={req.z_offset}m, angle_format={req.angle_format}, cartesian={req.cartesian_path}")
         else:
-            logger.info(f"Approach pose requested: target=(position: {req.x:.3f}, {req.y:.3f}, {req.z:.3f} - orientation: {req.r1:.3f}, {req.r2:.3f}, {req.r3:.3f}, {req.r4:.3f}), z_offset={req.z_offset}m, cartesian={req.cartesian_path}")
+            logger.info(f"Approach pose requested: target=(position: {req.x:.3f}, {req.y:.3f}, {req.z:.3f} - orientation: {req.r1:.3f}, {req.r2:.3f}, {req.r3:.3f}, {req.r4:.3f}), z_offset={req.z_offset}m, angle_format={req.angle_format}, cartesian={req.cartesian_path}")
         
-        # Convert RPY to Quaternion if necessary
+        # Convert RPY to Quaternion and DEG to RAD if necessary
         if req.rotation_format.upper() == "RPY":
             roll, pitch, yaw = req.r1, req.r2, req.r3
-            cy = math.cos(yaw * 0.5)
-            sy = math.sin(yaw * 0.5)
-            cp = math.cos(pitch * 0.5)
-            sp = math.sin(pitch * 0.5)
-            cr = math.cos(roll * 0.5)
-            sr = math.sin(roll * 0.5)
-            qw = cr * cp * cy + sr * sp * sy
-            qx = sr * cp * cy - cr * sp * sy
-            qy = cr * sp * cy + sr * cp * sy
-            qz = cr * cp * sy - sr * sp * cy
+            if req.angle_format.upper() == "DEG":
+                roll, pitch, yaw = math.radians(roll), math.radians(pitch), math.radians(yaw)
+            qx, qy, qz, qw = euler_to_quaternion(roll, pitch, yaw)
         else:
             qx, qy, qz, qw = req.r1, req.r2, req.r3, req.r4
 
@@ -729,6 +744,16 @@ class MotionRosClient(Node):
         ros_req.execute = req.execute
 
         logger.info("Sending approach request to ROS C++ node...")
+
+        # Only send constraints for joint-space planning
+        if not req.cartesian_path:
+            names, mins, maxs = self._resolve_constraints(req.joint_constraints, req.angle_format)
+        else:
+            names, mins, maxs = [], [], []
+        ros_req.constrained_joints = names
+        ros_req.joint_min = mins
+        ros_req.joint_max = maxs
+
         fut = self.move_pose_cli.call_async(ros_req)
         
         try:
@@ -858,6 +883,11 @@ class MotionRosClient(Node):
         ros_req.cartesian_path = False  # Not used by this service, but field exists in the msg
         ros_req.execute = bool(req.execute)
 
+        names, mins, maxs = self._resolve_constraints(req.joint_constraints, req.angle_format)
+        ros_req.constrained_joints = names
+        ros_req.joint_min = mins
+        ros_req.joint_max = maxs
+
         fut = self.move_pose_via_joint_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=None)
@@ -927,7 +957,55 @@ class MotionRosClient(Node):
             logger.error(f"Critical error during pump is_grabbed: {e}")
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"Pump is_grabbed failed: {e}")
+        
+    @staticmethod
+    def _unpack_constraints(joint_constraints, angle_format="RAD", current_joints_map=None):
+        """Unpacks JointConstraintItem list into parallel arrays, converting to radians if needed.
+        If a constraint is relative, it is resolved to absolute using current_joints_map."""
+        names, mins, maxs = [], [], []
+        if joint_constraints:
+            for jc in joint_constraints:
+                names.append(jc.joint_name)
+                jc_min = float(jc.min)
+                jc_max = float(jc.max)
+                if angle_format.upper() == "DEG":
+                    jc_min = math.radians(jc_min)
+                    jc_max = math.radians(jc_max)
+                if jc.relative:
+                    if current_joints_map is None or jc.joint_name not in current_joints_map:
+                        raise RuntimeError(
+                            f"Cannot resolve relative constraint for '{jc.joint_name}': "
+                            f"current joint state unavailable")
+                    cur = current_joints_map[jc.joint_name]
+                    jc_min += cur
+                    jc_max += cur
+                mins.append(jc_min)
+                maxs.append(jc_max)
+        return names, mins, maxs
     
+    def _get_current_joints_map(self) -> Dict[str, float]:
+        """Fetches current joint positions and returns them as {joint_name: value} dict."""
+        req = GetJointState.Request()
+        fut = self.get_joints_cli.call_async(req)
+        res = self._wait_for_future(fut, timeout=5.0)
+        if not res.success:
+            raise RuntimeError(f"Failed to get current joints for relative constraints: {res.message}")
+        
+        # Joint names come from the MoveIt planning group
+        # We need to pair them with the values
+        # Use MoveJoints service to get names — but we don't have them here.
+        # Simplest: use index-based naming convention
+        joint_names = [f"joint_{i+1}" for i in range(len(res.joints))]
+        return dict(zip(joint_names, res.joints))
+    
+    # Helper to conditionally fetch joints only when needed
+    def _resolve_constraints(self, joint_constraints, angle_format="RAD"):
+        """Unpacks constraints, fetching current joints only if any constraint is relative."""
+        current_map = None
+        if joint_constraints and any(jc.relative for jc in joint_constraints):
+            current_map = self._get_current_joints_map()
+        return self._unpack_constraints(joint_constraints, angle_format, current_map)
+        
 
 # ----------------------------
 # FastAPI app

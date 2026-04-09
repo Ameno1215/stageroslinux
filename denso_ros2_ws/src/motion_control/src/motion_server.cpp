@@ -339,20 +339,28 @@ namespace motion_control
         move_group_->clearPoseTargets();
 
         if (execute) {
-            // Validate trajectory before sending to controller
             std::string traj_err;
             if (!validateTrajectory(plan.trajectory_, traj_err)) {
                 out_msg = traj_err;
                 return false;
             }
 
+            const auto& pts = plan.trajectory_.joint_trajectory.points;
+            double traj_duration = pts.back().time_from_start.sec
+                                + pts.back().time_from_start.nanosec * 1e-9;
+
+            auto exec_t0 = std::chrono::high_resolution_clock::now();
             auto exec_code = move_group_->execute(plan);
+            double exec_dt = std::chrono::duration<double>(
+                std::chrono::high_resolution_clock::now() - exec_t0).count();
+
             if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-                // Run post-execution diagnostics
                 out_msg = diagnoseExecutionFailure(exec_code);
                 return false;
             }
-            out_msg = "Planned and executed pose target successfully (took " + std::to_string(planning_duration) + "s)";
+            out_msg = "Planned and executed pose target successfully (plan=" + std::to_string(planning_duration)
+                    + "s, trajectory=" + std::to_string(traj_duration)
+                    + "s, real=" + std::to_string(exec_dt) + "s)";
             return true;
         }
 
@@ -666,6 +674,17 @@ namespace motion_control
             req->cartesian_path ? "true" : "false",
             req->execute ? "true" : "false");
 
+        if (!req->constrained_joints.empty()) {
+            std::ostringstream oss_c;
+            oss_c << "[MoveToPose] Joint constraints: ";
+            for (size_t i = 0; i < req->constrained_joints.size(); ++i) {
+                if (i > 0) oss_c << ", ";
+                oss_c << req->constrained_joints[i] << "=[" 
+                    << req->joint_min[i] << ", " << req->joint_max[i] << "]";
+            }
+            RCLCPP_DEBUG(this->get_logger(), "%s", oss_c.str().c_str());
+        }
+
         // Speed application
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
@@ -721,24 +740,41 @@ namespace motion_control
             }
 
             if (req->execute) {
+                const auto& pts = trajectory.joint_trajectory.points;
+                double traj_duration = pts.back().time_from_start.sec
+                                    + pts.back().time_from_start.nanosec * 1e-9;
+
+                auto exec_t0 = std::chrono::high_resolution_clock::now();
                 auto exec_code = move_group_->execute(trajectory);
+                double exec_dt = std::chrono::duration<double>(
+                    std::chrono::high_resolution_clock::now() - exec_t0).count();
+
                 if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-                    // Run post-execution diagnostics
                     res->success = false;
                     res->message = diagnoseExecutionFailure(exec_code);
                 } else {
                     res->success = true;
                     res->message = "Cartesian path executed. " + cart_msg
-                                 + " (took " + std::to_string(planning_duration) + "s)";
+                                + " (plan=" + std::to_string(planning_duration)
+                                + "s, trajectory=" + std::to_string(traj_duration)
+                                + "s, real=" + std::to_string(exec_dt) + "s)";
                 }
-            } else {
-                res->success = true;
-                res->message = "Cartesian path planned at "
-                            + std::to_string(fraction * 100.0) + "% (execute=false) — " + cart_msg;
             }
         }
         else 
         {
+            // --- Apply optional joint constraints (joint-space only) ---
+            {
+                std::string constraint_err;
+                if (!applyJointConstraints(req->constrained_joints, req->joint_min, req->joint_max, constraint_err)) {
+                    res->success = false;
+                    res->message = constraint_err;
+                    return;
+                }
+            }
+            auto clear_fn = [this]() { move_group_->clearPathConstraints(); };
+            struct CGuard { std::function<void()> fn; ~CGuard() { fn(); } } cg_{clear_fn};
+
             // Standard joint space planning
             std::string msg;
             res->success = planAndMaybeExecutePose(target_pose, req->execute, msg);
@@ -899,20 +935,25 @@ namespace motion_control
             }
 
             if (req->execute) {
+                const auto& pts = trajectory.joint_trajectory.points;
+                double traj_duration = pts.back().time_from_start.sec
+                                    + pts.back().time_from_start.nanosec * 1e-9;
+
+                auto exec_t0 = std::chrono::high_resolution_clock::now();
                 auto exec_code = move_group_->execute(trajectory);
+                double exec_dt = std::chrono::duration<double>(
+                    std::chrono::high_resolution_clock::now() - exec_t0).count();
+
                 if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-                    // Run post-execution diagnostics
                     res->success = false;
                     res->message = diagnoseExecutionFailure(exec_code);
                 } else {
                     res->success = true;
                     res->message = "Cartesian path executed. " + cart_msg
-                                 + " (took " + std::to_string(planning_duration) + "s)";
+                                + " (plan=" + std::to_string(planning_duration)
+                                + "s, trajectory=" + std::to_string(traj_duration)
+                                + "s, real=" + std::to_string(exec_dt) + "s)";
                 }
-            } else {
-                res->success = true;
-                res->message = "Cartesian path planned at "
-                            + std::to_string(fraction * 100.0) + "% (execute=false) — " + cart_msg;
             }
         }
         else {
@@ -1115,19 +1156,25 @@ namespace motion_control
             
             // Execute
             if (req->execute) {
+                const auto& pts = combined_trajectory.joint_trajectory.points;
+                double traj_duration = pts.back().time_from_start.sec
+                                    + pts.back().time_from_start.nanosec * 1e-9;
+
+                auto exec_t0 = std::chrono::high_resolution_clock::now();
                 auto exec_code = move_group_->execute(combined_trajectory);
+                double exec_dt = std::chrono::duration<double>(
+                    std::chrono::high_resolution_clock::now() - exec_t0).count();
+
                 if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-                    // Run post-execution diagnostics
                     res->success = false;
                     res->message = diagnoseExecutionFailure(exec_code);
                 } else {
                     res->success = true;
-                    res->message = "Waypoint sequence executed successfully ("
-                                 + std::to_string(planning_duration) + "s)";
+                    res->message = "Waypoint sequence executed successfully (plan="
+                                + std::to_string(planning_duration)
+                                + "s, trajectory=" + std::to_string(traj_duration)
+                                + "s, real=" + std::to_string(exec_dt) + "s)";
                 }
-            } else {
-                res->success = true;
-                res->message = "Sequence planned successfully (execute=false).";
             }
         }
     }
@@ -1240,20 +1287,29 @@ namespace motion_control
             plan.trajectory_.joint_trajectory.points.size(), dt);
 
         if (execute) {
-            // Validate trajectory before execution
             std::string traj_err;
             if (!validateTrajectory(plan.trajectory_, traj_err)) {
                 out_msg = traj_err;
                 return false;
             }
 
+            // Theoretical trajectory duration
+            const auto& pts = plan.trajectory_.joint_trajectory.points;
+            double traj_duration = pts.back().time_from_start.sec
+                                + pts.back().time_from_start.nanosec * 1e-9;
+
+            auto exec_t0 = std::chrono::high_resolution_clock::now();
             auto exec = move_group_->execute(plan);
+            double exec_dt = std::chrono::duration<double>(
+                std::chrono::high_resolution_clock::now() - exec_t0).count();
+
             if (exec != moveit::core::MoveItErrorCode::SUCCESS) {
-                // Run post-execution diagnostics
                 out_msg = diagnoseExecutionFailure(exec);
                 return false;
             }
-            out_msg = "Joint trajectory executed (took " + std::to_string(dt) + "s)";
+            out_msg = "Joint trajectory executed (plan=" + std::to_string(dt)
+                    + "s, trajectory=" + std::to_string(traj_duration)
+                    + "s, real=" + std::to_string(exec_dt) + "s)";
         } else {
             out_msg = "Joint trajectory planned (execute=false) (took " + std::to_string(dt) + "s)";
         }
@@ -1273,6 +1329,29 @@ namespace motion_control
         req->joints.size(),
         req->is_relative ? "true" : "false",
         req->execute ? "true" : "false");
+
+        if (!req->constrained_joints.empty()) {
+            std::ostringstream oss_c;
+            oss_c << "[MoveJoints] Joint constraints: ";
+            for (size_t i = 0; i < req->constrained_joints.size(); ++i) {
+                if (i > 0) oss_c << ", ";
+                oss_c << req->constrained_joints[i] << "=[" 
+                    << req->joint_min[i] << ", " << req->joint_max[i] << "]";
+            }
+            RCLCPP_DEBUG(this->get_logger(), "%s", oss_c.str().c_str());
+        }
+
+        // --- Apply optional joint constraints ---
+        {
+            std::string constraint_err;
+            if (!applyJointConstraints(req->constrained_joints, req->joint_min, req->joint_max, constraint_err)) {
+                res->success = false;
+                res->message = constraint_err;
+                return;
+            }
+        }
+        auto clear_fn = [this]() { move_group_->clearPathConstraints(); };
+        struct CGuard { std::function<void()> fn; ~CGuard() { fn(); } } cg_{clear_fn};
 
         std::string msg;
         res->success = planAndExecuteJoints(req->joints, req->is_relative, req->execute, msg);
@@ -1312,7 +1391,31 @@ namespace motion_control
             target_pose.pose.orientation.x, target_pose.pose.orientation.y,
             target_pose.pose.orientation.z, target_pose.pose.orientation.w);
 
+        if (!req->constrained_joints.empty()) {
+            std::ostringstream oss_c;
+            oss_c << "[MoveToPoseViaJoint] Joint constraints: ";
+            for (size_t i = 0; i < req->constrained_joints.size(); ++i) {
+                if (i > 0) oss_c << ", ";
+                oss_c << req->constrained_joints[i] << "=[" 
+                    << req->joint_min[i] << ", " << req->joint_max[i] << "]";
+            }
+            RCLCPP_DEBUG(this->get_logger(), "%s", oss_c.str().c_str());
+        }
+
         std::string msg;
+
+        // --- Apply optional joint constraints ---
+        {
+            std::string constraint_err;
+            if (!applyJointConstraints(req->constrained_joints, req->joint_min, req->joint_max, constraint_err)) {
+                res->success = false;
+                res->message = constraint_err;
+                return;
+            }
+        }
+        auto clear_fn = [this]() { move_group_->clearPathConstraints(); };
+        struct CGuard { std::function<void()> fn; ~CGuard() { fn(); } } cg_{clear_fn};
+
         res->success = solveIKAndPlanJoints(target_pose.pose, req->execute, msg);
         res->message = "[IK OK] " + msg;
     }
@@ -1774,6 +1877,74 @@ namespace motion_control
         res->success = true;
         res->message = oss.str();
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    bool MotionServer::applyJointConstraints(
+        const std::vector<std::string>& joint_names,
+        const std::vector<double>& joint_min,
+        const std::vector<double>& joint_max,
+        std::string& out_msg)
+    {
+        // No constraints requested — nothing to do
+        if (joint_names.empty()) return true;
+
+        // Validate parallel arrays
+        if (joint_names.size() != joint_min.size() ||
+            joint_names.size() != joint_max.size())
+        {
+            out_msg = "Joint constraint arrays must have equal length. "
+                    "Got names=" + std::to_string(joint_names.size())
+                    + " min=" + std::to_string(joint_min.size())
+                    + " max=" + std::to_string(joint_max.size());
+            return false;
+        }
+
+        // Validate that each named joint exists in the planning group
+        const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+        if (!jmg) {
+            out_msg = "Unknown planning group: " + planning_group_;
+            return false;
+        }
+        const auto& group_joints = jmg->getVariableNames();
+        std::set<std::string> valid_names(group_joints.begin(), group_joints.end());
+
+        moveit_msgs::msg::Constraints constraints;
+
+        for (size_t i = 0; i < joint_names.size(); ++i) {
+            if (valid_names.find(joint_names[i]) == valid_names.end()) {
+                out_msg = "Joint '" + joint_names[i]
+                        + "' is not part of planning group '" + planning_group_ + "'. "
+                        + "Available joints: ";
+                for (const auto& n : group_joints) out_msg += n + " ";
+                return false;
+            }
+
+            if (joint_min[i] >= joint_max[i]) {
+                out_msg = "Invalid constraint for '" + joint_names[i]
+                        + "': min (" + std::to_string(joint_min[i])
+                        + ") >= max (" + std::to_string(joint_max[i]) + ")";
+                return false;
+            }
+
+            moveit_msgs::msg::JointConstraint jc;
+            jc.joint_name = joint_names[i];
+            jc.position = (joint_min[i] + joint_max[i]) / 2.0;
+            jc.tolerance_above = (joint_max[i] - joint_min[i]) / 2.0;
+            jc.tolerance_below = (joint_max[i] - joint_min[i]) / 2.0;
+            jc.weight = 1.0;
+            constraints.joint_constraints.push_back(jc);
+        }
+
+        move_group_->setPathConstraints(constraints);
+
+        RCLCPP_INFO(this->get_logger(),
+            "[Constraints] Applied %zu joint constraint(s)", joint_names.size());
+        for (size_t i = 0; i < joint_names.size(); ++i) {
+            RCLCPP_DEBUG(this->get_logger(),
+                "  %s: [%.4f, %.4f]", joint_names[i].c_str(), joint_min[i], joint_max[i]);
+        }
+
+        return true;
     }
 
 
