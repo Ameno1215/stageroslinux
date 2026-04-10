@@ -2,11 +2,14 @@
 JointMonitorNode
 ================
 Subscribes to /joint_states (sensor_msgs/JointState).
-Computes acceleration by differentiating velocity over time.
-Tracks per-joint min/max for position, velocity, and acceleration.
+Computes velocity and acceleration from position via finite differences.
+
+NOTE: The Gazebo position controller (GazeboSystem) calls SetVelocity(0)
+every cycle, so msg.velocity is always ~0. We MUST compute velocity from
+position changes ourselves.
 
 Services (all std_srvs/Trigger):
-  ~/start_recording   - begin recording (resets velocity history, keeps stats)
+  ~/start_recording   - begin recording (resets history, keeps stats)
   ~/stop_recording    - pause recording (stats preserved)
   ~/reset             - clear all accumulated stats
   ~/get_stats         - returns JSON with all min/max data
@@ -24,14 +27,35 @@ from std_srvs.srv import Trigger
 
 
 class JointStats:
-    """Min/max tracker for a single joint."""
+    """Min/max tracker for a single joint.
+
+    Velocity and acceleration are computed from position via finite
+    differences, because the Gazebo plugin resets velocity to 0 each cycle.
+    A simple exponential moving average (EMA) is used to smooth out the
+    high-frequency noise inherent in numerical differentiation.
+    """
     __slots__ = (
         'pos_min', 'pos_max',
         'vel_min', 'vel_max',
         'acc_min', 'acc_max',
-        'prev_vel', 'prev_stamp',
+        'prev_pos', 'prev_vel', 'prev_stamp',
+        'filtered_vel', 'filtered_acc',
+        'acc_prev_vel', 'acc_prev_stamp',
+        'acc_counter',
         'sample_count',
     )
+
+    # EMA smoothing factor for velocity (0 = no smoothing, 1 = no update).
+    # 0.2 gives a good balance between responsiveness and noise rejection
+    # at ~1000 Hz publish rate.
+    VEL_ALPHA = 0.2
+
+    # For acceleration: compute every N samples to increase dt and reduce noise.
+    # At 1000 Hz, decimation of 10 → effective 100 Hz → dt ~ 10ms.
+    ACC_DECIMATION = 10
+
+    # EMA smoothing factor for acceleration (stronger than velocity).
+    ACC_ALPHA = 0.3
 
     def __init__(self):
         self.reset()
@@ -43,35 +67,75 @@ class JointStats:
         self.vel_max = -math.inf
         self.acc_min = math.inf
         self.acc_max = -math.inf
+        self.prev_pos = None
         self.prev_vel = None
         self.prev_stamp = None
+        self.filtered_vel = 0.0
+        self.filtered_acc = 0.0
+        self.acc_prev_vel = None
+        self.acc_prev_stamp = None
+        self.acc_counter = 0
         self.sample_count = 0
 
-    def update(self, position: float, velocity: float, stamp_sec: float):
+    def update(self, position: float, stamp_sec: float):
         self.sample_count += 1
 
-        # Position
+        # ── Position ──
         if position < self.pos_min:
             self.pos_min = position
         if position > self.pos_max:
             self.pos_max = position
 
-        # Velocity
+        if self.prev_pos is None or self.prev_stamp is None:
+            # First sample: just store and return
+            self.prev_pos = position
+            self.prev_stamp = stamp_sec
+            return
+
+        dt = stamp_sec - self.prev_stamp
+        if dt < 1e-9:
+            # Duplicate timestamp — skip to avoid division by zero
+            return
+
+        # ── Velocity (computed from position) ──
+        raw_vel = (position - self.prev_pos) / dt
+
+        # EMA filter to reduce differentiation noise
+        self.filtered_vel = (
+            self.VEL_ALPHA * self.filtered_vel
+            + (1.0 - self.VEL_ALPHA) * raw_vel
+        )
+
+        velocity = self.filtered_vel
+
         if velocity < self.vel_min:
             self.vel_min = velocity
         if velocity > self.vel_max:
             self.vel_max = velocity
 
-        # Acceleration (finite difference on velocity)
-        if self.prev_vel is not None and self.prev_stamp is not None:
-            dt = stamp_sec - self.prev_stamp
-            if dt > 1e-9:
-                acc = (velocity - self.prev_vel) / dt
-                if acc < self.acc_min:
-                    self.acc_min = acc
-                if acc > self.acc_max:
-                    self.acc_max = acc
+        # ── Acceleration (decimated + filtered) ──
+        # Only compute every ACC_DECIMATION samples to increase effective dt
+        # and reduce noise from double-differentiation at 1000 Hz.
+        self.acc_counter += 1
+        if self.acc_counter >= self.ACC_DECIMATION:
+            self.acc_counter = 0
+            if self.acc_prev_vel is not None and self.acc_prev_stamp is not None:
+                acc_dt = stamp_sec - self.acc_prev_stamp
+                if acc_dt > 1e-9:
+                    raw_acc = (velocity - self.acc_prev_vel) / acc_dt
+                    # EMA filter on acceleration
+                    self.filtered_acc = (
+                        self.ACC_ALPHA * self.filtered_acc
+                        + (1.0 - self.ACC_ALPHA) * raw_acc
+                    )
+                    if self.filtered_acc < self.acc_min:
+                        self.acc_min = self.filtered_acc
+                    if self.filtered_acc > self.acc_max:
+                        self.acc_max = self.filtered_acc
+            self.acc_prev_vel = velocity
+            self.acc_prev_stamp = stamp_sec
 
+        self.prev_pos = position
         self.prev_vel = velocity
         self.prev_stamp = stamp_sec
 
@@ -109,6 +173,10 @@ class JointMonitorNode(Node):
             f'JointMonitor ready — listening on {topic} '
             f'(recording paused until start_recording is called)'
         )
+        self.get_logger().info(
+            'Velocity/acceleration computed from POSITION differences '
+            '(msg.velocity ignored — Gazebo resets it to 0 each cycle)'
+        )
 
     # ---- subscription callback ----
     def _on_joint_state(self, msg: JointState):
@@ -119,11 +187,10 @@ class JointMonitorNode(Node):
 
         for i, name in enumerate(msg.name):
             pos = msg.position[i] if i < len(msg.position) else 0.0
-            vel = msg.velocity[i] if i < len(msg.velocity) else 0.0
 
             if name not in self._stats:
                 self._stats[name] = JointStats()
-            self._stats[name].update(pos, vel, stamp_sec)
+            self._stats[name].update(pos, stamp_sec)
 
     # ---- service callbacks ----
     def _srv_start(self, _req, resp):
@@ -132,10 +199,12 @@ class JointMonitorNode(Node):
             resp.message = 'Already recording.'
             return resp
 
-        # Clear velocity/stamp history to avoid bogus acceleration across a pause gap
+        # Clear history to avoid bogus derivatives across a pause gap
         for s in self._stats.values():
+            s.prev_pos = None
             s.prev_vel = None
             s.prev_stamp = None
+            s.filtered_vel = 0.0
 
         self._recording = True
         self.get_logger().info('Recording STARTED')
