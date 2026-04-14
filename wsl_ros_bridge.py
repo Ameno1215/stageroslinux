@@ -903,6 +903,11 @@ class MotionRosClient(Node):
     
     def call_pump_grab(self) -> Dict[str, Any]:
         logger.info("Pump GRAB requested")
+
+        if self.sim:
+            logger.info("Simulation mode: skipping actual pump operation.")
+            return {"success": True, "message": "Simulation mode: pump operation not changed."}
+        
         if self.pump_grab_cli is None:
             return {"success": False, "message": "Pump services not initialized. Call /init first."}
  
@@ -923,6 +928,11 @@ class MotionRosClient(Node):
  
     def call_pump_release(self) -> Dict[str, Any]:
         logger.info("Pump RELEASE requested")
+
+        if self.sim:
+            logger.info("Simulation mode: skipping actual pump operation.")
+            return {"success": True, "message": "Simulation mode: pump operation not changed."}
+        
         if self.pump_release_cli is None:
             return {"success": False, "message": "Pump services not initialized. Call /init first."}
  
@@ -943,6 +953,11 @@ class MotionRosClient(Node):
  
     def call_pump_is_grabbed(self) -> Dict[str, Any]:
         logger.info("Pump IS_GRABBED check requested")
+
+        if self.sim:
+            logger.info("Simulation mode: skipping actual pump operation.")
+            return {"success": True, "grabbed": True, "message": "Simulation mode: pump operation not changed."}
+
         if self.pump_is_grabbed_cli is None:
             return {"success": False, "message": "Pump services not initialized. Call /init first."}
  
