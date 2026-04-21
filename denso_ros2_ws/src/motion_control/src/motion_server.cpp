@@ -12,6 +12,10 @@ namespace motion_control
         this->declare_parameter<std::string>("planning_group", "arm");
         this->declare_parameter<double>("velocity_scale", 1.0);
         this->declare_parameter<double>("accel_scale", 1.0);
+        this->declare_parameter<std::string>("ik_solver", "pick_ik");
+        this->declare_parameter<std::string>("ik_solver_plugin", "pick_ik/PickIkPlugin");
+        this->declare_parameter<std::string>("solver", "pick_ik");
+        this->declare_parameter<std::string>("solver_plugin", "pick_ik/PickIkPlugin");
         this->set_parameter(rclcpp::Parameter("use_sim_time", true));
 
         // Initialisation du système d'écoute TF
@@ -109,6 +113,28 @@ namespace motion_control
         // If request fields are empty, fallback to node parameters
         auto model = req->model.empty() ? this->get_parameter("model").as_string() : req->model;
         auto group = req->planning_group.empty() ? this->get_parameter("planning_group").as_string() : req->planning_group;
+        auto ik_solver = this->get_parameter("ik_solver").as_string();
+        auto ik_solver_plugin = this->get_parameter("ik_solver_plugin").as_string();
+        // Compatibility with clients that still use legacy "solver*" parameter names.
+        if (ik_solver.empty()) {
+            ik_solver = this->get_parameter("solver").as_string();
+        }
+        if (ik_solver_plugin.empty()) {
+            ik_solver_plugin = this->get_parameter("solver_plugin").as_string();
+        }
+
+        // Be resilient to client-side group naming mismatch across robot families.
+        if (model.find("tx2_60l") != std::string::npos && group == "arm") {
+            RCLCPP_WARN(this->get_logger(),
+                "Requested planning_group='arm' for model '%s'. Remapping to 'manipulator'.",
+                model.c_str());
+            group = "manipulator";
+        } else if (model.find("tx2_60l") == std::string::npos && group == "manipulator") {
+            RCLCPP_WARN(this->get_logger(),
+                "Requested planning_group='manipulator' for model '%s'. Remapping to 'arm'.",
+                model.c_str());
+            group = "arm";
+        }
 
         double v = req->velocity_scale > 0.0 ? req->velocity_scale : this->get_parameter("velocity_scale").as_double();
         double a = req->accel_scale > 0.0 ? req->accel_scale : this->get_parameter("accel_scale").as_double();
@@ -164,6 +190,8 @@ namespace motion_control
             std::ostringstream oss;
             oss << "Initialized with model=" << model_
                 << ", group=" << planning_group_
+                << ", ik_solver=" << ik_solver
+                << ", ik_solver_plugin=" << ik_solver_plugin
                 << ", vel_scale=" << vel_scale_
                 << ", accel_scale=" << accel_scale_
                 << ", plan_time=" << p_time

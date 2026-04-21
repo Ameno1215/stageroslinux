@@ -114,7 +114,7 @@ def euler_to_quaternion(roll, pitch, yaw):
 # Pydantic models (HTTP I/O)
 # ----------------------------
 
-SupportedModels = Literal["vs060", "cobotta", "hsr065a1_n32", "vp5243", "staubli_tx2_60l"]
+SupportedModels = Literal["vs060", "cobotta", "hsr065a1_n32", "vp5243", "tx2_60l"]
 SupportedAngleFormat = Literal["RAD", "DEG"]
 SupportedRotationFormat = Literal["RPY", "QUAT"]
 SupportedReferenceFrame = Literal["WORLD", "TOOL"]
