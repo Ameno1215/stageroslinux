@@ -16,7 +16,16 @@ namespace motion_control
         this->declare_parameter<std::string>("ik_solver_plugin", "pick_ik/PickIkPlugin");
         this->declare_parameter<std::string>("solver", "pick_ik");
         this->declare_parameter<std::string>("solver_plugin", "pick_ik/PickIkPlugin");
-        this->set_parameter(rclcpp::Parameter("use_sim_time", true));
+        this->declare_parameter<std::string>("kinematics_solver", "pick_ik/PickIkPlugin");
+        this->declare_parameter<bool>("use_health_monitor", true);
+        // Keep explicit declarations for nested keys queried by external clients.
+        this->declare_parameter<std::string>(
+            "robot_description_kinematics.arm.kinematics_solver",
+            "pick_ik/PickIkPlugin");
+        this->declare_parameter<std::string>(
+            "robot_description_kinematics.manipulator.kinematics_solver",
+            "kdl_kinematics_plugin/KDLKinematicsPlugin");
+        // this->set_parameter(rclcpp::Parameter("use_sim_time", true));
 
         // Initialisation du système d'écoute TF
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -73,20 +82,6 @@ namespace motion_control
             "clear_environment",
             std::bind(&MotionServer::onClearEnvironment, this, std::placeholders::_1, std::placeholders::_2));
 
-        health_monitor_ = std::make_unique<RobotHealthMonitor>(this, "/vs060/CurMode", "/joint_states");
-
-        // Stop MoveIt immediately when RC8 faults
-        health_monitor_->onError([this](const std::string& reason) {
-        RCLCPP_ERROR(this->get_logger(), 
-            "[MotionServer] Halting MoveIt — hardware fault: %s", reason.c_str());
-        if (move_group_) move_group_->stop();
-        });
-
-        health_monitor_->onCleared([this]() {
-        RCLCPP_INFO(this->get_logger(),
-            "[MotionServer] Hardware fault cleared — call /init_robot to resume");
-        });
-
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
@@ -110,9 +105,9 @@ namespace motion_control
         // Thread-safety: MoveGroupInterface is not designed to be called concurrently
         std::lock_guard<std::mutex> lock(mtx_);
 
-        // If request fields are empty, fallback to node parameters
-        auto model = req->model.empty() ? this->get_parameter("model").as_string() : req->model;
-        auto group = req->planning_group.empty() ? this->get_parameter("planning_group").as_string() : req->planning_group;
+        // get param from launch file
+        auto model = this->get_parameter("model").as_string();
+        auto group = this->get_parameter("planning_group").as_string();
         auto ik_solver = this->get_parameter("ik_solver").as_string();
         auto ik_solver_plugin = this->get_parameter("ik_solver_plugin").as_string();
         // Compatibility with clients that still use legacy "solver*" parameter names.
@@ -121,19 +116,6 @@ namespace motion_control
         }
         if (ik_solver_plugin.empty()) {
             ik_solver_plugin = this->get_parameter("solver_plugin").as_string();
-        }
-
-        // Be resilient to client-side group naming mismatch across robot families.
-        if (model.find("tx2_60l") != std::string::npos && group == "arm") {
-            RCLCPP_WARN(this->get_logger(),
-                "Requested planning_group='arm' for model '%s'. Remapping to 'manipulator'.",
-                model.c_str());
-            group = "manipulator";
-        } else if (model.find("tx2_60l") == std::string::npos && group == "manipulator") {
-            RCLCPP_WARN(this->get_logger(),
-                "Requested planning_group='manipulator' for model '%s'. Remapping to 'arm'.",
-                model.c_str());
-            group = "arm";
         }
 
         double v = req->velocity_scale > 0.0 ? req->velocity_scale : this->get_parameter("velocity_scale").as_double();
@@ -147,8 +129,40 @@ namespace motion_control
         try {
             // Create MoveIt interfaces
             move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(
-            shared_from_this(), planning_group_);
+                shared_from_this(), planning_group_);
             planning_scene_ = std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
+
+            planning_frame_ = move_group_->getPlanningFrame();
+            RCLCPP_INFO(this->get_logger(), "Using planning frame: %s", planning_frame_.c_str());
+
+            const bool use_health_monitor = this->get_parameter("use_health_monitor").as_bool();
+
+            if (use_health_monitor && !health_monitor_) {
+                health_monitor_ = std::make_unique<RobotHealthMonitor>(this, model_);
+
+                health_monitor_->onError([this](const std::string& reason) {
+                    RCLCPP_ERROR(this->get_logger(),
+                        "[MotionServer] Halting MoveIt — hardware fault: %s", reason.c_str());
+                    if (move_group_) move_group_->stop();
+                });
+
+                health_monitor_->onCleared([this]() {
+                    RCLCPP_INFO(this->get_logger(),
+                        "[MotionServer] Hardware fault cleared — call /init_robot to resume");
+                });
+
+                RCLCPP_INFO(this->get_logger(),
+                    "Health monitor enabled for model '%s'", model_.c_str());
+            } else if (!use_health_monitor) {
+                RCLCPP_INFO(this->get_logger(),
+                    "Health monitor disabled (use_health_monitor=false)");
+            }
+
+            // Activate only if it exists
+            if (health_monitor_) {
+                health_monitor_->setActive(true);
+                health_monitor_->clearError();
+            }
 
             // This gives us access to the full PlanningScene (collision world,
             // allowed collision matrix, robot state) needed by diagnostic helpers.
@@ -200,9 +214,6 @@ namespace motion_control
                 << ",planner_id=" << planner_id
                 << ", planning_frame=" << move_group_->getPlanningFrame()
                 << ", ee_link=" << move_group_->getEndEffectorLink();
-
-            health_monitor_->setActive(true);
-            health_monitor_->clearError(); // clear any stale error from previous session
 
             initialized_ = true;
             res->success = true;
@@ -308,7 +319,7 @@ namespace motion_control
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        // RCLCPP_DEBUG(this->get_logger(),
+        // RCLCPP_INFO(this->get_logger(),
         //     "[PlanPose] Target: pos=[%.4f, %.4f, %.4f] quat=[%.4f, %.4f, %.4f, %.4f] execute=%s",
         //     target.pose.position.x, target.pose.position.y, target.pose.position.z,
         //     target.pose.orientation.x, target.pose.orientation.y,
@@ -359,7 +370,7 @@ namespace motion_control
             return false;
         }
 
-        RCLCPP_DEBUG(this->get_logger(),
+        RCLCPP_INFO(this->get_logger(),
             "[PlanPose] Plan OK: %zu points, planning took %.3fs",
             plan.trajectory_.joint_trajectory.points.size(), planning_duration);
 
@@ -436,7 +447,7 @@ namespace motion_control
         std::string& out_error_msg)
     {
         geometry_msgs::msg::PoseStamped final_pose;
-        final_pose.header.frame_id = "world";
+        final_pose.header.frame_id = planning_frame_;
         final_pose.header.stamp = this->now();
 
         // Prepare the target transformation (Delta or Absolute)
@@ -463,7 +474,7 @@ namespace motion_control
         try {
             std::string ee_link = move_group_->getEndEffectorLink();
             geometry_msgs::msg::TransformStamped t = tf_buffer_->lookupTransform(
-                "world", ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
+                planning_frame_, ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
 
             current_pose_msg.header = t.header;
             current_pose_msg.pose.position.x = t.transform.translation.x;
@@ -471,7 +482,7 @@ namespace motion_control
             current_pose_msg.pose.position.z = t.transform.translation.z;
             current_pose_msg.pose.orientation = t.transform.rotation;
 
-            RCLCPP_DEBUG(this->get_logger(),
+            RCLCPP_INFO(this->get_logger(),
                 "Current pose (TF2): position(%.3f, %.3f, %.3f) orientation(%.4f, %.4f, %.4f, %.4f)",
                 current_pose_msg.pose.position.x,
                 current_pose_msg.pose.position.y,
@@ -585,7 +596,7 @@ namespace motion_control
         double total_time = points.back().time_from_start.sec
                           + points.back().time_from_start.nanosec * 1e-9;
 
-        RCLCPP_DEBUG(this->get_logger(),
+        RCLCPP_INFO(this->get_logger(),
             "[TRAJ] %zu points, total duration: %.4fs, joints: %zu",
             points.size(), total_time,
             trajectory.joint_trajectory.joint_names.size());
@@ -690,7 +701,7 @@ namespace motion_control
         }
 
         // Log the resolved target on the path for post-incident reconstruction
-        RCLCPP_DEBUG(this->get_logger(),
+        RCLCPP_INFO(this->get_logger(),
             "[MoveToPose] Resolved target: pos=[%.4f, %.4f, %.4f] quat=[%.4f, %.4f, %.4f, %.4f] "
             "frame=%s ref=%s relative=%s cartesian=%s execute=%s",
             target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z,
@@ -710,7 +721,7 @@ namespace motion_control
                 oss_c << req->constrained_joints[i] << "=[" 
                     << req->joint_min[i] << ", " << req->joint_max[i] << "]";
             }
-            RCLCPP_DEBUG(this->get_logger(), "%s", oss_c.str().c_str());
+            RCLCPP_INFO(this->get_logger(), "%s", oss_c.str().c_str());
         }
 
         // Speed application
@@ -755,9 +766,14 @@ namespace motion_control
                 res->message += " (took " + std::to_string(planning_duration) + "s)";
                 return;
             }
+             RCLCPP_INFO(this->get_logger(), "Cartesian path planned successfully with fraction %.1f%% (%.2fs)", 
+                        fraction * 100.0, planning_duration);
 
             // Apply velocity/acceleration scaling to the raw Cartesian trajectory
             applyVelocityScaling(trajectory);
+
+            
+            RCLCPP_INFO(this->get_logger(), "on est par ici");
 
             // Validate trajectory before sending to controller
             std::string traj_err;
@@ -767,7 +783,10 @@ namespace motion_control
                 return;
             }
 
+            RCLCPP_INFO(this->get_logger(), "on est ici");
+
             if (req->execute) {
+                 RCLCPP_INFO(this->get_logger(), "on est la ");
                 const auto& pts = trajectory.joint_trajectory.points;
                 double traj_duration = pts.back().time_from_start.sec
                                     + pts.back().time_from_start.nanosec * 1e-9;
@@ -838,7 +857,7 @@ namespace motion_control
         try {
             std::string ee_link = move_group_->getEndEffectorLink();
             geometry_msgs::msg::TransformStamped t = tf_buffer_->lookupTransform(
-                "world", ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
+                planning_frame_, ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
 
             geometry_msgs::msg::Pose current_pose;
             current_pose.position.x = t.transform.translation.x;
@@ -896,7 +915,7 @@ namespace motion_control
             absolute_waypoints.push_back(abs_pose);
 
             // Log each resolved waypoint for post-incident reconstruction
-            RCLCPP_DEBUG(this->get_logger(),
+            RCLCPP_INFO(this->get_logger(),
                 "[MoveWaypoints] WP#%zu resolved: pos=[%.4f, %.4f, %.4f] "
                 "quat=[%.4f, %.4f, %.4f, %.4f] (rel=%s frame=%s)",
                 i, abs_pose.position.x, abs_pose.position.y, abs_pose.position.z,
@@ -905,7 +924,7 @@ namespace motion_control
                 is_rel ? "true" : "false", ref_frame.c_str());
         }
 
-        RCLCPP_DEBUG(this->get_logger(),
+        RCLCPP_INFO(this->get_logger(),
             "[MoveWaypoints] %zu waypoints resolved, cartesian=%s, execute=%s",
             absolute_waypoints.size(),
             req->cartesian_path ? "true" : "false",
@@ -1012,7 +1031,7 @@ namespace motion_control
                 // Hygiene: clear pose targets after planning (same as planAndMaybeExecutePose)
                 move_group_->clearPoseTargets();
 
-                RCLCPP_DEBUG(this->get_logger(),
+                RCLCPP_INFO(this->get_logger(),
                     "[MoveWaypoints] Segment %zu/%zu planning: %s (%.3fs, %zu points)",
                     i + 1, absolute_waypoints.size(),
                     (code == moveit::core::MoveItErrorCode::SUCCESS) ? "OK" : "FAILED",
@@ -1064,7 +1083,7 @@ namespace motion_control
                             double fb_dt = std::chrono::duration<double>(
                                 std::chrono::high_resolution_clock::now() - fb_t0).count();
 
-                            RCLCPP_DEBUG(this->get_logger(),
+                            RCLCPP_INFO(this->get_logger(),
                                 "[MoveWaypoints] Segment %zu fallback IK+Joint: %s (%.3fs)",
                                 i + 1,
                                 (code == moveit::core::MoveItErrorCode::SUCCESS) ? "OK" : "FAILED",
@@ -1105,7 +1124,7 @@ namespace motion_control
 
                 if (i > 0 && !combined_trajectory.joint_trajectory.points.empty()
                     && segment_plan.trajectory_.joint_trajectory.points.size() > 1) {
-                    // Log the velocity at the junction for debugging
+                    // Log the velocity at the junction for INFOging
                     const auto& last_pt = combined_trajectory.joint_trajectory.points.back();
                     const auto& next_pt = segment_plan.trajectory_.joint_trajectory.points[1]; // first used point
                     if (!last_pt.velocities.empty() && !next_pt.velocities.empty()) {
@@ -1169,7 +1188,7 @@ namespace motion_control
             applyVelocityScaling(combined_trajectory);
 
             // Summary of the assembled multi-segment trajectory
-            RCLCPP_DEBUG(this->get_logger(),
+            RCLCPP_INFO(this->get_logger(),
                 "[MoveWaypoints] Combined trajectory: %zu points, total planning duration: %.3fs",
                 combined_trajectory.joint_trajectory.points.size(),
                 planning_duration);
@@ -1236,7 +1255,7 @@ namespace motion_control
                 oss_tgt << target[names[i]];
             }
             oss_cur << "]"; oss_tgt << "]";
-            RCLCPP_DEBUG(this->get_logger(),
+            RCLCPP_INFO(this->get_logger(),
                 "[PlanJoints] current=%s target=%s relative=%s execute=%s",
                 oss_cur.str().c_str(), oss_tgt.str().c_str(),
                 is_relative ? "true" : "false",
@@ -1310,7 +1329,7 @@ namespace motion_control
         }
 
         // Log trajectory characteristics on the happy path
-        RCLCPP_DEBUG(this->get_logger(),
+        RCLCPP_INFO(this->get_logger(),
             "[PlanJoints] Plan OK: %zu points, planning took %.3fs",
             plan.trajectory_.joint_trajectory.points.size(), dt);
 
@@ -1352,7 +1371,7 @@ namespace motion_control
         std::string why;
         if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
 
-        RCLCPP_DEBUG(this->get_logger(),
+        RCLCPP_INFO(this->get_logger(),
         "[MoveJoints] Request: %zu joints, relative=%s, execute=%s",
         req->joints.size(),
         req->is_relative ? "true" : "false",
@@ -1366,7 +1385,7 @@ namespace motion_control
                 oss_c << req->constrained_joints[i] << "=[" 
                     << req->joint_min[i] << ", " << req->joint_max[i] << "]";
             }
-            RCLCPP_DEBUG(this->get_logger(), "%s", oss_c.str().c_str());
+            RCLCPP_INFO(this->get_logger(), "%s", oss_c.str().c_str());
         }
 
         // --- Apply optional joint constraints ---
@@ -1413,7 +1432,7 @@ namespace motion_control
         }
 
         // Log the resolved target
-        RCLCPP_DEBUG(this->get_logger(),
+        RCLCPP_INFO(this->get_logger(),
             "[MoveToPoseViaJoint] Target: pos=[%.4f, %.4f, %.4f] quat=[%.4f, %.4f, %.4f, %.4f]",
             target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z,
             target_pose.pose.orientation.x, target_pose.pose.orientation.y,
@@ -1427,7 +1446,7 @@ namespace motion_control
                 oss_c << req->constrained_joints[i] << "=[" 
                     << req->joint_min[i] << ", " << req->joint_max[i] << "]";
             }
-            RCLCPP_DEBUG(this->get_logger(), "%s", oss_c.str().c_str());
+            RCLCPP_INFO(this->get_logger(), "%s", oss_c.str().c_str());
         }
 
         std::string msg;
@@ -1491,7 +1510,7 @@ namespace motion_control
         }
 
         // If frame_id is empty, default to "world"
-        std::string reference_frame = req->frame_id.empty() ? "world" : req->frame_id;
+        std::string reference_frame = req->frame_id.empty() ? planning_frame_ : req->frame_id;
 
         try {
             // Lookup Transform via TF2
@@ -1568,7 +1587,7 @@ namespace motion_control
         // Utility function to generate a wall as a CollisionObject
         auto make_wall = [&](const std::string& id, double cx, double cy, double cz, double sx, double sy, double sz) {
             moveit_msgs::msg::CollisionObject obj;
-            obj.header.frame_id = "world";
+            obj.header.frame_id = planning_frame_;
             obj.id = id;
             obj.operation = obj.ADD;
             
@@ -1669,11 +1688,11 @@ namespace motion_control
 
         // --- 2. Setup MoveIt Object and RViz Marker ---
         moveit_msgs::msg::CollisionObject obj;
-        obj.header.frame_id = "world";
+        obj.header.frame_id = planning_frame_;
         obj.id = req->box_id;
 
         visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "world";
+        marker.header.frame_id = planning_frame_;
         marker.header.stamp = this->now();
         marker.ns = "boxes";
         marker.id = getMarkerId(req->box_id); 
@@ -1746,7 +1765,7 @@ namespace motion_control
         if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
 
         moveit_msgs::msg::CollisionObject obj;
-        obj.header.frame_id = "world"; // Placed relative to the world frame
+        obj.header.frame_id = planning_frame_; // Placed relative to the planning frame
         obj.id = req->mesh_id;
 
         if (req->action == "REMOVE") {
@@ -1848,7 +1867,7 @@ namespace motion_control
         }
 
         visualization_msgs::msg::Marker deleteall;
-        deleteall.header.frame_id = "world";
+        deleteall.header.frame_id = planning_frame_;
         deleteall.header.stamp = this->now();
         deleteall.ns = "boxes";
         deleteall.action = visualization_msgs::msg::Marker::DELETEALL;
@@ -1863,7 +1882,7 @@ namespace motion_control
             removals.push_back(obj);
 
             visualization_msgs::msg::Marker marker;
-            marker.header.frame_id = "world";
+            marker.header.frame_id = planning_frame_;
             marker.header.stamp = this->now();
             marker.ns = "boxes";
             marker.id = getMarkerId(id);
@@ -1880,7 +1899,7 @@ namespace motion_control
             to_remove.push_back(id);
 
             visualization_msgs::msg::Marker marker;
-            marker.header.frame_id = "world";
+            marker.header.frame_id = planning_frame_;
             marker.header.stamp = this->now();
             marker.ns = "boxes";
             marker.id = getMarkerId(id);
@@ -1968,7 +1987,7 @@ namespace motion_control
         RCLCPP_INFO(this->get_logger(),
             "[Constraints] Applied %zu joint constraint(s)", joint_names.size());
         for (size_t i = 0; i < joint_names.size(); ++i) {
-            RCLCPP_DEBUG(this->get_logger(),
+            RCLCPP_INFO(this->get_logger(),
                 "  %s: [%.4f, %.4f]", joint_names[i].c_str(), joint_min[i], joint_max[i]);
         }
 

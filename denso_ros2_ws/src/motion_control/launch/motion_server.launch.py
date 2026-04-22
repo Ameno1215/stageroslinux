@@ -102,6 +102,17 @@ def generate_launch_description():
     merged_kinematics.update(denso_kinematics)
     merged_kinematics.update(staubli_kinematics)
 
+    # use_sim_time = ParameterValue(
+    #     PythonExpression(["'tx2_60l' not in '", model, "'"]),
+    #     value_type=bool,
+    # )
+    use_sim_time = True
+
+    use_health_monitor = ParameterValue(
+        PythonExpression(["'tx2_60l' not in '", model, "'"]),
+        value_type=bool,
+    )
+
     motion_server_node = Node(
         package="motion_control",
         executable="motion_server",
@@ -109,6 +120,8 @@ def generate_launch_description():
         parameters=[
             robot_description,
             robot_description_semantic,
+            {"use_sim_time": use_sim_time},
+            {"use_health_monitor": use_health_monitor},
             {"robot_description_kinematics": merged_kinematics},
             {
                 "model": model,

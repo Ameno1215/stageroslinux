@@ -113,19 +113,22 @@ def euler_to_quaternion(roll, pitch, yaw):
 # ----------------------------
 # Pydantic models (HTTP I/O)
 # ----------------------------
-
-SupportedModels = Literal["vs060", "cobotta", "hsr065a1_n32", "vp5243", "tx2_60l"]
 SupportedAngleFormat = Literal["RAD", "DEG"]
 SupportedRotationFormat = Literal["RPY", "QUAT"]
 SupportedReferenceFrame = Literal["WORLD", "TOOL"]
 SupportedPPlannerId = Literal["RRTstar", "PRMstar", "FMT", "RRTConnect", "BiTRRT"]
-SupportedPlanningGroup = Literal["arm", "manipulator"]
 SupportedBoxAction = Literal["ADD", "REMOVE"]
 
+# Backward-compatible aliases accepted by the HTTP API.
+MODEL_ALIASES = {
+    "staubli_tx2_60l": "tx2_60l",
+}
+
+def canonical_model_name(model: str) -> str:
+    return MODEL_ALIASES.get(model, model)
+
 class InitReq(BaseModel):
-    model: SupportedModels = "vs060"
     sim: bool = True
-    planning_group: SupportedPlanningGroup = "arm"
     velocity_scale: float = 0.1
     accel_scale: float = 0.1
     planning_time: float = 5.0
@@ -337,10 +340,12 @@ class MotionRosClient(Node):
         return fut.result()
 
     def call_init(self, req: InitReq) -> Dict[str, Any]:
-        logger.info(f"Initialization requested (Model: {req.model}, Group: {req.planning_group})")
+        logger.info(
+            f"Initialization requested (vel={req.velocity_scale}, accel={req.accel_scale}, "
+            f"planner={req.planner_id})"
+        )
+        
         ros_req = InitRobot.Request()
-        ros_req.model = str(req.model)
-        ros_req.planning_group = str(req.planning_group)
         self.sim = req.sim
         ros_req.velocity_scale = float(req.velocity_scale)
         ros_req.accel_scale = float(req.accel_scale)
@@ -351,39 +356,65 @@ class MotionRosClient(Node):
 
         fut = self.init_cli.call_async(ros_req)
 
+        # Wait for the init to succeed BEFORE creating model-dependent clients
+        try:
+            res = self._wait_for_future(fut, timeout=60.0)
+        except Exception as e:
+            logger.error(f"Critical error during InitRobot call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"InitRobot failed: {e}")
+
+        if not res.success:
+            logger.error(f"Initialization failed: {res.message}")
+            return {"success": False, "message": str(res.message)}
+
+        logger.info(f"Initialization successful: {res.message}")
+
+        # Read the model from the C++ node's parameters to build hardware service URLs
+        model = self._read_motion_server_param("model")
+        if not model:
+            logger.error("Could not read 'model' parameter from motion_server after init")
+            return {"success": False, "message": "Could not resolve model name after init"}
+
+        self.model = model
+        logger.info(f"Resolved model from motion_server parameters: {model}")
+
+        # Create hardware-dependent clients (only on real robot)
         if not self.sim and self.servo_on_cli is None:
-            self.servo_on_cli = self.create_client(SetServoOn, f"/{req.model}/SetServoOn")
+            self.servo_on_cli = self.create_client(SetServoOn, f"/{model}/SetServoOn")
             if not self.servo_on_cli.wait_for_service(timeout_sec=10.0):
-                logger.warning(f"SetServoOn service not available for {req.model}")
-        
+                logger.warning(f"SetServoOn service not available for {model}")
+
         if not self.sim:
-            self.pump_grab_cli = self.create_client(SetBool, f"/{req.model}/pump/grab")
-            self.pump_release_cli = self.create_client(SetBool, f"/{req.model}/pump/release")
-            self.pump_is_grabbed_cli = self.create_client(SetBool, f"/{req.model}/pump/is_grabbed")
+            self.pump_grab_cli = self.create_client(SetBool, f"/{model}/pump/grab")
+            self.pump_release_cli = self.create_client(SetBool, f"/{model}/pump/release")
+            self.pump_is_grabbed_cli = self.create_client(SetBool, f"/{model}/pump/is_grabbed")
             for cli, name in [
                 (self.pump_grab_cli, "pump/grab"),
                 (self.pump_release_cli, "pump/release"),
                 (self.pump_is_grabbed_cli, "pump/is_grabbed"),
             ]:
                 if not cli.wait_for_service(timeout_sec=10.0):
-                    logger.warning(f"Pump service {name} not available for {req.model}")
-            
+                    logger.warning(f"Pump service {name} not available for {model}")
             logger.info("Pump control services connected.")
 
+        return {"success": True, "message": str(res.message)}
+    
+    def _read_motion_server_param(self, name: str) -> Optional[str]:
+        """Read a string parameter from the motion_server C++ node."""
+        if not self.param_client.wait_for_service(timeout_sec=2.0):
+            logger.error("Parameter service not available on motion_server")
+            return None
+        req = GetParameters.Request()
+        req.names = [name]
+        fut = self.param_client.call_async(req)
         try:
-            # 60 seconds for initialization (loading robot model, setting up MoveIt, etc.)
-            res = self._wait_for_future(fut, timeout=60.0)
-            if res.success:
-                logger.info(f"Initialization successful: {res.message}")
-            else:
-                logger.error(f"Initialization failed: {res.message}")
-            return {"success": bool(res.success), "message": str(res.message)}
+            res = self._wait_for_future(fut, timeout=3.0)
+            if res.values and len(res.values) > 0:
+                return res.values[0].string_value
         except Exception as e:
-            logger.error(f"Critical error during InitRobot call: {e}")
-            logger.debug(traceback.format_exc())
-            raise RuntimeError(f"InitRobot failed: {e}")
-            
-        return {"success": bool(res.success), "message": str(res.message)}
+            logger.error(f"Failed to read motion_server param '{name}': {e}")
+        return None
 
     def call_scaling(self, req: ScalingReq) -> Dict[str, Any]:
         logger.info(f"Scaling change requested (Vel: {req.velocity_scale}, Acc: {req.accel_scale})")
@@ -670,24 +701,33 @@ class MotionRosClient(Node):
             return {"success": False, "message": "motion_server parameter service not available."}
         
         req = GetParameters.Request()
-        req.names = ['robot_description_kinematics.arm.kinematics_solver']
+        # Query multiple keys to stay compatible with both old and new launch/node setups.
+        req.names = [
+            "ik_solver_plugin",
+            "solver_plugin",
+            "kinematics_solver",
+            "robot_description_kinematics.arm.kinematics_solver",
+            "robot_description_kinematics.manipulator.kinematics_solver",
+        ]
         
         fut = self.param_client.call_async(req)
         try:
             res = self._wait_for_future(fut, timeout=5.0)
             
             if res.values and len(res.values) > 0:
-                plugin_name = res.values[0].string_value
-                
-                if plugin_name:
-                    short_name = plugin_name.split('/')[0] if '/' in plugin_name else plugin_name
-                    logger.info(f"Current IK solver plugin: {plugin_name} (short name: {short_name})")
-                    
-                    return {
-                        "success": True, 
-                        "solver": short_name, 
-                        "full_plugin_name": plugin_name
-                    }
+                for name, value in zip(req.names, res.values):
+                    plugin_name = value.string_value
+                    if plugin_name:
+                        short_name = plugin_name.split('/')[0] if '/' in plugin_name else plugin_name
+                        logger.info(
+                            f"Current IK solver plugin: {plugin_name} (short name: {short_name}, from '{name}')"
+                        )
+                        return {
+                            "success": True,
+                            "solver": short_name,
+                            "full_plugin_name": plugin_name,
+                            "parameter_source": name,
+                        }
                     
             logger.error("Solver parameter not found or empty in response.")
             return {"success": False, "message": "Solver parameter is not set in C++ node."}

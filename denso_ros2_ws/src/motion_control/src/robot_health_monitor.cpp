@@ -5,46 +5,49 @@ namespace motion_control
 
 RobotHealthMonitor::RobotHealthMonitor(
   rclcpp::Node* node,
-  const std::string& cur_mode_topic,
+  const std::string& model,
   const std::string& joint_state_topic)
 : node_(node)
 {
   last_joint_state_time_ = node_->now();
 
-  // --- 1. CurMode: primary signal — drops to 0 on ANY RC8 error ---
-    robot_error_sub_ = node_->create_subscription<std_msgs::msg::Int32>(
-        "/vs060/RobotError",
-        rclcpp::SystemDefaultsQoS(),
-        [this](const std_msgs::msg::Int32::SharedPtr msg) {
-            if (!active_.load()) return;
+// --- 1. RobotError: primary signal — non-zero on ANY RC8 error ---
+    const std::string error_topic      = "/" + model + "/RobotError";
+    const std::string error_desc_topic = "/" + model + "/RobotErrorDescription";
 
-            int32_t error_code = msg->data;
+  robot_error_sub_ = node_->create_subscription<std_msgs::msg::Int32>(
+    error_topic,
+    rclcpp::SystemDefaultsQoS(),
+    [this](const std_msgs::msg::Int32::SharedPtr msg) {
+        if (!active_.load()) return;
 
-            if (error_code != 0 && !has_error_.load()) {
-                std::ostringstream oss;
-                oss << "RC8 error: 0x" << std::hex << std::uppercase << error_code;
-                triggerError(oss.str());
-            }
-            else if (error_code == 0 && has_error_.load()) {
-                RCLCPP_INFO(node_->get_logger(),
-                    "[HealthMonitor] RC8 error cleared");
-                clearError();
-            }
-        });
+        int32_t error_code = msg->data;
 
-    robot_error_desc_sub_ = node_->create_subscription<std_msgs::msg::String>(
-        "/vs060/RobotErrorDescription",
-        rclcpp::SystemDefaultsQoS(),
-        [this](const std_msgs::msg::String::SharedPtr msg) {
-            if (!active_.load()) return;
-            if (!msg->data.empty()) {
-                // Enrichir le message d'erreur existant avec la description complète
-                std::lock_guard<std::mutex> lk(error_msg_mtx_);
-                error_msg_ += " | " + msg->data;
-                RCLCPP_ERROR(node_->get_logger(),
-                    "[HealthMonitor] RC8 error details: %s", msg->data.c_str());
-            }
-        });
+        if (error_code != 0 && !has_error_.load()) {
+            std::ostringstream oss;
+            oss << "RC8 error: 0x" << std::hex << std::uppercase << error_code;
+            triggerError(oss.str());
+        }
+        else if (error_code == 0 && has_error_.load()) {
+            RCLCPP_INFO(node_->get_logger(),
+                "[HealthMonitor] RC8 error cleared");
+            clearError();
+        }
+    });
+
+  robot_error_desc_sub_ = node_->create_subscription<std_msgs::msg::String>(
+    error_desc_topic,
+    rclcpp::SystemDefaultsQoS(),
+    [this](const std_msgs::msg::String::SharedPtr msg) {
+        if (!active_.load()) return;
+        if (!msg->data.empty()) {
+            // Enrichir le message d'erreur existant avec la description complète
+            std::lock_guard<std::mutex> lk(error_msg_mtx_);
+            error_msg_ += " | " + msg->data;
+            RCLCPP_ERROR(node_->get_logger(),
+                "[HealthMonitor] RC8 error details: %s", msg->data.c_str());
+        }
+    });
 
   // --- 2. Joint states watchdog: catches E-Stop / comms freeze ---
   joint_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>(
@@ -67,9 +70,9 @@ RobotHealthMonitor::RobotHealthMonitor(
     std::chrono::milliseconds(500),
     std::bind(&RobotHealthMonitor::watchdogTick, this));
 
-  RCLCPP_INFO(node_->get_logger(), 
-    "[HealthMonitor] Initialized. Watching: %s, %s",
-    cur_mode_topic.c_str(), joint_state_topic.c_str());
+  RCLCPP_INFO(node_->get_logger(),
+      "[HealthMonitor] Initialized for model='%s'. Watching: %s, %s",
+      model.c_str(), error_topic.c_str(), joint_state_topic.c_str());
 }
 
 // ─── Joint states watchdog ──────────────────────────────────────────────────

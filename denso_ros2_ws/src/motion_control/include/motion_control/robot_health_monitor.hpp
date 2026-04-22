@@ -23,8 +23,8 @@ public:
 
   RobotHealthMonitor(
     rclcpp::Node* node,
-    const std::string& cur_mode_topic,   // e.g. "/vs060/CurMode"
-    const std::string& joint_state_topic // e.g. "/joint_states"
+    const std::string& model,                    // e.g. "vs060", "vp5243"
+    const std::string& joint_state_topic = "/joint_states"
   );
 
   // Register callbacks

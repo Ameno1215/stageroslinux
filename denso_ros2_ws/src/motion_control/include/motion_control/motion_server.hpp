@@ -74,6 +74,7 @@ namespace motion_control
             std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
             std::unique_ptr<RobotHealthMonitor> health_monitor_;
+            std::string planning_frame_ = "world";
 
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
 
