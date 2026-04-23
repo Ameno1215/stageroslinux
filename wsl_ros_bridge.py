@@ -119,13 +119,7 @@ SupportedReferenceFrame = Literal["WORLD", "TOOL"]
 SupportedPPlannerId = Literal["RRTstar", "PRMstar", "FMT", "RRTConnect", "BiTRRT"]
 SupportedBoxAction = Literal["ADD", "REMOVE"]
 
-# Backward-compatible aliases accepted by the HTTP API.
-MODEL_ALIASES = {
-    "staubli_tx2_60l": "tx2_60l",
-}
 
-def canonical_model_name(model: str) -> str:
-    return MODEL_ALIASES.get(model, model)
 
 class InitReq(BaseModel):
     sim: bool = True

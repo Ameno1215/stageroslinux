@@ -23,7 +23,7 @@ def load_yaml(package_name, file_path):
 def generate_launch_description():
     # --- Arguments ---
     declared_arguments = [
-        DeclareLaunchArgument("model", description="Robot model (e.g. vs060, cobotta, hsr065, tx2_60l)."),
+        DeclareLaunchArgument("model", description="Robot model (e.g. vs060, cobotta, hsr065, tx2_60l, tx40)."),
         DeclareLaunchArgument("sim", default_value="true", description="Use simulated/fake hardware."),
         DeclareLaunchArgument("planning_group", default_value="", description="MoveIt planning group name."),
         DeclareLaunchArgument("velocity_scale", default_value="0.1", description="Max velocity scaling factor [0..1]."),
@@ -48,28 +48,32 @@ def generate_launch_description():
     # --- Dynamic Package & Folder Resolution ---
     # 1. URDF
     description_package = PythonExpression([
-        "'staubli_tx2_60l_description' if 'tx2_60l' in '", model, "' else 'denso_robot_descriptions'"
+        "'staubli_tx40_description' if 'tx40' in '", model, "' else "
+        "('staubli_tx2_60l_description' if 'tx2_60l' in '", model, "' else 'denso_robot_descriptions')"
     ])
     description_folder = "urdf"  # both robots use 'urdf/' for the URDF
     description_file = PythonExpression([
-        "'tx2_60l.xacro' if 'tx2_60l' in '", model, "' else 'denso_robot.urdf.xacro'"
+        "'tx40.xacro' if 'tx40' in '", model, "' else "
+        "('tx2_60l.xacro' if 'tx2_60l' in '", model, "' else 'denso_robot.urdf.xacro')"
     ])
 
     # 2. SRDF
     moveit_config_package = PythonExpression([
-        "'staubli_tx2_60l_moveit_config' if 'tx2_60l' in '", model, "' else 'denso_robot_moveit_config'"
+        "'staubli_tx40_moveit_config' if 'tx40' in '", model, "' else "
+        "('staubli_tx2_60l_moveit_config' if 'tx2_60l' in '", model, "' else 'denso_robot_moveit_config')"
     ])
     srdf_folder = PythonExpression([
-        "'config' if 'tx2_60l' in '", model, "' else 'srdf'"
+        "'config' if ('tx2_60l' in '", model, "' or 'tx40' in '", model, "') else 'srdf'"
     ])
     moveit_config_file = PythonExpression([
-        "'staubli_tx2_60l.srdf' if 'tx2_60l' in '", model, "' else 'denso_robot.srdf.xacro'"
+        "'staubli_tx40.srdf' if 'tx40' in '", model, "' else "
+        "('staubli_tx2_60l.srdf' if 'tx2_60l' in '", model, "' else 'denso_robot.srdf.xacro')"
     ])
 
     # 3. Planning group
     planning_group = PythonExpression([
         "'", planning_group_arg, "' if '", planning_group_arg,
-        "' != '' else ('manipulator' if 'tx2_60l' in '", model, "' else 'arm')"
+        "' != '' else ('manipulator' if ('tx2_60l' in '", model, "' or 'tx40' in '", model, "') else 'arm')"
     ])
 
     # --- Robot description (URDF) ---
@@ -95,12 +99,14 @@ def generate_launch_description():
 
     # --- Kinematics (IK plugins config) ---
     denso_kinematics = load_yaml("denso_robot_moveit_config", "config/kinematics.yaml") or {}
-    staubli_kinematics = load_yaml("staubli_tx2_60l_moveit_config", "config/kinematics.yaml") or {}
+    staubli_tx2_60l_kinematics = load_yaml("staubli_tx2_60l_moveit_config", "config/kinematics.yaml") or {}
+    staubli_tx40_kinematics = load_yaml("staubli_tx40_moveit_config", "config/kinematics.yaml") or {}
     # Merge both kinematics maps so each planning group keeps its full solver settings.
     # Keys are distinct in this workspace ("arm" for DENSO, "manipulator" for Staubli).
     merged_kinematics = {}
     merged_kinematics.update(denso_kinematics)
-    merged_kinematics.update(staubli_kinematics)
+    merged_kinematics.update(staubli_tx2_60l_kinematics)
+    merged_kinematics.update(staubli_tx40_kinematics)
 
     # use_sim_time = ParameterValue(
     #     PythonExpression(["'tx2_60l' not in '", model, "'"]),
@@ -109,7 +115,7 @@ def generate_launch_description():
     use_sim_time = True
 
     use_health_monitor = ParameterValue(
-        PythonExpression(["'tx2_60l' not in '", model, "'"]),
+        PythonExpression(["not ('tx2_60l' in '", model, "' or 'tx40' in '", model, "')"]),
         value_type=bool,
     )
 
