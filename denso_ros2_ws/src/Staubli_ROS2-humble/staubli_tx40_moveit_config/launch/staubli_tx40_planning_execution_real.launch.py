@@ -10,11 +10,18 @@ from moveit_configs_utils import MoveItConfigsBuilder
 import xacro
 
 def generate_launch_description():
+    tool = LaunchConfiguration("tool")
 
     moveit_config = (
         MoveItConfigsBuilder("staubli_tx40")
-        .robot_description(file_path="config/staubli_tx40.urdf.xacro")
-        .robot_description_semantic(file_path="config/staubli_tx40.srdf")
+        .robot_description(
+            file_path="config/staubli_tx40.urdf.xacro",
+            mappings={"tool": tool},
+        )
+        .robot_description_semantic(
+            file_path="config/staubli_tx40.srdf.xacro",
+            mappings={"tool": tool},
+        )
         .robot_description_kinematics(file_path="config/kinematics.yaml")
         .trajectory_execution(file_path="config/moveit_controllers.yaml")
         .to_moveit_configs()
@@ -110,6 +117,11 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "tool",
+                default_value="none",
+                description="End-effector tool to attach.",
+            ),
             rviz_node,
             static_tf_node,
             robot_state_publisher,

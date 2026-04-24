@@ -1,22 +1,22 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro">
 
-  <xacro:macro name="effecteur_v2" params="namespace parent_link">
+  <xacro:macro name="effecteur_test" params="namespace parent_link">
     
     <link name="${namespace}tool_link">
       <visual>
-        <origin xyz="0 0 -0.2" rpy="0 0 0" />
+        <origin xyz="0 0 -0.207" rpy="0 0 0" />
         <geometry>
-          <mesh filename="file://$(find denso_robot_descriptions)/tools/effecteur_v2/effecteurV2_visual.stl" scale="0.001 0.001 0.001"/>
+          <mesh filename="file://$(find tool)/effecteur_test/EffecteurTest.STL" scale="0.001 0.001 0.001"/>
         </geometry>
         <material name="grey">
           <color rgba="0.5 0.5 0.5 1.0"/>
         </material>
       </visual>
       <collision>
-        <origin xyz="0 0 -0.2" rpy="0 0 0" />
+        <origin xyz="0 0 -0.207" rpy="0 0 0" />
         <geometry>
-          <mesh filename="file://$(find denso_robot_descriptions)/tools/effecteur_v2/effecteurV2_colision.stl" scale="0.001 0.001 0.001"/>
+          <mesh filename="file://$(find tool)/effecteur_test/EffecteurTest.STL" scale="0.001 0.001 0.001"/>
         </geometry>
       </collision>
       <inertial>
@@ -29,7 +29,7 @@
     <joint name="${namespace}tool_joint" type="fixed">
       <parent link="${parent_link}" /> 
       <child link="${namespace}tool_link" />
-      <origin xyz="0 0 0.2" rpy="0 0 0" /> 
+      <origin xyz="0 0 0.207" rpy="0 0 0" /> 
     </joint>
 
   </xacro:macro>

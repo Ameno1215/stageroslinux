@@ -1,12 +1,31 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="staubli_tx40">
     <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
+    <xacro:arg name="tool" default="none" />
+    <xacro:arg name="namespace" default="" />
 
-    <!-- Import panda urdf file -->
+    <!-- Robot URDF -->
     <xacro:include filename="$(find staubli_tx40_description)/urdf/tx40.xacro" />
 
-    <!-- Import staubli ros2_control description -->
+    <!-- ros2_control -->
     <xacro:include filename="staubli_tx40.ros2_control.xacro" />
+    <xacro:staubli_tx40_ros2_control
+        name="StaubliTX40FakeSystem"
+        initial_positions_file="$(arg initial_positions_file)"/>
 
-    <xacro:staubli_tx40_ros2_control name="StaubliTX260lFakeSystem" initial_positions_file="$(arg initial_positions_file)"/>
+    <!-- Tool dispatcher -->
+    <xacro:if value="${'$(arg tool)' == 'effecteur_v2'}">
+        <xacro:include filename="$(find tool)/effecteur_v2/effecteur_v2.xacro" />
+        <xacro:effecteur_v2 namespace="$(arg namespace)" parent_link="$(arg namespace)tool0" />
+    </xacro:if>
+
+    <xacro:if value="${'$(arg tool)' == 'effecteur_v1'}">
+        <xacro:include filename="$(find tool)/effecteur_v1/effecteur_v1.xacro" />
+        <xacro:effecteur_v1 namespace="$(arg namespace)" parent_link="$(arg namespace)tool0" />
+    </xacro:if>
+
+    <xacro:if value="${'$(arg tool)' == 'effecteur_test'}">
+        <xacro:include filename="$(find tool)/effecteur_test/effecteur_test.xacro" />
+        <xacro:effecteur_test namespace="$(arg namespace)" parent_link="$(arg namespace)tool0" />
+    </xacro:if>
 </robot>

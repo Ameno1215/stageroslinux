@@ -31,6 +31,7 @@ def generate_launch_description():
     )
 
     model = LaunchConfiguration('model')
+    tool = LaunchConfiguration('tool')
     sim = LaunchConfiguration('sim')
 
     moveit_config_package_name = ['staubli_', model, '_moveit_config']
@@ -51,11 +52,13 @@ def generate_launch_description():
 
     real_bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(real_launch_file),
+        launch_arguments={'tool': tool}.items(),
         condition=UnlessCondition(sim)
     )
 
     sim_bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(sim_launch_file),
+        launch_arguments={'tool': tool}.items(),
         condition=IfCondition(sim)
     )
 

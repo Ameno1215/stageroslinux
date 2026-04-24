@@ -1,7 +1,32 @@
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from moveit_configs_utils import MoveItConfigsBuilder
 from moveit_configs_utils.launches import generate_move_group_launch
 
 
 def generate_launch_description():
-    moveit_config = MoveItConfigsBuilder("staubli_tx2_60l", package_name="staubli_tx2_60l_moveit_config").to_moveit_configs()
-    return generate_move_group_launch(moveit_config)
+    tool = LaunchConfiguration("tool")
+    moveit_config = (
+        MoveItConfigsBuilder("staubli_tx2_60l", package_name="staubli_tx2_60l_moveit_config")
+        .robot_description(
+            file_path="config/staubli_tx2_60l.urdf.xacro",
+            mappings={"tool": tool},
+        )
+        .robot_description_semantic(
+            file_path="config/staubli_tx2_60l.srdf.xacro",
+            mappings={"tool": tool},
+        )
+        .to_moveit_configs()
+    )
+    base_launch = generate_move_group_launch(moveit_config)
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument(
+                "tool",
+                default_value="none",
+                description="End-effector tool to attach.",
+            ),
+            *base_launch.entities,
+        ]
+    )
