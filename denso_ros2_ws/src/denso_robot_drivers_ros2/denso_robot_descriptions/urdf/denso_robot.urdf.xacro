@@ -24,13 +24,6 @@
      send_format="$(arg send_format)"
      recv_format="$(arg recv_format)" />
 
-   <!-- <xacro:unless value="${'$(arg tool)' == 'none'}">
-     <xacro:include filename="$(find denso_robot_descriptions)/tools/$(arg tool)/$(arg tool).xacro"/>
-     
-     <xacro:call macro="$(arg tool)" namespace="$(arg namespace)" parent_link="$(arg namespace)J6" />
-   </xacro:unless>
-    -->
-
    <xacro:property name="tool_parent_link" value="$(arg namespace)J6" />
 
    <xacro:if value="${'$(arg model)' == 'hsr065a1_n32'}">
@@ -42,7 +35,7 @@
    </xacro:if>
 
    <xacro:unless value="${'$(arg tool)' == 'none'}">
-     <xacro:include filename="$(find denso_robot_descriptions)/tools/$(arg tool)/$(arg tool).xacro"/>
+     <xacro:include filename="$(find tool)/$(arg tool)/$(arg tool).xacro"/>
      
      <xacro:call macro="$(arg tool)" namespace="$(arg namespace)" parent_link="${tool_parent_link}" />
    </xacro:unless>

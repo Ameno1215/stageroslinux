@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<robot name="staubli_tx2_60l" xmlns:xacro="http://wiki.ros.org/xacro">
+  <xacro:arg name="tool" default="none"/>
+  <xacro:include filename="$(find staubli_tx2_60l_description)/urdf/tx2_60l_macro.xacro"/>
+  <xacro:staubli_tx2_60l prefix=""/>
+  <xacro:unless value="${'$(arg tool)' == 'none'}">
+    <xacro:include filename="$(find tool)/$(arg tool)/$(arg tool).xacro"/>
+    <xacro:call macro="$(arg tool)" namespace="" parent_link="tool0" />
+  </xacro:unless>
+</robot>

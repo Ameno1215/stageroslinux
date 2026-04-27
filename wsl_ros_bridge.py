@@ -109,23 +109,45 @@ def euler_to_quaternion(roll, pitch, yaw):
     qz = cr * cp * sy - sr * sp * cy
     return qx, qy, qz, qw
 
+def quaternion_multiply(q1, q2):
+    """Multiply two quaternions in (x, y, z, w) format. Returns q1 * q2."""
+    x1, y1, z1, w1 = q1
+    x2, y2, z2, w2 = q2
+    return (
+        w1*x2 + x1*w2 + y1*z2 - z1*y2,
+        w1*y2 - x1*z2 + y1*w2 + z1*x2,
+        w1*z2 + x1*y2 - y1*x2 + z1*w2,
+        w1*w2 - x1*x2 - y1*y2 - z1*z2,
+    )
+
+
+def quaternion_rotate_vector(q, v):
+    """Rotate a 3-vector v by a unit quaternion q (x, y, z, w)."""
+    qx, qy, qz, qw = q
+    vx, vy, vz = v
+    tx = 2.0 * (qy*vz - qz*vy)
+    ty = 2.0 * (qz*vx - qx*vz)
+    tz = 2.0 * (qx*vy - qy*vx)
+    return (
+        vx + qw*tx + (qy*tz - qz*ty),
+        vy + qw*ty + (qz*tx - qx*tz),
+        vz + qw*tz + (qx*ty - qy*tx),
+    )
+
 
 # ----------------------------
 # Pydantic models (HTTP I/O)
 # ----------------------------
-
-SupportedModels = Literal["vs060", "cobotta", "hsr065a1_n32", "vp5243", "staubli_tx2_60l"]
 SupportedAngleFormat = Literal["RAD", "DEG"]
 SupportedRotationFormat = Literal["RPY", "QUAT"]
 SupportedReferenceFrame = Literal["WORLD", "TOOL"]
 SupportedPPlannerId = Literal["RRTstar", "PRMstar", "FMT", "RRTConnect", "BiTRRT"]
-SupportedPlanningGroup = Literal["arm", "manipulator"]
 SupportedBoxAction = Literal["ADD", "REMOVE"]
 
+
+
 class InitReq(BaseModel):
-    model: SupportedModels = "vs060"
     sim: bool = True
-    planning_group: SupportedPlanningGroup = "arm"
     velocity_scale: float = 0.1
     accel_scale: float = 0.1
     planning_time: float = 5.0
@@ -199,6 +221,19 @@ class MoveApproachReq(BaseModel):
     z_offset: float = 0.1
     cartesian_path: bool = False
     execute: bool = True
+
+class ComputeApproachReq(BaseModel):
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
+    r1: float = 0.0
+    r2: float = 0.0
+    r3: float = 0.0
+    r4: float = 0.0
+    rotation_format: SupportedRotationFormat = "RPY"
+    angle_format: SupportedAngleFormat = "RAD"
+    reference_frame: SupportedReferenceFrame = "WORLD"
+    z_offset: float = 0.1
 
 class VirtualCageReq(BaseModel):
     enable: bool = False
@@ -337,10 +372,12 @@ class MotionRosClient(Node):
         return fut.result()
 
     def call_init(self, req: InitReq) -> Dict[str, Any]:
-        logger.info(f"Initialization requested (Model: {req.model}, Group: {req.planning_group})")
+        logger.info(
+            f"Initialization requested (vel={req.velocity_scale}, accel={req.accel_scale}, "
+            f"planner={req.planner_id})"
+        )
+        
         ros_req = InitRobot.Request()
-        ros_req.model = str(req.model)
-        ros_req.planning_group = str(req.planning_group)
         self.sim = req.sim
         ros_req.velocity_scale = float(req.velocity_scale)
         ros_req.accel_scale = float(req.accel_scale)
@@ -351,39 +388,65 @@ class MotionRosClient(Node):
 
         fut = self.init_cli.call_async(ros_req)
 
+        # Wait for the init to succeed BEFORE creating model-dependent clients
+        try:
+            res = self._wait_for_future(fut, timeout=60.0)
+        except Exception as e:
+            logger.error(f"Critical error during InitRobot call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"InitRobot failed: {e}")
+
+        if not res.success:
+            logger.error(f"Initialization failed: {res.message}")
+            return {"success": False, "message": str(res.message)}
+
+        logger.info(f"Initialization successful: {res.message}")
+
+        # Read the model from the C++ node's parameters to build hardware service URLs
+        model = self._read_motion_server_param("model")
+        if not model:
+            logger.error("Could not read 'model' parameter from motion_server after init")
+            return {"success": False, "message": "Could not resolve model name after init"}
+
+        self.model = model
+        logger.info(f"Resolved model from motion_server parameters: {model}")
+
+        # Create hardware-dependent clients (only on real robot)
         if not self.sim and self.servo_on_cli is None:
-            self.servo_on_cli = self.create_client(SetServoOn, f"/{req.model}/SetServoOn")
+            self.servo_on_cli = self.create_client(SetServoOn, f"/{model}/SetServoOn")
             if not self.servo_on_cli.wait_for_service(timeout_sec=10.0):
-                logger.warning(f"SetServoOn service not available for {req.model}")
-        
+                logger.warning(f"SetServoOn service not available for {model}")
+
         if not self.sim:
-            self.pump_grab_cli = self.create_client(SetBool, f"/{req.model}/pump/grab")
-            self.pump_release_cli = self.create_client(SetBool, f"/{req.model}/pump/release")
-            self.pump_is_grabbed_cli = self.create_client(SetBool, f"/{req.model}/pump/is_grabbed")
+            self.pump_grab_cli = self.create_client(SetBool, f"/{model}/pump/grab")
+            self.pump_release_cli = self.create_client(SetBool, f"/{model}/pump/release")
+            self.pump_is_grabbed_cli = self.create_client(SetBool, f"/{model}/pump/is_grabbed")
             for cli, name in [
                 (self.pump_grab_cli, "pump/grab"),
                 (self.pump_release_cli, "pump/release"),
                 (self.pump_is_grabbed_cli, "pump/is_grabbed"),
             ]:
                 if not cli.wait_for_service(timeout_sec=10.0):
-                    logger.warning(f"Pump service {name} not available for {req.model}")
-            
+                    logger.warning(f"Pump service {name} not available for {model}")
             logger.info("Pump control services connected.")
 
+        return {"success": True, "message": str(res.message)}
+    
+    def _read_motion_server_param(self, name: str) -> Optional[str]:
+        """Read a string parameter from the motion_server C++ node."""
+        if not self.param_client.wait_for_service(timeout_sec=2.0):
+            logger.error("Parameter service not available on motion_server")
+            return None
+        req = GetParameters.Request()
+        req.names = [name]
+        fut = self.param_client.call_async(req)
         try:
-            # 60 seconds for initialization (loading robot model, setting up MoveIt, etc.)
-            res = self._wait_for_future(fut, timeout=60.0)
-            if res.success:
-                logger.info(f"Initialization successful: {res.message}")
-            else:
-                logger.error(f"Initialization failed: {res.message}")
-            return {"success": bool(res.success), "message": str(res.message)}
+            res = self._wait_for_future(fut, timeout=3.0)
+            if res.values and len(res.values) > 0:
+                return res.values[0].string_value
         except Exception as e:
-            logger.error(f"Critical error during InitRobot call: {e}")
-            logger.debug(traceback.format_exc())
-            raise RuntimeError(f"InitRobot failed: {e}")
-            
-        return {"success": bool(res.success), "message": str(res.message)}
+            logger.error(f"Failed to read motion_server param '{name}': {e}")
+        return None
 
     def call_scaling(self, req: ScalingReq) -> Dict[str, Any]:
         logger.info(f"Scaling change requested (Vel: {req.velocity_scale}, Acc: {req.accel_scale})")
@@ -670,24 +733,33 @@ class MotionRosClient(Node):
             return {"success": False, "message": "motion_server parameter service not available."}
         
         req = GetParameters.Request()
-        req.names = ['robot_description_kinematics.arm.kinematics_solver']
+        # Query multiple keys to stay compatible with both old and new launch/node setups.
+        req.names = [
+            "ik_solver_plugin",
+            "solver_plugin",
+            "kinematics_solver",
+            "robot_description_kinematics.arm.kinematics_solver",
+            "robot_description_kinematics.manipulator.kinematics_solver",
+        ]
         
         fut = self.param_client.call_async(req)
         try:
             res = self._wait_for_future(fut, timeout=5.0)
             
             if res.values and len(res.values) > 0:
-                plugin_name = res.values[0].string_value
-                
-                if plugin_name:
-                    short_name = plugin_name.split('/')[0] if '/' in plugin_name else plugin_name
-                    logger.info(f"Current IK solver plugin: {plugin_name} (short name: {short_name})")
-                    
-                    return {
-                        "success": True, 
-                        "solver": short_name, 
-                        "full_plugin_name": plugin_name
-                    }
+                for name, value in zip(req.names, res.values):
+                    plugin_name = value.string_value
+                    if plugin_name:
+                        short_name = plugin_name.split('/')[0] if '/' in plugin_name else plugin_name
+                        logger.info(
+                            f"Current IK solver plugin: {plugin_name} (short name: {short_name}, from '{name}')"
+                        )
+                        return {
+                            "success": True,
+                            "solver": short_name,
+                            "full_plugin_name": plugin_name,
+                            "parameter_source": name,
+                        }
                     
             logger.error("Solver parameter not found or empty in response.")
             return {"success": False, "message": "Solver parameter is not set in C++ node."}
@@ -770,6 +842,89 @@ class MotionRosClient(Node):
         except Exception as e:
             logger.error(f"Error during approach movement: {e}")
             return {"success": False, "message": str(e)}
+        
+    def call_compute_approach(self, req: ComputeApproachReq) -> Dict[str, Any]:
+        logger.info(
+            f"Compute approach requested: target=({req.x:.3f}, {req.y:.3f}, {req.z:.3f}), "
+            f"z_offset={req.z_offset}, frame={req.reference_frame}, "
+            f"rotation_format={req.rotation_format}, angle_format={req.angle_format}"
+        )
+
+        # --- Step 1: Target orientation -> quaternion ---
+        if req.rotation_format.upper() == "RPY":
+            roll, pitch, yaw = float(req.r1), float(req.r2), float(req.r3)
+            if req.angle_format.upper() == "DEG":
+                roll, pitch, yaw = math.radians(roll), math.radians(pitch), math.radians(yaw)
+            qx, qy, qz, qw = euler_to_quaternion(roll, pitch, yaw)
+        else:
+            qx, qy, qz, qw = float(req.r1), float(req.r2), float(req.r3), float(req.r4)
+
+        tx, ty, tz = float(req.x), float(req.y), float(req.z)
+
+        # --- Step 2: If TOOL frame, compose with current EEF pose to get world target ---
+        if req.reference_frame.upper() == "TOOL":
+            try:
+                current = self.call_get_pose()
+            except Exception as e:
+                return {"success": False, "message": f"Failed to read current pose for TOOL frame: {e}"}
+
+            if not current.get("success"):
+                return {"success": False, "message": f"Failed to read current pose: {current.get('message')}"}
+
+            cp = current["position"]
+            cq = current["orientation_quat"]
+            c_pos = (cp["x"], cp["y"], cp["z"])
+            c_quat = (cq["x"], cq["y"], cq["z"], cq["w"])
+
+            # Rotate tool-frame translation into world, then translate
+            rot_offset = quaternion_rotate_vector(c_quat, (tx, ty, tz))
+            tx = c_pos[0] + rot_offset[0]
+            ty = c_pos[1] + rot_offset[1]
+            tz = c_pos[2] + rot_offset[2]
+
+            # Compose orientation: world_target = current * tool_target
+            qx, qy, qz, qw = quaternion_multiply(c_quat, (qx, qy, qz, qw))
+
+        # --- Step 3: Extract tool Z-axis (world frame) from the target orientation ---
+        vx = 2.0 * (qx * qz + qw * qy)
+        vy = 2.0 * (qy * qz - qw * qx)
+        vz = 1.0 - 2.0 * (qx * qx + qy * qy)
+
+        # --- Step 4: Back off along -Z of the target tool ---
+        app_x = tx - (req.z_offset * vx)
+        app_y = ty - (req.z_offset * vy)
+        app_z = tz - (req.z_offset * vz)
+
+        # --- Step 5: Also return RPY for convenience (inverse of euler_to_quaternion) ---
+        sinr_cosp = 2.0 * (qw * qx + qy * qz)
+        cosr_cosp = 1.0 - 2.0 * (qx * qx + qy * qy)
+        roll_out = math.atan2(sinr_cosp, cosr_cosp)
+
+        sinp = 2.0 * (qw * qy - qz * qx)
+        if abs(sinp) >= 1.0:
+            pitch_out = math.copysign(math.pi / 2.0, sinp)
+        else:
+            pitch_out = math.asin(sinp)
+
+        siny_cosp = 2.0 * (qw * qz + qx * qy)
+        cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz)
+        yaw_out = math.atan2(siny_cosp, cosy_cosp)
+
+        logger.info(
+            f"Approach pose computed (WORLD): "
+            f"pos=[{app_x:.3f}, {app_y:.3f}, {app_z:.3f}], "
+            f"z_axis=[{vx:.3f}, {vy:.3f}, {vz:.3f}]"
+        )
+
+        return {
+            "success": True,
+            "message": "Approach pose computed successfully.",
+            "frame_id": "WORLD",
+            "position": {"x": app_x, "y": app_y, "z": app_z},
+            "orientation_quat": {"x": qx, "y": qy, "z": qz, "w": qw},
+            "orientation_euler": {"rx": roll_out, "ry": pitch_out, "rz": yaw_out},
+            "z_axis": {"x": vx, "y": vy, "z": vz},
+        }
 
     def call_manage_box(self, req: ManageBoxReq):
         logger.info(f"Sending {req.action} for box {req.box_id} to C++ node...")
@@ -1142,6 +1297,13 @@ def state_solver():
 def move_approach(req: MoveApproachReq):
     try:
         return _ros_client.call_move_approach(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/compute_approach")
+def compute_approach(req: ComputeApproachReq):
+    try:
+        return _ros_client.call_compute_approach(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
