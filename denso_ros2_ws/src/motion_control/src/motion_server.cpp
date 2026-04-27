@@ -560,6 +560,11 @@ namespace motion_control
         rt.setRobotTrajectoryMsg(*move_group_->getCurrentState(), trajectory);
 
         trajectory_processing::TimeOptimalTrajectoryGeneration totg;
+        // trajectory_processing::TimeOptimalTrajectoryGeneration totg(
+        //     0.05,   // path_tolerance (rad) — how much TOTG can deviate from path to smooth corners
+        //     0.01,   // resample_dt (s) — finer interpolation
+        //     0.001   // min_angle_change
+        // );
 
         // Check return value — if retiming fails, the robot would
         // execute with the raw (unscaled) timestamps, potentially at full speed.
@@ -772,9 +777,6 @@ namespace motion_control
             // Apply velocity/acceleration scaling to the raw Cartesian trajectory
             applyVelocityScaling(trajectory);
 
-            
-            RCLCPP_INFO(this->get_logger(), "on est par ici");
-
             // Validate trajectory before sending to controller
             std::string traj_err;
             if (!validateTrajectory(trajectory, traj_err)) {
@@ -783,10 +785,7 @@ namespace motion_control
                 return;
             }
 
-            RCLCPP_INFO(this->get_logger(), "on est ici");
-
             if (req->execute) {
-                 RCLCPP_INFO(this->get_logger(), "on est la ");
                 const auto& pts = trajectory.joint_trajectory.points;
                 double traj_duration = pts.back().time_from_start.sec
                                     + pts.back().time_from_start.nanosec * 1e-9;
