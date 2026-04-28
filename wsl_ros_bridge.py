@@ -12,7 +12,7 @@ from rclpy.node import Node
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox, ManageMesh
+from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox, ManageMesh
 from denso_robot_core_interfaces.srv import SetServoOn
 from geometry_msgs.msg import PoseStamped, Pose
 from rcl_interfaces.srv import GetParameters
@@ -305,6 +305,7 @@ class MotionRosClient(Node):
 
         self.init_cli = self.create_client(InitRobot, "/init_robot")
         self.scale_cli = self.create_client(SetScaling, "/set_scaling")
+        self.get_scale_cli = self.create_client(GetScaling, "/get_scaling")
         self.get_joints_cli = self.create_client(GetJointState, "/get_joint_state")
         self.get_pose_cli = self.create_client(GetCurrentPose, "/get_current_pose")
         self.move_pose_cli = self.create_client(MoveToPose, "/move_to_pose")
@@ -328,6 +329,7 @@ class MotionRosClient(Node):
         for cli, name in [
             (self.init_cli, "/init_robot"),
             (self.scale_cli, "/set_scaling"),
+            (self.get_scale_cli, "/get_scaling"),
             (self.get_joints_cli, "/get_joint_state"),
             (self.get_pose_cli, "/get_current_pose"),
             (self.move_pose_cli, "/move_to_pose"),
@@ -467,6 +469,29 @@ class MotionRosClient(Node):
             logger.error(f"Critical error during SetScaling call: {e}")
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"SetScaling failed: {e}")
+        
+    def call_get_scaling(self) -> Dict[str, Any]:
+        logger.info("Scaling read requested")
+        req = GetScaling.Request()
+        fut = self.get_scale_cli.call_async(req)
+        
+        try:
+            res = self._wait_for_future(fut, timeout=5.0)
+            if res.success:
+                logger.info(f"Scaling read successful (Vel: {res.velocity_scale}, Acc: {res.accel_scale})")
+            else:
+                logger.error(f"Scaling read failed: {res.message}")
+                
+            return {
+                "success": bool(res.success), 
+                "message": str(res.message),
+                "velocity_scale": res.velocity_scale,
+                "accel_scale": res.accel_scale
+            }
+        except Exception as e:
+            logger.error(f"Critical error during GetScaling call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"GetScaling failed: {e}")
 
     def call_set_servo_on(self, enable: bool) -> Dict[str, Any]:
         self.motors_on = enable
@@ -1252,7 +1277,14 @@ def set_scaling(req: ScalingReq):
         return _ros_client.call_scaling(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
+@app.get("/scaling")
+def get_scaling():
+    try:
+        return _ros_client.call_get_scaling()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.post("/move_joints")
 def move_joints(req: JointReq):
     try:

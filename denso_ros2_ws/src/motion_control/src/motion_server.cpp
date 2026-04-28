@@ -58,6 +58,10 @@ namespace motion_control
             "set_scaling",
             std::bind(&MotionServer::onSetScaling, this, std::placeholders::_1, std::placeholders::_2));
 
+        srv_get_scaling_ = this->create_service<srv::GetScaling>(
+            "get_scaling",
+            std::bind(&MotionServer::onGetScaling, this, std::placeholders::_1, std::placeholders::_2));
+
         srv_get_joints_ = this->create_service<srv::GetJointState>(
             "get_joint_state",
             std::bind(&MotionServer::onGetJointState, this, std::placeholders::_1, std::placeholders::_2));
@@ -431,6 +435,26 @@ namespace motion_control
         oss << "Scaling updated: velocity_scale=" << vel_scale_
             << ", accel_scale=" << accel_scale_
             << ". This will be used for all subsequent motions";
+
+        res->success = true;
+        res->message = oss.str();
+
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onGetScaling(
+        const std::shared_ptr<srv::GetScaling::Request> /*req*/,
+        std::shared_ptr<srv::GetScaling::Response> res)
+        {
+        // Thread-safety: MoveGroupInterface is not designed to be called concurrently
+        std::lock_guard<std::mutex> lock(mtx_);
+
+        res->velocity_scale = vel_scale_;
+        res->accel_scale = accel_scale_;
+
+        std::ostringstream oss;
+        oss << "Received request to set scaling: velocity_scale=" << vel_scale_
+            << ", accel_scale=" << accel_scale_;
 
         res->success = true;
         res->message = oss.str();

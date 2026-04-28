@@ -39,6 +39,7 @@
 
 #include "motion_control/srv/init_robot.hpp"
 #include "motion_control/srv/set_scaling.hpp"
+#include "motion_control/srv/get_scaling.hpp"
 #include "motion_control/srv/get_joint_state.hpp"
 #include "motion_control/srv/get_current_pose.hpp"
 #include "motion_control/srv/move_to_pose.hpp"
@@ -195,6 +196,15 @@ namespace motion_control
             void onSetScaling(
                 const std::shared_ptr<srv::SetScaling::Request> req,
                 std::shared_ptr<srv::SetScaling::Response> res);
+            /**
+             * @brief Get the velocity and acceleration scaling factors.
+             * * These factors (clamped between 0.0 and 1.0)
+             * * @param req empty request
+             * @param res Confirmation message and values.
+             */
+            void onGetScaling(
+                const std::shared_ptr<srv::GetScaling::Request> /*req*/,
+                std::shared_ptr<srv::GetScaling::Response> res);
 
             /**
              * @brief Retrieves the current joint state of the robot.
@@ -431,6 +441,7 @@ namespace motion_control
             // Services
             rclcpp::Service<srv::InitRobot>::SharedPtr srv_init_;
             rclcpp::Service<srv::SetScaling>::SharedPtr srv_scaling_;
+            rclcpp::Service<srv::GetScaling>::SharedPtr srv_get_scaling_;
             rclcpp::Service<srv::GetJointState>::SharedPtr srv_get_joints_;
             rclcpp::Service<srv::GetCurrentPose>::SharedPtr srv_get_pose_;
             rclcpp::Service<srv::MoveJoints>::SharedPtr srv_move_joints_;

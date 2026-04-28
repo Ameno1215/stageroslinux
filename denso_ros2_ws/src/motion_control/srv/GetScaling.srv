@@ -1,0 +1,7 @@
+# Request (empty)
+---
+# Response
+bool success
+string message
+float64 velocity_scale
+float64 accel_scale

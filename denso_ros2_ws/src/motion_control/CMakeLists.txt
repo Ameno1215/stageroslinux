@@ -20,6 +20,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/InitRobot.srv"
   "srv/SetScaling.srv"
+  "srv/GetScaling.srv"
   "srv/GetCurrentPose.srv"
   "srv/GetJointState.srv"
   "srv/MoveToPose.srv"
