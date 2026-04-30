@@ -300,8 +300,9 @@ namespace motion_control
         constexpr double IK_TIMEOUT   = 0.1;
         const std::vector<double> weights = {1.0, 2.0, 2.0, 5.0, 2.0, 4.0};
 
-        double best_cost = std::numeric_limits<double>::max();
-        std::vector<double> best_joints;
+        // Collect every valid solution: (cost, joints)
+        std::vector<std::pair<double, std::vector<double>>> valid_solutions;
+        valid_solutions.reserve(NUM_ATTEMPTS);
 
         // Rejection counters for diagnostics
         int ik_failures = 0;
@@ -379,13 +380,10 @@ namespace motion_control
                 cost += w * diff * diff;
             }
 
-            if (cost < best_cost) {
-                best_cost = cost;
-                best_joints = std::move(candidate_joints);
-            }
+            valid_solutions.emplace_back(cost, std::move(candidate_joints));
         }
 
-        if (best_joints.empty()) {
+        if (valid_solutions.empty()) {
             std::ostringstream oss;
             oss << "IK failed: no valid solution found after " << NUM_ATTEMPTS << " attempts "
                 << "(IK fails=" << ik_failures
@@ -396,10 +394,45 @@ namespace motion_control
             return false;
         }
 
+        // Deduplicate: count distinct IK branches
+        // Two solutions are considered the same branch if all joints differ by < 0.01 rad (~0.6°)
+        constexpr double BRANCH_TOLERANCE = 0.01;
+
+        auto same_branch = [&](const std::vector<double>& a, const std::vector<double>& b) {
+            for (size_t j = 0; j < a.size(); ++j) {
+                if (std::abs(a[j] - b[j]) > BRANCH_TOLERANCE) return false;
+            }
+            return true;
+        };
+
+        std::vector<std::pair<double, std::vector<double>>> distinct_branches;
+        for (const auto& sol : valid_solutions) {
+            bool is_duplicate = false;
+            for (const auto& kept : distinct_branches) {
+                if (same_branch(sol.second, kept.second)) {
+                    is_duplicate = true;
+                    break;
+                }
+            }
+            if (!is_duplicate) {
+                distinct_branches.push_back(sol);
+            }
+        }
+
+        // Pick the best (lowest cost) among distinct branches
+        auto best_it = std::min_element(
+            distinct_branches.begin(), distinct_branches.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
+
+        const double best_cost = best_it->first;
+        std::vector<double> best_joints = std::move(best_it->second);
+
         RCLCPP_INFO(this->get_logger(),
-            "[IK] Best solution selected (cost=%.4f) | IK fails=%d, "
-            "rejected: limits=%d, constraints=%d, collision=%d",
-            best_cost, ik_failures, rejected_limits, rejected_constraints, rejected_collision);
+            "[IK] %d/%d seeds valid — %zu distinct branches found (best cost=%.4f) | "
+            "rejected: IK fails=%d, limits=%d, constraints=%d, collision=%d",
+            static_cast<int>(valid_solutions.size()), NUM_ATTEMPTS,
+            distinct_branches.size(), best_cost,
+            ik_failures, rejected_limits, rejected_constraints, rejected_collision);
 
         return planAndExecuteJoints(best_joints, false, execute, out_msg);
     }
