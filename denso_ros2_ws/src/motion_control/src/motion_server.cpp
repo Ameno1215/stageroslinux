@@ -278,7 +278,6 @@ namespace motion_control
         const auto& joint_var_names = jmg->getVariableNames();
 
         // User-defined joint constraints set via applyJointConstraints()
-        // (stored on the MoveGroupInterface as path constraints).
         auto path_constraints = move_group_->getPathConstraints();
         std::unordered_map<std::string, std::pair<double, double>> user_constraint_map;
         for (const auto& jc : path_constraints.joint_constraints) {
@@ -298,13 +297,11 @@ namespace motion_control
         // Multi-seed IK search
         constexpr int    NUM_ATTEMPTS = 64;
         constexpr double IK_TIMEOUT   = 0.1;
-        const std::vector<double> weights = {1.0, 2.0, 2.0, 5.0, 2.0, 4.0};
+        const std::vector<double> weights = {1.0, 2.0, 2.0, 4.0, 5.0, 4.0};
 
-        // Collect every valid solution: (cost, joints)
         std::vector<std::pair<double, std::vector<double>>> valid_solutions;
         valid_solutions.reserve(NUM_ATTEMPTS);
 
-        // Rejection counters for diagnostics
         int ik_failures = 0;
         int rejected_limits = 0;
         int rejected_constraints = 0;
@@ -315,7 +312,6 @@ namespace motion_control
         for (int i = 0; i < NUM_ATTEMPTS; ++i)
         {
             if (i == 0) {
-                // Seed with current state (often produces the best candidate already)
                 *candidate = *current_state;
             } else {
                 candidate->setToRandomPositions(jmg);
@@ -325,7 +321,6 @@ namespace motion_control
                 ik_failures++;
                 continue;
             }
-            
             candidate->update();
 
             std::vector<double> candidate_joints;
@@ -372,12 +367,12 @@ namespace motion_control
                 }
             }
 
-            // Cost: weighted joint-space distance to current state
+            // Cost
             double cost = 0.0;
             for (std::size_t j = 0; j < candidate_joints.size(); ++j) {
                 const double w = (j < weights.size()) ? weights[j] : 1.0;
                 const double diff = candidate_joints[j] - current_joints[j];
-                cost += w * diff * diff;
+                cost += w * w * diff * diff;
             }
 
             valid_solutions.emplace_back(cost, std::move(candidate_joints));
@@ -394,10 +389,8 @@ namespace motion_control
             return false;
         }
 
-        // Deduplicate: count distinct IK branches
-        // Two solutions are considered the same branch if all joints differ by < 0.01 rad (~0.6°)
+        // Deduplicate
         constexpr double BRANCH_TOLERANCE = 0.01;
-
         auto same_branch = [&](const std::vector<double>& a, const std::vector<double>& b) {
             for (size_t j = 0; j < a.size(); ++j) {
                 if (std::abs(a[j] - b[j]) > BRANCH_TOLERANCE) return false;
@@ -419,22 +412,99 @@ namespace motion_control
             }
         }
 
-        // Pick the best (lowest cost) among distinct branches
-        auto best_it = std::min_element(
-            distinct_branches.begin(), distinct_branches.end(),
+        // Sort by ascending cost (cheapest = "closest to current state" first)
+        std::sort(distinct_branches.begin(), distinct_branches.end(),
             [](const auto& a, const auto& b) { return a.first < b.first; });
 
-        const double best_cost = best_it->first;
-        std::vector<double> best_joints = std::move(best_it->second);
-
         RCLCPP_INFO(this->get_logger(),
-            "[IK] %d/%d seeds valid — %zu distinct branches found (best cost=%.4f) | "
+            "[IK] %d/%d seeds valid — %zu distinct branches found | "
             "rejected: IK fails=%d, limits=%d, constraints=%d, collision=%d",
             static_cast<int>(valid_solutions.size()), NUM_ATTEMPTS,
-            distinct_branches.size(), best_cost,
+            distinct_branches.size(),
             ik_failures, rejected_limits, rejected_constraints, rejected_collision);
 
+        // Pick the best (lowest cost) branch and execute it
+        const double best_cost = distinct_branches.front().first;
+        std::vector<double> best_joints = std::move(distinct_branches.front().second);
+
+        RCLCPP_INFO(this->get_logger(),
+            "[IK] Best branch selected (cost=%.4f)", best_cost);
+
         return planAndExecuteJoints(best_joints, false, execute, out_msg);
+
+    #if 0  // DEMO MODE: visit each distinct branch sequentially
+        // Set to `#if 1` to re-enable
+
+        std::vector<double> initial_joints = current_joints;  // captured at entry
+        std::ostringstream summary;
+        summary << "IK demo executed " << distinct_branches.size() << " branch(es): ";
+
+        int success_count = 0;
+        int failure_count = 0;
+
+        for (size_t b = 0; b < distinct_branches.size(); ++b) {
+            const auto& [cost, joints] = distinct_branches[b];
+
+            // Log the branch values
+            std::ostringstream js;
+            js << std::fixed << std::setprecision(4) << "[";
+            for (size_t j = 0; j < joints.size(); ++j) {
+                if (j > 0) js << ", ";
+                js << joints[j];
+            }
+            js << "]";
+
+            RCLCPP_INFO(this->get_logger(),
+                "[IK-DEMO] Branch %zu/%zu (cost=%.4f): %s",
+                b + 1, distinct_branches.size(), cost, js.str().c_str());
+
+            if (!execute) {
+                // Plan-only mode: just report each branch, don't move
+                success_count++;
+                summary << "[" << b + 1 << "]plan_ok ";
+                continue;
+            }
+
+            // Step 1: go to the branch
+            std::string branch_msg;
+            bool ok = planAndExecuteJoints(joints, false, true, branch_msg);
+            if (!ok) {
+                RCLCPP_WARN(this->get_logger(),
+                    "[IK-DEMO] Branch %zu execution failed: %s",
+                    b + 1, branch_msg.c_str());
+                failure_count++;
+                summary << "[" << b + 1 << "]FAIL ";
+                continue;
+            }
+
+            success_count++;
+            summary << "[" << b + 1 << "]ok ";
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+
+            if (b + 1 < distinct_branches.size()) {
+                std::string return_msg;
+                bool back_ok = planAndExecuteJoints(initial_joints, false, true, return_msg);
+                if (!back_ok) {
+                    RCLCPP_ERROR(this->get_logger(),
+                        "[IK-DEMO] Failed to return to initial state: %s — aborting demo",
+                        return_msg.c_str());
+                    summary << "(return failed, demo aborted)";
+                    out_msg = summary.str();
+                    return false;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(800));
+            }
+        }
+
+        out_msg = summary.str() + " | "
+                + std::to_string(success_count) + " ok, "
+                + std::to_string(failure_count) + " failed";
+
+        RCLCPP_INFO(this->get_logger(), "[IK-DEMO] %s", out_msg.c_str());
+        return success_count > 0;
+
+    #endif
     }
 
     bool MotionServer::planAndMaybeExecutePose(
