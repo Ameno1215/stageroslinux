@@ -419,6 +419,24 @@ namespace motion_control
                 const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                 std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
+            /**
+             * @brief Retrieves the joint position limits of the planning group.
+             * 
+             * Queries MoveIt's RobotModel to extract the [min, max] bounds of every
+             * active joint. Output vectors are resized to nb_joints. For continuous
+             * (unbounded) joints, falls back to [-pi, pi] with a warning.
+             * 
+             * @param joint_min   Output vector of lower position limits (rad or m).
+             * @param joint_max   Output vector of upper position limits, parallel to joint_min.
+             * @param joint_names Optional output vector of joint names. Pass nullptr if not needed.
+             * @param out_msg     Status or error message.
+             * @return true on success, false if not initialized or planning group unknown.
+             */
+            bool getJointLimits(
+                std::vector<double>& joint_min,
+                std::vector<double>& joint_max,
+                std::vector<std::string>* joint_names,
+                std::string& out_msg) const;
 
 
 

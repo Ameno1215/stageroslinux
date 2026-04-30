@@ -223,6 +223,16 @@ namespace motion_control
             res->success = true;
             res->message = oss.str();
             RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+
+            std::vector<double> jmin, jmax;
+            std::vector<std::string> jnames;
+            std::string msg;
+            if (getJointLimits(jmin, jmax, &jnames, msg)) {
+                RCLCPP_INFO(this->get_logger(), "%s", msg.c_str());
+                // jmin.size() == jmax.size() == nb_joints (6 for VS060)
+            } else {
+                RCLCPP_ERROR(this->get_logger(), "Could not get joint limits: %s", msg.c_str());
+            }
         } catch (const std::exception& e) {
             initialized_ = false;
             move_group_.reset();
@@ -259,57 +269,137 @@ namespace motion_control
             return false;
         }
 
-        // Capture current joint positions as the reference for cost comparison
+        // Reference for "minimize movement" cost
         std::vector<double> current_joints;
         current_state->copyJointGroupPositions(jmg, current_joints);
 
-        // Multi-seed IK search: keep the solution closest to current config
-        constexpr int    NUM_ATTEMPTS  = 32;
-        constexpr double IK_TIMEOUT    = 0.1;   // per-attempt timeout (seconds)
+        // Pre-fetch the data needed by each filter
+        const auto& joint_models = jmg->getActiveJointModels();
+        const auto& joint_var_names = jmg->getVariableNames();
+
+        // User-defined joint constraints set via applyJointConstraints()
+        // (stored on the MoveGroupInterface as path constraints).
+        auto path_constraints = move_group_->getPathConstraints();
+        std::unordered_map<std::string, std::pair<double, double>> user_constraint_map;
+        for (const auto& jc : path_constraints.joint_constraints) {
+            const double cmin = jc.position - jc.tolerance_below;
+            const double cmax = jc.position + jc.tolerance_above;
+            user_constraint_map[jc.joint_name] = {cmin, cmax};
+        }
+
+        // Planning scene snapshot for collision checking (self + environment)
+        auto scene = getLockedPlanningScene();
+        if (!scene) {
+            out_msg = "[IK] PlanningSceneMonitor unavailable — collision filtering disabled";
+            RCLCPP_ERROR(this->get_logger(), out_msg.c_str());
+            return false;
+        }
+
+        // Multi-seed IK search
+        constexpr int    NUM_ATTEMPTS = 64;
+        constexpr double IK_TIMEOUT   = 0.1;
+        const std::vector<double> weights = {1.0, 2.0, 2.0, 5.0, 2.0, 4.0};
 
         double best_cost = std::numeric_limits<double>::max();
         std::vector<double> best_joints;
 
-        // Reusable scratch state (avoids repeated allocation)
+        // Rejection counters for diagnostics
+        int ik_failures = 0;
+        int rejected_limits = 0;
+        int rejected_constraints = 0;
+        int rejected_collision = 0;
+
         auto candidate = std::make_shared<moveit::core::RobotState>(*current_state);
 
         for (int i = 0; i < NUM_ATTEMPTS; ++i)
         {
             if (i == 0) {
-                // First attempt: seed with the actual current state (often already good)
+                // Seed with current state (often produces the best candidate already)
                 *candidate = *current_state;
             } else {
-                // Subsequent attempts: random seed to explore other IK branches
                 candidate->setToRandomPositions(jmg);
             }
 
             if (!candidate->setFromIK(jmg, target_pose, IK_TIMEOUT)) {
-                continue;  // This seed didn't converge — try next
+                ik_failures++;
+                continue;
             }
-
-            candidate->enforceBounds(jmg);
+            
+            candidate->update();
 
             std::vector<double> candidate_joints;
             candidate->copyJointGroupPositions(jmg, candidate_joints);
-            
-            std::vector<double> weights = {1.0, 2.0, 2.0, 4.0, 1.0, 1.0};
+
+            // Filter 1: URDF joint limits
+            bool out_of_limits = false;
+            for (size_t j = 0; j < joint_models.size(); ++j) {
+                const auto& b = joint_models[j]->getVariableBounds()[0];
+                if (b.position_bounded_ &&
+                    (candidate_joints[j] < b.min_position_ ||
+                    candidate_joints[j] > b.max_position_))
+                {
+                    out_of_limits = true;
+                    break;
+                }
+            }
+            if (out_of_limits) { rejected_limits++; continue; }
+
+            // Filter 2: user-defined joint constraints
+            bool violates_user_constraints = false;
+            if (!user_constraint_map.empty()) {
+                for (size_t j = 0; j < joint_var_names.size(); ++j) {
+                    auto it = user_constraint_map.find(joint_var_names[j]);
+                    if (it != user_constraint_map.end() &&
+                        (candidate_joints[j] < it->second.first ||
+                        candidate_joints[j] > it->second.second))
+                    {
+                        violates_user_constraints = true;
+                        break;
+                    }
+                }
+            }
+            if (violates_user_constraints) { rejected_constraints++; continue; }
+
+            // Filter 3: collision (self + environment)
+            if (scene) {
+                std::vector<std::string> pairs, self_pairs, env_pairs;
+                if (checkStateCollision(scene, *candidate, planning_group_,
+                                        pairs, self_pairs, env_pairs))
+                {
+                    rejected_collision++;
+                    continue;
+                }
+            }
+
+            // Cost: weighted joint-space distance to current state
             double cost = 0.0;
             for (std::size_t j = 0; j < candidate_joints.size(); ++j) {
-                double diff = candidate_joints[j] - current_joints[j];
-                cost += weights[j] * diff * diff;
+                const double w = (j < weights.size()) ? weights[j] : 1.0;
+                const double diff = candidate_joints[j] - current_joints[j];
+                cost += w * diff * diff;
             }
 
             if (cost < best_cost) {
-                best_cost   = cost;
+                best_cost = cost;
                 best_joints = std::move(candidate_joints);
             }
         }
 
         if (best_joints.empty()) {
-            out_msg = "IK failed: pose is unreachable (out of workspace or near singularity) "
-                    "after " + std::to_string(NUM_ATTEMPTS) + " attempts";
+            std::ostringstream oss;
+            oss << "IK failed: no valid solution found after " << NUM_ATTEMPTS << " attempts "
+                << "(IK fails=" << ik_failures
+                << ", limits=" << rejected_limits
+                << ", constraints=" << rejected_constraints
+                << ", collision=" << rejected_collision << ")";
+            out_msg = oss.str();
             return false;
         }
+
+        RCLCPP_INFO(this->get_logger(),
+            "[IK] Best solution selected (cost=%.4f) | IK fails=%d, "
+            "rejected: limits=%d, constraints=%d, collision=%d",
+            best_cost, ik_failures, rejected_limits, rejected_constraints, rejected_collision);
 
         return planAndExecuteJoints(best_joints, false, execute, out_msg);
     }
@@ -319,95 +409,33 @@ namespace motion_control
         bool execute,
         std::string& out_msg)
     {
-        move_group_->setPoseTarget(target);
+        move_group_->clearPoseTargets();
+
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
 
-        // RCLCPP_INFO(this->get_logger(),
-        //     "[PlanPose] Target: pos=[%.4f, %.4f, %.4f] quat=[%.4f, %.4f, %.4f, %.4f] execute=%s",
-        //     target.pose.position.x, target.pose.position.y, target.pose.position.z,
-        //     target.pose.orientation.x, target.pose.orientation.y,
-        //     target.pose.orientation.z, target.pose.orientation.w,
-        //     execute ? "true" : "false");
-
-        // --- Strategy 1: Standard pose target ---
-        moveit::planning_interface::MoveGroupInterface::Plan plan;
         auto start_time = std::chrono::high_resolution_clock::now();
-        auto code = move_group_->plan(plan);
+
+        std::string ik_joint_msg;
+        bool ok = solveIKAndPlanJoints(target.pose, execute, ik_joint_msg);
+
         auto end_time = std::chrono::high_resolution_clock::now();
-        double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
+        double total_duration = std::chrono::duration<double>(end_time - start_time).count();
 
-        if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-            // Build diagnostic message for logging
-            std::string diag_msg;
-            auto scene = getLockedPlanningScene();
-            if (scene) {
-                auto report = diagnosePlanningFailure(
-                    code, *move_group_, scene, planning_group_,
-                    &target.pose, nullptr,
-                    planning_duration, this->get_logger());
-                diag_msg = moveitErrorCodeToString(code) + " | " + report.summary;
-            } else {
-                diag_msg = moveitErrorCodeToString(code) + " [diagnostic scene unavailable]";
-            }
-
-            // --- Strategy 2: Fallback to explicit IK + joint-space planning ---
-            // RCLCPP_WARN(this->get_logger(),
-            //     "Pose target planning failed: %s (%.2fs) — Falling back to IK + joint-space...",
-            //     diag_msg.c_str(), planning_duration);
-
-            move_group_->clearPoseTargets();
-
-            std::string fallback_msg;
-            bool fallback_ok = solveIKAndPlanJoints(target.pose, execute, fallback_msg);
-
-            if (fallback_ok) {
-                out_msg = "[FALLBACK IK+Joint] " + fallback_msg;
-                // RCLCPP_INFO(this->get_logger(), "Fallback succeeded: %s", fallback_msg.c_str());
-                return true;
-            }
-
-            // Both strategies failed
-            out_msg = "Both strategies failed. "
-                    "Pose target: " + diag_msg + " (" + std::to_string(planning_duration) + "s) | "
-                    "IK+Joint fallback: " + fallback_msg;
+        if (!ok) {
+            out_msg = "IK+Joint planning failed: " + ik_joint_msg
+                    + " (took " + std::to_string(total_duration) + "s)";
             return false;
         }
 
-        RCLCPP_INFO(this->get_logger(),
-            "[PlanPose] Plan OK: %zu points, planning took %.3fs",
-            plan.trajectory_.joint_trajectory.points.size(), planning_duration);
-
-        // Execute strategy 1 if it's possible
-        move_group_->clearPoseTargets();
-
         if (execute) {
-            std::string traj_err;
-            if (!validateTrajectory(plan.trajectory_, traj_err)) {
-                out_msg = traj_err;
-                return false;
-            }
-
-            const auto& pts = plan.trajectory_.joint_trajectory.points;
-            double traj_duration = pts.back().time_from_start.sec
-                                + pts.back().time_from_start.nanosec * 1e-9;
-
-            auto exec_t0 = std::chrono::high_resolution_clock::now();
-            auto exec_code = move_group_->execute(plan);
-            double exec_dt = std::chrono::duration<double>(
-                std::chrono::high_resolution_clock::now() - exec_t0).count();
-
-            if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-                out_msg = diagnoseExecutionFailure(exec_code);
-                return false;
-            }
-            out_msg = "Planned and executed pose target successfully (plan=" + std::to_string(planning_duration)
-                    + "s, trajectory=" + std::to_string(traj_duration)
-                    + "s, real=" + std::to_string(exec_dt) + "s)";
-            return true;
+            out_msg = "IK+Joint planned and executed pose successfully: " + ik_joint_msg
+                    + " (total=" + std::to_string(total_duration) + "s)";
+        } else {
+            out_msg = "IK+Joint planned pose successfully: " + ik_joint_msg
+                    + " (execute=false, total=" + std::to_string(total_duration) + "s)";
         }
 
-        out_msg = "Planned pose target successfully (execute=false) (took " + std::to_string(planning_duration) + "s)";
         return true;
     }
 
@@ -2014,6 +2042,69 @@ namespace motion_control
                 "  %s: [%.4f, %.4f]", joint_names[i].c_str(), joint_min[i], joint_max[i]);
         }
 
+        return true;
+    }
+
+
+    bool MotionServer::getJointLimits(
+        std::vector<double>& joint_min,
+        std::vector<double>& joint_max,
+        std::vector<std::string>* joint_names,
+        std::string& out_msg) const
+    {
+        if (!initialized_ || !move_group_) {
+            out_msg = "Robot not initialized. Call /init_robot first";
+            return false;
+        }
+
+        const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+        if (!jmg) {
+            out_msg = "Unknown planning group: " + planning_group_;
+            return false;
+        }
+
+        joint_min.clear();
+        joint_max.clear();
+        if (joint_names) joint_names->clear();
+
+        const auto& active_joints = jmg->getActiveJointModels();
+        joint_min.reserve(active_joints.size());
+        joint_max.reserve(active_joints.size());
+        if (joint_names) joint_names->reserve(active_joints.size());
+
+        for (const auto* jm : active_joints) {
+            const auto& bounds = jm->getVariableBounds();
+            if (bounds.empty()) {
+                out_msg = "Joint '" + jm->getName() + "' has no variable bounds";
+                return false;
+            }
+
+            const auto& b = bounds[0];
+
+            if (b.position_bounded_) {
+                joint_min.push_back(b.min_position_);
+                joint_max.push_back(b.max_position_);
+            } else {
+                // Continuous joint — no hard limit in URDF. Fall back to ±π.
+                RCLCPP_WARN(this->get_logger(),
+                    "[GetJointLimits] Joint '%s' is unbounded (continuous). "
+                    "Using [-pi, pi] as a fallback.", jm->getName().c_str());
+                joint_min.push_back(-M_PI);
+                joint_max.push_back( M_PI);
+            }
+
+            if (joint_names) joint_names->push_back(jm->getName());
+        }
+
+        std::ostringstream oss;
+        oss << "Retrieved limits for " << joint_min.size() << " joint(s): ";
+        for (size_t i = 0; i < joint_min.size(); ++i) {
+            if (i > 0) oss << ", ";
+            if (joint_names) oss << (*joint_names)[i] << "=";
+            oss << "[" << std::fixed << std::setprecision(4)
+                << joint_min[i] << ", " << joint_max[i] << "]";
+        }
+        out_msg = oss.str();
         return true;
     }
 
