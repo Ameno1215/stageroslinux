@@ -31,7 +31,7 @@ The communication flow between the Windows host and the WSL simulation is as fol
   - `denso_robot_bringup`
   - `denso_robot_moveit_config`
   - `motion_control`
-- Python 3.10
+- Python 3.10 or higher
 - Virtual environment (`venv`)
 - Python modules: `requests`, `numpy`, `uvicorn`, `fastapi`
 
@@ -43,6 +43,14 @@ The communication flow between the Windows host and the WSL simulation is as fol
 ---
 
 ## 3. WSL Setup & Installation
+
+
+### Install wsl and Ubuntu 22.04
+To install Ubuntu 22.04 run
+```bash
+wsl --install -d Ubuntu-22.04
+```
+
 
 ### ROS 2 Humble Installation
 Run the following commands in your WSL terminal to set up the locale and install ROS 2 Humble:
@@ -61,8 +69,8 @@ sudo apt install software-properties-common
 sudo add-apt-repository universe
 
 sudo apt update && sudo apt install curl -y
-export ROS_APT_SOURCE_VERSION=$(curl -s [https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest](https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest) | grep -F "tag_name" | awk -F\" '{print $4}')
-curl -L -o /tmp/ros2-apt-source.deb "[https://github.com/ros-infrastructure/ros-apt-source/releases/download/$](https://github.com/ros-infrastructure/ros-apt-source/releases/download/$){ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
+export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F'"' '{print $4}')
+curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
 sudo dpkg -i /tmp/ros2-apt-source.deb
 
 sudo apt update
@@ -70,6 +78,9 @@ sudo apt upgrade
 
 sudo apt install ros-humble-desktop
 sudo apt install ros-dev-tools
+sudo apt install -y ros-humble-gazebo-ros-pkgs ros-humble-gazebo-ros2-control ros-humble-ros2-control ros-humble-ros2-controllers ros-humble-joint-state-broadcaster ros-humble-joint-trajectory-controller ros-humble-xacro
+	
+sudo apt install -y ros-humble-moveit ros-humble-moveit-planners-ompl ros-humble-moveit-ros-visualization ros-humble-pick-ik
 ```
 
 ### Testing the ROS 2 Installation
@@ -121,7 +132,7 @@ sudo rosdep update
 # Install dependencies and build
 cd ~/workspace/denso_ros2_ws
 rosdep install --from-paths src --ignore-src -r -y
-colcon build --symlink-install
+colcon build
 ```
 
 
@@ -132,41 +143,14 @@ PowerShell
 ```bash
 git clone [https://github.com/Ameno1215/stageroswindows](https://github.com/Ameno1215/stageroswindows)
 cd stageroswindows
-git switch demo
-5. Launching the Simulation (WSL)
 ```
 
 
-### 5. Launching the Simulation (WSL)
-#### Important: The following setup commands must be executed in every new WSL terminal before running the launch commands:
+### 5. Launching the Simulation (Windows)
 ```bash
-cd ~/workspace/denso_ros2_ws
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-export LIBGL_ALWAYS_SOFTWARE=1
-
-# if you've got a NVIDIA graphic card 
-export MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA
-```
-
-#### WSL Terminal #1: Launch Bringup (Gazebo & RViz)
-
-```bash
-ros2 launch denso_robot_bringup denso_robot_bringup.launch.py model:=vs060 sim:=true tool:=effecteur_v1 ik_solver:=kdl
-```
-
-#### WSL Terminal #2: Launch Motion Server
-```bash
-ros2 launch motion_control motion_server.launch.py model:=vs060 sim:=true tool:=effecteur_v1 ik_solver:=kdl
-```
-
-#### WSL Terminal #3: Launch HTTP Bridge (FastAPI)
-```bash
-cd ~/workspace
-source venv/bin/activate
-source /opt/ros/humble/setup.bash
-source ~/workspace/denso_ros2_ws/install/setup.bash
-uvicorn wsl_ros_bridge:app --host 0.0.0.0 --port 8000
+PowerShell
+.\venv\Scripts\activate
+python .\launch_controller.py --model vs060
 ```
 
 ### 6. Running the Demo (Windows)
@@ -174,5 +158,5 @@ Once the simulation, motion server, and HTTP bridge are running in WSL, open a P
 ```bash
 PowerShell
 .\venv\Scripts\activate
-python ./test.py
+python ./test.py --model vs060
 ```
