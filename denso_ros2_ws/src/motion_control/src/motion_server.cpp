@@ -683,23 +683,23 @@ namespace motion_control
     {
         // Attempt 1: standard
         double fraction = move_group_->computeCartesianPath(
-            waypoints, 0.005, 3.0, trajectory);
+            waypoints, 0.001, 1.5, trajectory);
         if (fraction >= 0.95) { out_msg = "OK (standard)"; return fraction; }
 
-        // Attempt 2: coarser step (more permissive)
-        RCLCPP_WARN(this->get_logger(),
-            "Cartesian path attempt 1 failed (fraction: %.1f%%). Retrying with coarser step...",
-            fraction * 100.0);
+        // // Attempt 2: coarser step (more permissive)
+        // RCLCPP_WARN(this->get_logger(),
+        //     "Cartesian path attempt 1 failed (fraction: %.1f%%). Retrying with coarser step...",
+        //     fraction * 100.0);
 
-        fraction = move_group_->computeCartesianPath(
-            waypoints, 0.01, 3.0, trajectory);
-        if (fraction >= 0.95) {
-            RCLCPP_WARN(this->get_logger(),
-                "Cartesian path succeeded on fallback (coarser step). Fraction: %.1f%%",
-                fraction * 100.0);
-            out_msg = "OK (coarser step — fallback)";
-            return fraction;
-        }
+        // fraction = move_group_->computeCartesianPath(
+        //     waypoints, 0.01, 3.0, trajectory);
+        // if (fraction >= 0.95) {
+        //     RCLCPP_WARN(this->get_logger(),
+        //         "Cartesian path succeeded on fallback (coarser step). Fraction: %.1f%%",
+        //         fraction * 100.0);
+        //     out_msg = "OK (coarser step — fallback)";
+        //     return fraction;
+        // }
 
         out_msg = "FAILED (best fraction: " + std::to_string(fraction * 100) + "%)";
         return fraction;
@@ -714,12 +714,12 @@ namespace motion_control
 
         rt.setRobotTrajectoryMsg(*move_group_->getCurrentState(), trajectory);
 
-        trajectory_processing::TimeOptimalTrajectoryGeneration totg;
-        // trajectory_processing::TimeOptimalTrajectoryGeneration totg(
-        //     0.05,   // path_tolerance (rad) — how much TOTG can deviate from path to smooth corners
-        //     0.01,   // resample_dt (s) — finer interpolation
-        //     0.001   // min_angle_change
-        // );
+        // trajectory_processing::TimeOptimalTrajectoryGeneration totg;
+        trajectory_processing::TimeOptimalTrajectoryGeneration totg(
+            0.05,   // path_tolerance (rad) — how much TOTG can deviate from path to smooth corners
+            0.01,   // resample_dt (s) — finer interpolation
+            0.001   // min_angle_change
+        );
 
         // Check return value — if retiming fails, the robot would
         // execute with the raw (unscaled) timestamps, potentially at full speed.
