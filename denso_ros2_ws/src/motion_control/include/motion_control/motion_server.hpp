@@ -63,6 +63,9 @@ namespace motion_control
     class MotionServer : public rclcpp::Node
     {
         public:
+
+        static constexpr double kCartesianAcceptThreshold = 0.99;
+
         /**
          * @brief Constructs the MotionServer.
          * * Initializes the node, declares parameters, and creates the service servers.

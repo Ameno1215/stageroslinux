@@ -314,6 +314,17 @@ def generate_launch_description():
             planning_scene_monitor_parameters,
             {'use_sim_time': sim},
             {'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name}
+        ],
+        arguments=[
+            '--ros-args',
+            # Global default for everything in this process
+            '--log-level', 'DEBUG',
+            # Silence noisy components that aren't useful
+            '--log-level', 'rcl:=INFO',
+            '--log-level', 'rmw_fastrtps_cpp:=INFO',
+            '--log-level', 'rcl_action:=INFO',
+            '--log-level', 'rclcpp:=INFO',
+            '--log-level', 'moveit_ros.planning_scene_monitor.planning_scene_monitor:=INFO',
         ])
 
 # --------- Robot Control Node (only if 'sim:=false') ---------

@@ -4,7 +4,7 @@ project(tool)
 find_package(ament_cmake REQUIRED)
 
 install(
-  DIRECTORY effecteur_v1 effecteur_v2 effecteur_test
+  DIRECTORY effecteur_v1 effecteur_v2 effecteur_v3 effecteur_test
   DESTINATION share/${PROJECT_NAME}
 )
 

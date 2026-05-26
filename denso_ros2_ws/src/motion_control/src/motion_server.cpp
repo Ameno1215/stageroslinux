@@ -263,6 +263,7 @@ namespace motion_control
             return false;
         }
 
+        move_group_->setStartStateToCurrentState();
         moveit::core::RobotStatePtr current_state = move_group_->getCurrentState(2.0);
         if (!current_state) {
             out_msg = "Failed to obtain current robot state";
@@ -624,46 +625,41 @@ namespace motion_control
             return final_pose;
         }
 
-        // Otherwise, we need the current position to calculate the relative or tool coordinate system
-        geometry_msgs::msg::PoseStamped current_pose_msg;
-        try {
-            std::string ee_link = move_group_->getEndEffectorLink();
-            geometry_msgs::msg::TransformStamped t = tf_buffer_->lookupTransform(
-                planning_frame_, ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
+        const std::string ee_link = move_group_->getEndEffectorLink();
+        geometry_msgs::msg::Pose current_pose;
 
-            current_pose_msg.header = t.header;
-            current_pose_msg.pose.position.x = t.transform.translation.x;
-            current_pose_msg.pose.position.y = t.transform.translation.y;
-            current_pose_msg.pose.position.z = t.transform.translation.z;
-            current_pose_msg.pose.orientation = t.transform.rotation;
+        try {
+            geometry_msgs::msg::PoseStamped cp = move_group_->getCurrentPose(ee_link);
+
+            const auto& q = cp.pose.orientation;
+            const double norm = std::sqrt(q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w);
+            if (!std::isfinite(norm) || norm < 0.99 || norm > 1.01) {
+                out_error_msg = "getCurrentPose() returned invalid quaternion (norm="
+                              + std::to_string(norm) + ")";
+                return std::nullopt;
+            }
+
+            current_pose = cp.pose;
 
             RCLCPP_INFO(this->get_logger(),
-                "Current pose (TF2): position(%.3f, %.3f, %.3f) orientation(%.4f, %.4f, %.4f, %.4f)",
-                current_pose_msg.pose.position.x,
-                current_pose_msg.pose.position.y,
-                current_pose_msg.pose.position.z,
-                current_pose_msg.pose.orientation.x,
-                current_pose_msg.pose.orientation.y,
-                current_pose_msg.pose.orientation.z,
-                current_pose_msg.pose.orientation.w);
-        } catch (const tf2::TransformException& e) {
-            out_error_msg = std::string("TF2 lookup failed for current pose: ") + e.what();
+                "Current pose (MoveIt): pos(%.4f, %.4f, %.4f) quat(%.4f, %.4f, %.4f, %.4f)",
+                current_pose.position.x, current_pose.position.y, current_pose.position.z,
+                current_pose.orientation.x, current_pose.orientation.y,
+                current_pose.orientation.z, current_pose.orientation.w);
+        } catch (const std::exception& e) {
+            out_error_msg = std::string("Failed to get current pose from MoveIt: ") + e.what();
             return std::nullopt;
         }
-        
+
         tf2::Transform current_transform;
-        tf2::fromMsg(current_pose_msg.pose, current_transform);
+        tf2::fromMsg(current_pose, current_transform);
 
         tf2::Transform result_transform;
 
         if (is_relative && ref_frame == "TOOL") {
-            // Relative motion in the tool's frame of reference (Fly-by-wire)
-            // // MATHS: Post-multiplication
             result_transform = current_transform * target_transform;
-        } 
+        }
         else if (is_relative && ref_frame == "WORLD") {
-            // Relative motion in the world frame of reference (e.g., moving 10 cm on the world Z axis)
-            // MATHS: Pre-multiplication for translation
             result_transform.setOrigin(current_transform.getOrigin() + target_translation);
             result_transform.setRotation(target_rotation * current_transform.getRotation());
         }
@@ -681,25 +677,13 @@ namespace motion_control
         moveit_msgs::msg::RobotTrajectory& trajectory,
         std::string& out_msg)
     {
-        // Attempt 1: standard
-        double fraction = move_group_->computeCartesianPath(
-            waypoints, 0.001, 1.5, trajectory);
-        if (fraction >= 0.95) { out_msg = "OK (standard)"; return fraction; }
+        // double fraction = move_group_->computeCartesianPath(waypoints, 0.001, 3.0, trajectory);
+        double fraction = move_group_->computeCartesianPath(waypoints, 0.001, 10.0, trajectory);
 
-        // // Attempt 2: coarser step (more permissive)
-        // RCLCPP_WARN(this->get_logger(),
-        //     "Cartesian path attempt 1 failed (fraction: %.1f%%). Retrying with coarser step...",
-        //     fraction * 100.0);
-
-        // fraction = move_group_->computeCartesianPath(
-        //     waypoints, 0.01, 3.0, trajectory);
-        // if (fraction >= 0.95) {
-        //     RCLCPP_WARN(this->get_logger(),
-        //         "Cartesian path succeeded on fallback (coarser step). Fraction: %.1f%%",
-        //         fraction * 100.0);
-        //     out_msg = "OK (coarser step — fallback)";
-        //     return fraction;
-        // }
+        if (fraction >= kCartesianAcceptThreshold) {
+            out_msg = "OK (standard, fraction=" + std::to_string(fraction) + ")";
+            return fraction;
+        }
 
         out_msg = "FAILED (best fraction: " + std::to_string(fraction * 100) + "%)";
         return fraction;
@@ -896,6 +880,7 @@ namespace motion_control
             moveit_msgs::msg::RobotTrajectory trajectory;
             std::string cart_msg;
 
+            move_group_->setStartStateToCurrentState();
             auto start_time = std::chrono::high_resolution_clock::now();
             double fraction = computeCartesianPathRobust(waypoints, trajectory, cart_msg);
             auto end_time = std::chrono::high_resolution_clock::now();
@@ -904,7 +889,8 @@ namespace motion_control
             RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)", 
                         cart_msg.c_str(), planning_duration);
 
-            if (fraction < 0.95) {
+            
+            if (fraction < kCartesianAcceptThreshold) {
                 // --- Cartesian-specific diagnostic ---
                 auto scene = getLockedPlanningScene();
                 std::string diag_summary;
@@ -964,7 +950,7 @@ namespace motion_control
         }
         else 
         {
-            // --- Apply optional joint constraints (joint-space only) ---
+            // Apply optional joint constraints (joint-space only)
             {
                 std::string constraint_err;
                 if (!applyJointConstraints(req->constrained_joints, req->joint_min, req->joint_max, constraint_err)) {
@@ -1008,21 +994,30 @@ namespace motion_control
 
         // Initial base point: The current position of the robot
         tf2::Transform current_base_tf;
-        try {
-            std::string ee_link = move_group_->getEndEffectorLink();
-            geometry_msgs::msg::TransformStamped t = tf_buffer_->lookupTransform(
-                planning_frame_, ee_link, tf2::TimePointZero, tf2::durationFromSec(0.5));
+        {
+            const std::string ee_link = move_group_->getEndEffectorLink();
+            try {
+                geometry_msgs::msg::PoseStamped cp = move_group_->getCurrentPose(ee_link);
 
-            geometry_msgs::msg::Pose current_pose;
-            current_pose.position.x = t.transform.translation.x;
-            current_pose.position.y = t.transform.translation.y;
-            current_pose.position.z = t.transform.translation.z;
-            current_pose.orientation = t.transform.rotation;
-            tf2::fromMsg(current_pose, current_base_tf);
-        } catch (const tf2::TransformException& e) {
-            res->success = false;
-            res->message = std::string("TF2 lookup failed for current pose: ") + e.what();
-            return;
+                const auto& q = cp.pose.orientation;
+                const double norm = std::sqrt(q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w);
+                if (!std::isfinite(norm) || norm < 0.99 || norm > 1.01) {
+                    res->success = false;
+                    res->message = "getCurrentPose() returned invalid quaternion (norm="
+                                 + std::to_string(norm) + ")";
+                    return;
+                }
+
+                tf2::fromMsg(cp.pose, current_base_tf);
+
+                RCLCPP_INFO(this->get_logger(),
+                    "[MoveWaypoints] Base pose (MoveIt): pos(%.4f, %.4f, %.4f)",
+                    cp.pose.position.x, cp.pose.position.y, cp.pose.position.z);
+            } catch (const std::exception& e) {
+                res->success = false;
+                res->message = std::string("Failed to get current pose from MoveIt: ") + e.what();
+                return;
+            }
         }
 
         std::vector<geometry_msgs::msg::Pose> absolute_waypoints;
@@ -1094,6 +1089,7 @@ namespace motion_control
             moveit_msgs::msg::RobotTrajectory trajectory;
             std::string cart_msg;
 
+            move_group_->setStartStateToCurrentState();
             auto start_time = std::chrono::high_resolution_clock::now();
             double fraction = computeCartesianPathRobust(absolute_waypoints, trajectory, cart_msg);
             auto end_time = std::chrono::high_resolution_clock::now();
@@ -1102,7 +1098,7 @@ namespace motion_control
             RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)", 
                         cart_msg.c_str(), planning_duration);
 
-            if (fraction < 0.95) {
+            if (fraction < kCartesianAcceptThreshold) {
                 auto scene = getLockedPlanningScene();
                 std::string diag_summary;
                 if (scene) {
@@ -1415,7 +1411,8 @@ namespace motion_control
                 is_relative ? "true" : "false",
                 execute ? "true" : "false");
         }
-
+        
+        move_group_->setStartStateToCurrentState();
         move_group_->setJointValueTarget(target);
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
         move_group_->setMaxAccelerationScalingFactor(accel_scale_);
