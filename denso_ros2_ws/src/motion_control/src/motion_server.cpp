@@ -252,10 +252,12 @@ namespace motion_control
             locked_scene.operator->()->shared_from_this());
     }
 
-    bool MotionServer::solveIKAndPlanJoints(
+    bool MotionServer::solveBestIK(
         const geometry_msgs::msg::Pose& target_pose,
-        bool execute,
-        std::string& out_msg)
+        const moveit::core::RobotState& seed_state,
+        std::vector<double>& best_joints,
+        std::string& out_msg,
+        std::vector<std::vector<double>>* all_branches)
     {
         const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
         if (!jmg) {
@@ -263,16 +265,9 @@ namespace motion_control
             return false;
         }
 
-        move_group_->setStartStateToCurrentState();
-        moveit::core::RobotStatePtr current_state = move_group_->getCurrentState(2.0);
-        if (!current_state) {
-            out_msg = "Failed to obtain current robot state";
-            return false;
-        }
-
-        // Reference for "minimize movement" cost
-        std::vector<double> current_joints;
-        current_state->copyJointGroupPositions(jmg, current_joints);
+        // from the seed, NOT getCurrentState()
+        std::vector<double> reference_joints;
+        seed_state.copyJointGroupPositions(jmg, reference_joints);
 
         // Pre-fetch the data needed by each filter
         const auto& joint_models = jmg->getActiveJointModels();
@@ -291,7 +286,7 @@ namespace motion_control
         auto scene = getLockedPlanningScene();
         if (!scene) {
             out_msg = "[IK] PlanningSceneMonitor unavailable — collision filtering disabled";
-            RCLCPP_ERROR(this->get_logger(), out_msg.c_str());
+            RCLCPP_ERROR(this->get_logger(), "%s", out_msg.c_str());
             return false;
         }
 
@@ -308,12 +303,12 @@ namespace motion_control
         int rejected_constraints = 0;
         int rejected_collision = 0;
 
-        auto candidate = std::make_shared<moveit::core::RobotState>(*current_state);
+        auto candidate = std::make_shared<moveit::core::RobotState>(seed_state);
 
         for (int i = 0; i < NUM_ATTEMPTS; ++i)
         {
             if (i == 0) {
-                *candidate = *current_state;
+                *candidate = seed_state; 
             } else {
                 candidate->setToRandomPositions(jmg);
             }
@@ -358,7 +353,7 @@ namespace motion_control
             if (violates_user_constraints) { rejected_constraints++; continue; }
 
             // Filter 3: collision (self + environment)
-            if (scene) {
+            {
                 std::vector<std::string> pairs, self_pairs, env_pairs;
                 if (checkStateCollision(scene, *candidate, planning_group_,
                                         pairs, self_pairs, env_pairs))
@@ -368,11 +363,11 @@ namespace motion_control
                 }
             }
 
-            // Cost
+            // Cost relative to the seed
             double cost = 0.0;
             for (std::size_t j = 0; j < candidate_joints.size(); ++j) {
                 const double w = (j < weights.size()) ? weights[j] : 1.0;
-                const double diff = candidate_joints[j] - current_joints[j];
+                const double diff = candidate_joints[j] - reference_joints[j];
                 cost += w * w * diff * diff;
             }
 
@@ -390,7 +385,7 @@ namespace motion_control
             return false;
         }
 
-        // Deduplicate
+        // Deduplicate into distinct branches
         constexpr double BRANCH_TOLERANCE = 0.01;
         auto same_branch = [&](const std::vector<double>& a, const std::vector<double>& b) {
             for (size_t j = 0; j < a.size(); ++j) {
@@ -413,7 +408,7 @@ namespace motion_control
             }
         }
 
-        // Sort by ascending cost (cheapest = "closest to current state" first)
+        // Sort by ascending cost (cheapest = "closest to seed" first)
         std::sort(distinct_branches.begin(), distinct_branches.end(),
             [](const auto& a, const auto& b) { return a.first < b.first; });
 
@@ -424,27 +419,70 @@ namespace motion_control
             distinct_branches.size(),
             ik_failures, rejected_limits, rejected_constraints, rejected_collision);
 
-        // Pick the best (lowest cost) branch and execute it
+        // Expose all branches if the caller wants them (e.g. demo mode)
+        if (all_branches) {
+            all_branches->clear();
+            all_branches->reserve(distinct_branches.size());
+            for (const auto& br : distinct_branches) {
+                all_branches->push_back(br.second);
+            }
+        }
+
+        // Return the best (lowest cost) branch
         const double best_cost = distinct_branches.front().first;
-        std::vector<double> best_joints = std::move(distinct_branches.front().second);
+        best_joints = distinct_branches.front().second;
 
         RCLCPP_INFO(this->get_logger(),
             "[IK] Best branch selected (cost=%.4f)", best_cost);
+
+        out_msg = "IK OK (cost=" + std::to_string(best_cost)
+                + ", " + std::to_string(valid_solutions.size()) + "/"
+                + std::to_string(NUM_ATTEMPTS) + " valid, "
+                + std::to_string(distinct_branches.size()) + " branches)";
+        return true;
+    }
+
+    bool MotionServer::solveIKAndPlanJoints(
+        const geometry_msgs::msg::Pose& target_pose,
+        bool execute,
+        std::string& out_msg)
+    {
+        move_group_->setStartStateToCurrentState();
+        moveit::core::RobotStatePtr current_state = move_group_->getCurrentState(2.0);
+        if (!current_state) {
+            out_msg = "Failed to obtain current robot state";
+            return false;
+        }
+
+        std::vector<double> best_joints;
+        std::vector<std::vector<double>> all_branches; // for debug mode
+        std::string ik_msg;
+        
+        // Seed = current state of the robot (move_to_pose: we start from where the robot is)
+        if (!solveBestIK(target_pose, *current_state, best_joints, ik_msg, &all_branches)) {
+            out_msg = ik_msg;
+            return false;
+        }
+        RCLCPP_INFO(this->get_logger(), "[IK] %s", ik_msg.c_str());
 
         return planAndExecuteJoints(best_joints, false, execute, out_msg);
 
     #if 0  // DEMO MODE: visit each distinct branch sequentially
         // Set to `#if 1` to re-enable
 
-        std::vector<double> initial_joints = current_joints;  // captured at entry
+        // Reference de retour = état courant au moment de l'appel
+        const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+        std::vector<double> initial_joints;
+        current_state->copyJointGroupPositions(jmg, initial_joints);
+
         std::ostringstream summary;
-        summary << "IK demo executed " << distinct_branches.size() << " branch(es): ";
+        summary << "IK demo executed " << all_branches.size() << " branch(es): ";
 
         int success_count = 0;
         int failure_count = 0;
 
-        for (size_t b = 0; b < distinct_branches.size(); ++b) {
-            const auto& [cost, joints] = distinct_branches[b];
+        for (size_t b = 0; b < all_branches.size(); ++b) {
+            const auto& joints = all_branches[b];
 
             // Log the branch values
             std::ostringstream js;
@@ -456,8 +494,8 @@ namespace motion_control
             js << "]";
 
             RCLCPP_INFO(this->get_logger(),
-                "[IK-DEMO] Branch %zu/%zu (cost=%.4f): %s",
-                b + 1, distinct_branches.size(), cost, js.str().c_str());
+                "[IK-DEMO] Branch %zu/%zu: %s",
+                b + 1, all_branches.size(), js.str().c_str());
 
             if (!execute) {
                 // Plan-only mode: just report each branch, don't move
@@ -483,7 +521,7 @@ namespace motion_control
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
-            if (b + 1 < distinct_branches.size()) {
+            if (b + 1 < all_branches.size()) {
                 std::string return_msg;
                 bool back_ok = planAndExecuteJoints(initial_joints, false, true, return_msg);
                 if (!back_ok) {
@@ -507,7 +545,7 @@ namespace motion_control
 
     #endif
     }
-
+    
     bool MotionServer::planAndMaybeExecutePose(
         const geometry_msgs::msg::PoseStamped& target,
         bool execute,
@@ -1156,30 +1194,49 @@ namespace motion_control
         else {
             moveit_msgs::msg::RobotTrajectory combined_trajectory;
             combined_trajectory.joint_trajectory.joint_names = move_group_->getJointNames();
-            
-            // Get the current state to use as the starting point for the first segment
+
+            const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+            if (!jmg) {
+                res->success = false;
+                res->message = "Unknown planning group: " + planning_group_;
+                return;
+            }
+            const auto& names = jmg->getVariableNames();
+
             moveit::core::RobotStatePtr current_start_state = move_group_->getCurrentState();
-            
+
             int32_t acc_sec = 0;
             uint32_t acc_nanosec = 0;
             auto start_time = std::chrono::high_resolution_clock::now();
-            
+
             for (size_t i = 0; i < absolute_waypoints.size(); ++i) {
-                // Set the starting state for this segment
+                std::vector<double> best_joints;
+                std::string ik_msg;
+                if (!solveBestIK(absolute_waypoints[i], *current_start_state, best_joints, ik_msg)) {
+                    res->success = false;
+                    res->message = "IK failed at waypoint " + std::to_string(i + 1) + ": " + ik_msg;
+                    move_group_->setStartStateToCurrentState();
+                    return;
+                }
+                RCLCPP_INFO(this->get_logger(),
+                    "[MoveWaypoints] Segment %zu/%zu — %s",
+                    i + 1, absolute_waypoints.size(), ik_msg.c_str());
+                    
+                // Map best_joints to the {name:value} format expected by setJointValueTarget
+                std::map<std::string, double> joint_map;
+                for (size_t j = 0; j < names.size(); ++j) {
+                    joint_map[names[j]] = best_joints[j];
+                }
+
+                // Planning joint-space
                 move_group_->setStartState(*current_start_state);
-                
-                // Set the target
-                move_group_->setPoseTarget(absolute_waypoints[i]);
-                
-                // Plan the segment (Strategy 1: pose target)
+                move_group_->setJointValueTarget(joint_map);
+
                 moveit::planning_interface::MoveGroupInterface::Plan segment_plan;
                 auto seg_t0 = std::chrono::high_resolution_clock::now();
                 auto code = move_group_->plan(segment_plan);
                 double seg_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - seg_t0).count();
-
-                // Hygiene: clear pose targets after planning (same as planAndMaybeExecutePose)
-                move_group_->clearPoseTargets();
 
                 RCLCPP_INFO(this->get_logger(),
                     "[MoveWaypoints] Segment %zu/%zu planning: %s (%.3fs, %zu points)",
@@ -1189,77 +1246,25 @@ namespace motion_control
                     segment_plan.trajectory_.joint_trajectory.points.size());
 
                 if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-                    // Diagnostics for the pose-target failure
+                    // Diagnostics: We have a valid IK solution, but the planner hasn't
+                    // found a path to reach it (constraints, obstacles along the way, etc.)
                     std::string diag_msg;
                     auto scene = getLockedPlanningScene();
                     if (scene) {
+                        std::vector<double> goal_vec(best_joints);
                         auto report = diagnosePlanningFailure(
                             code, *move_group_, scene, planning_group_,
-                            &absolute_waypoints[i], nullptr,
+                            nullptr, &goal_vec,
                             seg_dt, this->get_logger());
                         diag_msg = report.summary;
                     }
 
-                    // RCLCPP_WARN(this->get_logger(),
-                    //     "[MoveWaypoints] Segment %zu -space...",
-                    //     i + 1, diag_msg.c_str(), seg_pose-target failed: %s (%.2fs) "
-                    //     "— Falling back to IK + jointdt);
-
-                    // Strategy 2: Explicit IK + joint-space planning 
-                    const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
-                    bool fallback_ok = false;
-
-                    if (jmg) {
-                        // Use the chained start state for IK, not getCurrentState()
-                        moveit::core::RobotState ik_state(*current_start_state);
-                        if (ik_state.setFromIK(jmg, absolute_waypoints[i], 0.5)) {
-                            ik_state.enforceBounds(jmg);
-
-                            std::vector<double> joint_targets;
-                            ik_state.copyJointGroupPositions(jmg, joint_targets);
-
-                            // Set joint target instead of pose target
-                            std::map<std::string, double> joint_map;
-                            const auto& names = jmg->getVariableNames();
-                            for (size_t j = 0; j < names.size(); ++j) {
-                                joint_map[names[j]] = joint_targets[j];
-                            }
-
-                            move_group_->setStartState(*current_start_state);
-                            move_group_->setJointValueTarget(joint_map);
-
-                            auto fb_t0 = std::chrono::high_resolution_clock::now();
-                            code = move_group_->plan(segment_plan);
-                            double fb_dt = std::chrono::duration<double>(
-                                std::chrono::high_resolution_clock::now() - fb_t0).count();
-
-                            RCLCPP_INFO(this->get_logger(),
-                                "[MoveWaypoints] Segment %zu fallback IK+Joint: %s (%.3fs)",
-                                i + 1,
-                                (code == moveit::core::MoveItErrorCode::SUCCESS) ? "OK" : "FAILED",
-                                fb_dt);
-
-                            if (code == moveit::core::MoveItErrorCode::SUCCESS) {
-                                fallback_ok = true;
-                                RCLCPP_INFO(this->get_logger(),
-                                    "[MoveWaypoints] Segment %zu fallback succeeded", i + 1);
-                            }
-                        } else {
-                            RCLCPP_WARN(this->get_logger(),
-                                "[MoveWaypoints] Segment %zu IK failed during fallback", i + 1);
-                        }
-                    }
-
-                    if (!fallback_ok) {
-                        res->success = false;
-                        res->message = "Both strategies failed at waypoint " + std::to_string(i + 1)
-                                    + ". Pose target: " + moveitErrorCodeToString(code);
-                        if (!diag_msg.empty()) {
-                            res->message += " | " + diag_msg;
-                        }
-                        move_group_->setStartStateToCurrentState();
-                        return;
-                    }
+                    res->success = false;
+                    res->message = "Planning failed at waypoint " + std::to_string(i + 1)
+                                + ": " + moveitErrorCodeToString(code);
+                    if (!diag_msg.empty()) res->message += " | " + diag_msg;
+                    move_group_->setStartStateToCurrentState();
+                    return;
                 }
                             
                 // Assemble the trajectory and adjust timing

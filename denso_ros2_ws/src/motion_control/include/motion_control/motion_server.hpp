@@ -379,23 +379,63 @@ namespace motion_control
             void onMoveToPoseViaJoint(const std::shared_ptr<motion_control::srv::MoveToPose::Request> req, std::shared_ptr<motion_control::srv::MoveToPose::Response> res);
             
             /**
-             * @brief Solves IK for a target pose and plans the resulting joint trajectory.
-             * 
-             * Used as a fallback strategy when pose-target planning fails (e.g., due to
-             * planner limitations near singularities). Explicitly computes a joint-space
-             * solution via the IK solver, enforces joint bounds, and delegates to
-             * planAndExecuteJoints for planning and optional execution.
-             * 
-             * Uses the current robot state as the IK seed, which biases the solver toward
-             * the nearest joint configuration. Note that the chosen configuration may differ
-             * from what a pose-target planner would select (e.g., elbow-up vs elbow-down).
-             * 
+             * @brief Multi-seed IK search returning the best joint configuration (no planning, no execution).
+             *
+             * Extracts the IK selection logic shared by solveIKAndPlanJoints and onMoveWaypoints.
+             * Runs NUM_ATTEMPTS IK queries (the first seeded from seed_state, the rest from random
+             * configurations) and filters every candidate against, in order:
+             *   1. URDF joint position limits.
+             *   2. User-defined joint path constraints (via setPathConstraints).
+             *   3. Collision (self + environment) using the current locked planning scene.
+             * Surviving solutions are scored by a weighted squared-distance cost relative to
+             * seed_state (the weights penalize wrist joints to discourage flips), deduplicated
+             * into distinct branches, and the lowest-cost branch is returned.
+             *
+             * The seed_state serves a double role: it is both the IK seed for the first attempt
+             * AND the reference for the "minimize movement" cost. Pass the chained start state
+             * (end of the previous segment) when sequencing waypoints so the chosen configuration
+             * stays close to the previous one; pass the current robot state for single-target moves.
+             *
+             *
+             * @param target_pose The desired end-effector pose in the planning frame.
+             * @param seed_state  IK seed and cost reference (NOT necessarily the current robot state).
+             * @param best_joints Output: joint values of the lowest-cost valid branch (one per active joint).
+             * @param out_msg     Status message (cost and counts) on success, or failure reason
+             *                    with per-filter rejection breakdown.
+             * @param all_branches Optional output: all distinct valid branches sorted by ascending
+             * cost (best first). Pass nullptr if not needed (e.g. waypoint sequencing);
+             * used by the demo mode in solveIKAndPlanJoints to replay every branch. 
+             * @return true  If at least one valid, collision-free solution was found.
+             * @return false If the planning group is unknown, the planning scene is unavailable,
+             *         or no candidate survived the filters after NUM_ATTEMPTS.
+             */
+            bool solveBestIK(
+                const geometry_msgs::msg::Pose& target_pose,
+                const moveit::core::RobotState& seed_state,
+                std::vector<double>& best_joints,
+                std::string& out_msg,
+                std::vector<std::vector<double>>* all_branches = nullptr);
+
+            /**
+             * @brief Solves IK for a target pose and plans/executes the resulting joint trajectory.
+             *
+             * Primary joint-space entry point for move_to_pose and move_to_pose_via_joint.
+             * Thin wrapper that delegates the IK search to solveBestIK (multi-seed search,
+             * joint-limit / user-constraint / collision filtering, weighted cost selection),
+             * then hands the chosen configuration to planAndExecuteJoints for planning and
+             * optional execution.
+             *
+             * Seeds the IK search from the current robot state, so the selected configuration
+             * is biased toward the nearest joint solution and the cost function minimizes motion
+             * relative to where the robot is now. Note that this configuration may differ from
+             * what a pose-target planner would pick (e.g., elbow-up vs elbow-down).
+             *
              * @param target_pose The desired end-effector pose in the planning frame.
              * @param execute If true, the planned trajectory is sent to the controller.
              * @param out_msg Reference to a string where status or error messages will be written.
              * @return true If IK succeeded and planAndExecuteJoints returned success.
-             * @return false If the planning group is unknown, current state is unavailable,
-             *         IK returned no solution, or joint-space planning/execution failed.
+             * @return false If the current state is unavailable, solveBestIK found no valid
+             *         solution, or joint-space planning/execution failed.
              */
             bool solveIKAndPlanJoints(const geometry_msgs::msg::Pose& target_pose, bool execute, std::string& out_msg);
 
