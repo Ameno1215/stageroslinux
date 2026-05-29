@@ -1,6 +1,6 @@
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
@@ -9,9 +9,9 @@ from ament_index_python.packages import get_package_share_directory
 from moveit_configs_utils import MoveItConfigsBuilder
 import xacro
 
-def generate_launch_description():
-    tool = LaunchConfiguration("tool")
 
+def launch_setup(context, *args, **kwargs):
+    tool = LaunchConfiguration("tool").perform(context)
     moveit_config = (
         MoveItConfigsBuilder("staubli_tx2_60l")
         .robot_description(
@@ -115,6 +115,10 @@ def generate_launch_description():
             )
         ]
 
+    return [rviz_node, static_tf_node, robot_state_publisher, move_group_node]
+
+
+def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -122,9 +126,6 @@ def generate_launch_description():
                 default_value="none",
                 description="End-effector tool to attach.",
             ),
-            rviz_node,
-            static_tf_node,
-            robot_state_publisher,
-            move_group_node
+            OpaqueFunction(function=launch_setup),
         ]
     )
