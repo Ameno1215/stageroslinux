@@ -502,7 +502,7 @@ class MotionRosClient(Node):
             logger.info("Simulation mode: skipping actual motor state change.")
             return {"success": True, "message": "Simulation mode: motors state not changed."}
         
-        if self.model == "tx40":
+        if self.model == "staubli_tx40":
             logger.info("Staubli TX40: skipping actual motor state change, the motor need to be managed with SRS.")
             return {"success": True, "message": "Staubli TX40: skipping actual motor state change, the motor need to be managed with SRS."}
 
