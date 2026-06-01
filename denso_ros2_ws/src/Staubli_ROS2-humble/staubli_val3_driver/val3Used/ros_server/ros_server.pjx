@@ -32,6 +32,7 @@
     <Program file="setupRosMsgs.pgx" />
     <Program file="start.pgx" />
     <Program file="stop.pgx" />
+    <Program file="systemReceiver.pgx" />
     <Program file="toJointArrayRad.pgx" />
     <Program file="toJointRxDeg.pgx" />
   </Programs>

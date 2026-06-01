@@ -30,6 +30,11 @@
   if (l_nRetVal!=0)
     popUpMsg("Error while setting producer timeout")
   endIf
+
+  l_nRetVal=sioCtrl(siTcpIpSystem,"timeout",-1)
+  if (l_nRetVal!=0)
+    popUpMsg("Error while setting System socket timeout")
+  endIf
 end]]></Code>
   </Program>
 </Programs>

@@ -27,7 +27,7 @@
 
 using namespace std::placeholders;
 
-SystemInterface::SystemInterface() : connection_(nullptr), Node("system_interface")
+SystemInterface::SystemInterface() : Node("system_interface"), connection_(nullptr)
 {
 }
 
@@ -42,9 +42,9 @@ bool SystemInterface::init(const std::string& default_ip, int default_port)
 
   // override IP/port with ROS params, if available
   this->declare_parameter<std::string>("robot_ip_address", default_ip);
-  this->declare_parameter<int>("~port", default_port);
+  this->declare_parameter<int>("port", default_port);
   this->get_parameter("robot_ip_address", ip);
-  this->get_parameter("~port", port);
+  this->get_parameter("port", port);
 
   // check for valid parameter values
   if (ip.empty())
@@ -54,7 +54,7 @@ bool SystemInterface::init(const std::string& default_ip, int default_port)
   }
   if (port <= 0 || port > 65535)
   {
-    RCLCPP_ERROR(this->get_logger(), "No valid robot IP port found. Please set the '~port' parameter");
+    RCLCPP_ERROR(this->get_logger(), "No valid robot IP port found. Please set the 'port' parameter");
     return false;
   }
 
@@ -70,7 +70,7 @@ bool SystemInterface::init(const std::string& default_ip, int default_port)
     return false;
 
   this->connection_ = client;
-  RCLCPP_INFO(this->get_logger(), "system_interface: Connecting (%s:%d)", ip_addr, port);
+  RCLCPP_INFO(this->get_logger(), "system_interface: Connecting (%s:%d)", ip.c_str(), port);
 
   return this->connection_->makeConnect();
 }

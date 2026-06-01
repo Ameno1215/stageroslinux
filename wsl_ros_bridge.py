@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 
 from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox, ManageMesh
 from denso_robot_core_interfaces.srv import SetServoOn
+from industrial_msgs.msg import ServiceReturnCode
+from industrial_msgs.srv import SetDrivePower
 from geometry_msgs.msg import PoseStamped, Pose
 from rcl_interfaces.srv import GetParameters
 from moveit_msgs.msg import PlanningScene, CollisionObject, ObjectColor
@@ -318,6 +320,7 @@ class MotionRosClient(Node):
         self.move_pose_via_joint_cli = self.create_client(MoveToPose, "/move_to_pose_via_joint")
         self.clear_env_cli = self.create_client(Trigger, "/clear_environment")
         self.servo_on_cli = None
+        self.drive_power_cli = None
         self.pump_grab_cli = None
         self.pump_release_cli = None
         self.pump_is_grabbed_cli = None
@@ -413,13 +416,20 @@ class MotionRosClient(Node):
         self.model = model
         logger.info(f"Resolved model from motion_server parameters: {model}")
 
+        is_staubli = model.startswith("staubli_")
+
         # Create hardware-dependent clients (only on real robot)
-        if not self.sim and self.servo_on_cli is None:
+        if not self.sim and is_staubli and self.drive_power_cli is None:
+            self.drive_power_cli = self.create_client(SetDrivePower, "/system_interface/set_drive_power")
+            if not self.drive_power_cli.wait_for_service(timeout_sec=10.0):
+                logger.warning("Staubli set_drive_power service not available")
+
+        if not self.sim and not is_staubli and self.servo_on_cli is None:
             self.servo_on_cli = self.create_client(SetServoOn, f"/{model}/SetServoOn")
             if not self.servo_on_cli.wait_for_service(timeout_sec=10.0):
                 logger.warning(f"SetServoOn service not available for {model}")
 
-        if not self.sim:
+        if not self.sim and not self.model.startswith("staubli_"):
             self.pump_grab_cli = self.create_client(SetBool, f"/{model}/pump/grab")
             self.pump_release_cli = self.create_client(SetBool, f"/{model}/pump/release")
             self.pump_is_grabbed_cli = self.create_client(SetBool, f"/{model}/pump/is_grabbed")
@@ -494,17 +504,37 @@ class MotionRosClient(Node):
             raise RuntimeError(f"GetScaling failed: {e}")
 
     def call_set_servo_on(self, enable: bool) -> Dict[str, Any]:
-        self.motors_on = enable
-
         logger.info(f"Motors {'ON' if enable else 'OFF'} requested")
 
         if self.sim:
+            self.motors_on = enable
             logger.info("Simulation mode: skipping actual motor state change.")
             return {"success": True, "message": "Simulation mode: motors state not changed."}
-        
-        if self.model == "staubli_tx40":
-            logger.info("Staubli TX40: skipping actual motor state change, the motor need to be managed with SRS.")
-            return {"success": True, "message": "Staubli TX40: skipping actual motor state change, the motor need to be managed with SRS."}
+
+        if self.model.startswith("staubli_"):
+            if self.drive_power_cli is None:
+                self.drive_power_cli = self.create_client(SetDrivePower, "/system_interface/set_drive_power")
+                if not self.drive_power_cli.wait_for_service(timeout_sec=10.0):
+                    return {"success": False, "message": "Staubli set_drive_power service not available"}
+
+            ros_req = SetDrivePower.Request()
+            ros_req.drive_power = enable
+            fut = self.drive_power_cli.call_async(ros_req)
+            try:
+                res = self._wait_for_future(fut, timeout=10.0)
+                success = res.code.val == ServiceReturnCode.SUCCESS
+                if success:
+                    self.motors_on = enable
+                    message = f"Staubli drive power {'ON' if enable else 'OFF'}"
+                    logger.info(message)
+                else:
+                    message = f"Staubli drive power command failed (code={res.code.val})"
+                    logger.error(message)
+                return {"success": success, "message": message}
+            except Exception as e:
+                logger.error(f"Critical error during Staubli SetDrivePower call: {e}")
+                logger.debug(traceback.format_exc())
+                raise RuntimeError(f"SetDrivePower failed: {e}")
 
         ros_req = SetServoOn.Request()
         ros_req.enable = enable
@@ -512,6 +542,7 @@ class MotionRosClient(Node):
         try:
             res = self._wait_for_future(fut, timeout=10.0)
             if res.success:
+                self.motors_on = enable
                 logger.info(f"Motor state changed: {res.message}")
             else:
                 logger.error(f"Motor state change failed: {res.message}")

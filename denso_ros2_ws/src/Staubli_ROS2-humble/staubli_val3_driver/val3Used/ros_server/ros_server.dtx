@@ -9,11 +9,64 @@
     <Data name="siTcpIpMotion" access="public" xsi:type="array" type="sio" size="1">
       <Value key="0" link="Socket\Motion" />
     </Data>
+    <Data name="siTcpIpSystem" access="public" xsi:type="array" type="sio" size="1">
+      <Value key="0" link="Socket\System" />
+    </Data>
     <Data name="sStreamTaskName" access="public" xsi:type="array" type="string" size="1">
       <Value key="0" value="publisher" />
     </Data>
     <Data name="sMotionTaskName" access="public" xsi:type="array" type="string" size="1" />
     <Data name="rosGenericMsg" access="public" xsi:type="array" type="RosSimpleMsg" size="1">
+      <Value key="0">
+        <Field name="header" xsi:type="array" type="Header" size="1">
+          <Value key="0">
+            <Field name="nMsgType" xsi:type="array" type="num" size="1" />
+            <Field name="nCommType" xsi:type="array" type="num" size="1" />
+            <Field name="nReplyCode" xsi:type="array" type="num" size="1" />
+            <Field name="nData" xsi:type="array" type="num" size="12" />
+          </Value>
+        </Field>
+        <Field name="prefix" xsi:type="array" type="Prefix" size="1">
+          <Value key="0">
+            <Field name="nLength" xsi:type="array" type="num" size="1" />
+            <Field name="nData" xsi:type="array" type="num" size="4" />
+          </Value>
+        </Field>
+      </Value>
+    </Data>
+    <Data name="rosSysAckBody" access="public" xsi:type="array" type="Body" size="1">
+      <Value key="0">
+        <Field name="nData" xsi:type="array" type="num" size="1" />
+      </Value>
+    </Data>
+    <Data name="rosSysAckHeader" access="public" xsi:type="array" type="Header" size="1">
+      <Value key="0">
+        <Field name="nMsgType" xsi:type="array" type="num" size="1">
+          <Value key="0" value="1610" />
+        </Field>
+        <Field name="nCommType" xsi:type="array" type="num" size="1">
+          <Value key="0" value="3" />
+        </Field>
+        <Field name="nReplyCode" xsi:type="array" type="num" size="1">
+          <Value key="0" value="1" />
+        </Field>
+        <Field name="nData" xsi:type="array" type="num" size="12" />
+      </Value>
+    </Data>
+    <Data name="rosSysAckPrefix" access="public" xsi:type="array" type="Prefix" size="1">
+      <Value key="0">
+        <Field name="nLength" xsi:type="array" type="num" size="1">
+          <Value key="0" value="13" />
+        </Field>
+        <Field name="nData" xsi:type="array" type="num" size="4" />
+      </Value>
+    </Data>
+    <Data name="rosSystemBody" access="public" xsi:type="array" type="Body" size="1">
+      <Value key="0">
+        <Field name="nData" xsi:type="array" type="num" size="1" />
+      </Value>
+    </Data>
+    <Data name="rosSystemMsg" access="public" xsi:type="array" type="RosSimpleMsg" size="1">
       <Value key="0">
         <Field name="header" xsi:type="array" type="Header" size="1">
           <Value key="0">
@@ -266,7 +319,9 @@
     <Data name="sScreenTaskName" access="public" xsi:type="array" type="string" size="1" />
     <Data name="nInConnFlag" access="public" xsi:type="array" type="num" size="1" />
     <Data name="nOutConnFlag" access="public" xsi:type="array" type="num" size="1" />
+    <Data name="nSystemConnFlag" access="public" xsi:type="array" type="num" size="1" />
     <Data name="sHtbtTaskName" access="public" xsi:type="array" type="string" size="1" />
+    <Data name="sSystemTaskName" access="public" xsi:type="array" type="string" size="1" />
     <Data name="nPtsPopped" access="public" xsi:type="array" type="num" size="1" />
     <Data name="bStopNow" access="public" xsi:type="array" type="bool" size="1" />
     <Data name="nMotionProgress" access="public" xsi:type="array" type="num" size="1" />

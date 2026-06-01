@@ -72,6 +72,13 @@
   rosJointFbkMsg.header.nMsgType=15
   rosJointFbkMsg.header.nCommType=1
   rosJointFbkMsg.header.nReplyCode=0
+
+  // Set drive power ACK message (Staubli specific ID 1610)
+  // prefix length = 12 + 1
+  rosSysAckPrefix.nLength=13
+  rosSysAckHeader.nMsgType=1610
+  rosSysAckHeader.nCommType=3
+  rosSysAckHeader.nReplyCode=1
 end]]></Code>
   </Program>
 </Programs>
