@@ -111,8 +111,16 @@ bool JointTrajectoryInterface::init(SmplMsgConnection* connection, const std::ve
 
   // try to read velocity limits from URDF, if none specified
   ParamUtils pu;
-  if (joint_vel_limits_.empty() && !pu.getJointVelocityLimits("moveit_simple_controller_manager", "robot_description", joint_vel_limits_))
+  if (joint_vel_limits_.empty() && !pu.getJointVelocityLimits("move_group", "robot_description", joint_vel_limits_))
+  {
     RCLCPP_WARN(this->get_logger(), "Unable to read velocity limits from 'robot_description' param.  Velocity validation disabled.");
+  }
+
+  RCLCPP_INFO(this->get_logger(), "Loaded %zu joint velocity limits.", joint_vel_limits_.size());
+  for (const auto &limit : joint_vel_limits_)
+  {
+    RCLCPP_INFO(this->get_logger(), "  %s: %.6f rad/s", limit.first.c_str(), limit.second);
+  }
 
 
 
@@ -285,15 +293,32 @@ bool JointTrajectoryInterface::calc_velocity(const trajectory_msgs::msg::JointTr
 
   // find largest velocity-ratio (closest to max joint-speed)
   int max_idx = std::max_element(vel_ratios.begin(), vel_ratios.end()) - vel_ratios.begin();
+  const std::string max_joint_name = all_joint_names_[max_idx];
+  const double max_joint_velocity = pt.velocities[max_idx];
+  const double max_joint_limit =
+    joint_vel_limits_.count(max_joint_name) == 0 ? 0.0 : joint_vel_limits_[max_joint_name];
   
   if (vel_ratios[max_idx] > default_vel_ratio_)
   {
     *rbt_velocity = vel_ratios[max_idx];
-    RCLCPP_INFO(this->get_logger(), "vel ratio: %s", std::to_string(*rbt_velocity).c_str());
   }
   else
   {
-    RCLCPP_WARN(this->get_logger(), "Joint velocity-limits unspecified.  Using default velocity-ratio.");
+    if (vel_ratios[max_idx] < 0.0)
+    {
+      RCLCPP_WARN(this->get_logger(), "Joint velocity-limits unavailable for this trajectory point. Using default velocity-ratio %.3f.", default_vel_ratio_);
+    }
+    else
+    {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Computed velocity-ratio %.6f from joint '%s' (planned %.6f rad/s, MoveIt limit %.6f rad/s) is <= minimum default %.3f. Using default velocity-ratio.",
+        vel_ratios[max_idx],
+        max_joint_name.c_str(),
+        max_joint_velocity,
+        max_joint_limit,
+        default_vel_ratio_);
+    }
     *rbt_velocity = default_vel_ratio_;
   }
 
