@@ -1,5 +1,7 @@
 #include "motion_control/motion_server.hpp"
 
+#include <cmath>
+
 
 namespace motion_control
 {
@@ -69,7 +71,7 @@ namespace motion_control
         srv_get_pose_ = this->create_service<srv::GetCurrentPose>(
             "get_current_pose",
             std::bind(&MotionServer::onGetCurrentPose, this, std::placeholders::_1, std::placeholders::_2));
-        
+
         srv_virtual_cage_ = this->create_service<srv::SetVirtualCage>(
             "set_virtual_cage",
             std::bind(&MotionServer::onSetVirtualCage, this, std::placeholders::_1, std::placeholders::_2));
@@ -77,7 +79,7 @@ namespace motion_control
         srv_manage_box_ = this->create_service<srv::ManageBox>(
             "manage_box",
             std::bind(&MotionServer::onManageBox, this, std::placeholders::_1, std::placeholders::_2));
-        
+
         srv_manage_mesh_ = this->create_service<srv::ManageMesh>(
             "manage_mesh",
             std::bind(&MotionServer::onManageMesh, this, std::placeholders::_1, std::placeholders::_2));
@@ -172,7 +174,7 @@ namespace motion_control
             // allowed collision matrix, robot state) needed by diagnostic helpers.
             psm_ = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>(
             shared_from_this(), "robot_description");
-            
+
             // Start listening to the planning scene topic published by move_group
             psm_->startSceneMonitor("/monitored_planning_scene");
             // Start listening to the robot's joint state for state updates
@@ -192,7 +194,7 @@ namespace motion_control
             int p_attempts = req->planning_attempts > 0 ? req->planning_attempts : 10;
             bool a_replan = req->allow_replanning;
             std::string planner_id = req->planner_id.empty() ? "PRMstar" : req->planner_id;
-            
+
             move_group_->setPlanningTime(p_time); // Maximum time (in seconds) allowed for planning.
             move_group_->setNumPlanningAttempts(p_attempts);  //Number of attempts simultaneously launched by MoveIt to find a valid plan (with different random seeds).
             move_group_->allowReplanning(a_replan); // If true, MoveIt will automatically try to replan if the current plan fails during execution (e.g., due to a new obstacle).
@@ -308,7 +310,7 @@ namespace motion_control
         for (int i = 0; i < NUM_ATTEMPTS; ++i)
         {
             if (i == 0) {
-                *candidate = seed_state; 
+                *candidate = seed_state;
             } else {
                 candidate->setToRandomPositions(jmg);
             }
@@ -457,7 +459,7 @@ namespace motion_control
         std::vector<double> best_joints;
         std::vector<std::vector<double>> all_branches; // for debug mode
         std::string ik_msg;
-        
+
         // Seed = current state of the robot (move_to_pose: we start from where the robot is)
         if (!solveBestIK(target_pose, *current_state, best_joints, ik_msg, &all_branches)) {
             out_msg = ik_msg;
@@ -545,7 +547,7 @@ namespace motion_control
 
     #endif
     }
-    
+
     bool MotionServer::planAndMaybeExecutePose(
         const geometry_msgs::msg::PoseStamped& target,
         bool execute,
@@ -715,7 +717,6 @@ namespace motion_control
         moveit_msgs::msg::RobotTrajectory& trajectory,
         std::string& out_msg)
     {
-        // double fraction = move_group_->computeCartesianPath(waypoints, 0.001, 3.0, trajectory);
         double fraction = move_group_->computeCartesianPath(waypoints, 0.001, 10.0, trajectory);
 
         if (fraction >= kCartesianAcceptThreshold) {
@@ -736,7 +737,6 @@ namespace motion_control
 
         rt.setRobotTrajectoryMsg(*move_group_->getCurrentState(), trajectory);
 
-        // trajectory_processing::TimeOptimalTrajectoryGeneration totg;
         trajectory_processing::TimeOptimalTrajectoryGeneration totg(
             0.05,   // path_tolerance (rad) — how much TOTG can deviate from path to smooth corners
             0.01,   // resample_dt (s) — finer interpolation
@@ -760,6 +760,176 @@ namespace motion_control
 
         // Convert back to message with correct timestamps
         rt.getRobotTrajectoryMsg(trajectory);
+    }
+
+    void MotionServer::logCartesianFkTrace(
+        const std::string& label,
+        const moveit_msgs::msg::RobotTrajectory& trajectory) const
+    {
+        const auto& joint_traj = trajectory.joint_trajectory;
+        const auto& points = joint_traj.points;
+
+        if (!move_group_) {
+            RCLCPP_WARN(this->get_logger(), "[FK_TRACE:%s] MoveGroup is not initialized", label.c_str());
+            return;
+        }
+
+        if (points.empty()) {
+            RCLCPP_WARN(this->get_logger(), "[FK_TRACE:%s] Trajectory has 0 points", label.c_str());
+            return;
+        }
+
+        if (joint_traj.joint_names.empty()) {
+            RCLCPP_WARN(this->get_logger(), "[FK_TRACE:%s] Trajectory has no joint names", label.c_str());
+            return;
+        }
+
+        const std::string ee_link = move_group_->getEndEffectorLink();
+        if (ee_link.empty()) {
+            RCLCPP_WARN(this->get_logger(), "[FK_TRACE:%s] End-effector link is empty", label.c_str());
+            return;
+        }
+
+        auto state = move_group_->getCurrentState(1.0);
+        if (!state) {
+            RCLCPP_WARN(this->get_logger(), "[FK_TRACE:%s] Cannot get current robot state", label.c_str());
+            return;
+        }
+
+        std::vector<Eigen::Vector3d> positions;
+        positions.reserve(points.size());
+
+        auto append_fk_sample = [&](const std::vector<double>& joint_positions, size_t source_index, double t) {
+            for (size_t j = 0; j < joint_traj.joint_names.size(); ++j) {
+                state->setVariablePosition(joint_traj.joint_names[j], joint_positions[j]);
+            }
+            state->update();
+
+            const Eigen::Isometry3d& tf = state->getGlobalLinkTransform(ee_link);
+            const Eigen::Vector3d p = tf.translation();
+            positions.push_back(p);
+
+            RCLCPP_DEBUG(
+                this->get_logger(),
+                "[FK_TRACE:%s] sample=%zu source_point=%zu t=%.6f xyz=(%.6f, %.6f, %.6f)",
+                label.c_str(), positions.size() - 1, source_index, t, p.x(), p.y(), p.z());
+        };
+
+        for (size_t i = 0; i < points.size(); ++i) {
+            const auto& pt = points[i];
+            if (pt.positions.size() != joint_traj.joint_names.size()) {
+                RCLCPP_WARN(
+                    this->get_logger(),
+                    "[FK_TRACE:%s] Point %zu has %zu positions for %zu joint names",
+                    label.c_str(), i, pt.positions.size(), joint_traj.joint_names.size());
+                return;
+            }
+
+            const double t = pt.time_from_start.sec + pt.time_from_start.nanosec * 1e-9;
+            if (i == 0) {
+                append_fk_sample(pt.positions, i, t);
+                continue;
+            }
+
+            const auto& prev_pt = points[i - 1];
+            double max_joint_delta = 0.0;
+            for (size_t j = 0; j < pt.positions.size(); ++j) {
+                max_joint_delta = std::max(max_joint_delta, std::abs(pt.positions[j] - prev_pt.positions[j]));
+            }
+
+            const size_t samples = std::max<size_t>(
+                1,
+                std::min<size_t>(100, static_cast<size_t>(std::ceil(max_joint_delta / 0.01))));
+            const double t_prev = prev_pt.time_from_start.sec + prev_pt.time_from_start.nanosec * 1e-9;
+
+            for (size_t s = 1; s <= samples; ++s) {
+                const double alpha = static_cast<double>(s) / static_cast<double>(samples);
+                std::vector<double> interp(pt.positions.size(), 0.0);
+                for (size_t j = 0; j < pt.positions.size(); ++j) {
+                    interp[j] = prev_pt.positions[j] + alpha * (pt.positions[j] - prev_pt.positions[j]);
+                }
+                append_fk_sample(interp, i, t_prev + alpha * (t - t_prev));
+            }
+        }
+
+        if (positions.size() == 1) {
+            RCLCPP_INFO(
+                this->get_logger(),
+                "[FK_TRACE:%s] points=1 xyz=(%.6f, %.6f, %.6f)",
+                label.c_str(),
+                positions.front().x(), positions.front().y(), positions.front().z());
+            return;
+        }
+
+        const Eigen::Vector3d start = positions.front();
+        const Eigen::Vector3d end = positions.back();
+        const Eigen::Vector3d line = end - start;
+        const double straight_len = line.norm();
+
+        double path_len = 0.0;
+        double max_step = 0.0;
+        double max_dev = 0.0;
+        double max_turn_deg = 0.0;
+        size_t max_dev_index = 0;
+        size_t max_turn_index = 0;
+
+        for (size_t i = 1; i < positions.size(); ++i) {
+            const double step = (positions[i] - positions[i - 1]).norm();
+            path_len += step;
+            max_step = std::max(max_step, step);
+
+            if (i + 1 < positions.size()) {
+                const Eigen::Vector3d a = positions[i] - positions[i - 1];
+                const Eigen::Vector3d b = positions[i + 1] - positions[i];
+                const double an = a.norm();
+                const double bn = b.norm();
+                if (an > 1e-12 && bn > 1e-12) {
+                    double c = a.dot(b) / (an * bn);
+                    c = std::max(-1.0, std::min(1.0, c));
+                    const double turn_deg = std::acos(c) * 180.0 / 3.14159265358979323846;
+                    if (turn_deg > max_turn_deg) {
+                        max_turn_deg = turn_deg;
+                        max_turn_index = i;
+                    }
+                }
+            }
+        }
+
+        if (straight_len > 1e-12) {
+            for (size_t i = 0; i < positions.size(); ++i) {
+                const Eigen::Vector3d rel = positions[i] - start;
+                const Eigen::Vector3d projected =
+                    start + line * (rel.dot(line) / (straight_len * straight_len));
+                const double dev = (positions[i] - projected).norm();
+                if (dev > max_dev) {
+                    max_dev = dev;
+                    max_dev_index = i;
+                }
+            }
+        }
+
+        const double path_ratio = straight_len > 1e-12 ? path_len / straight_len : 0.0;
+        const double total_time = points.back().time_from_start.sec
+                                + points.back().time_from_start.nanosec * 1e-9;
+
+        RCLCPP_INFO(
+            this->get_logger(),
+            "[FK_TRACE:%s] trajectory_points=%zu fk_samples=%zu time=%.6fs start=(%.6f, %.6f, %.6f) end=(%.6f, %.6f, %.6f) "
+            "straight=%.6fm path=%.6fm ratio=%.6f max_dev=%.6fm@%zu max_step=%.6fm max_turn=%.3fdeg@%zu",
+            label.c_str(),
+            points.size(), positions.size(), total_time,
+            start.x(), start.y(), start.z(),
+            end.x(), end.y(), end.z(),
+            straight_len, path_len, path_ratio,
+            max_dev, max_dev_index, max_step,
+            max_turn_deg, max_turn_index);
+
+        if (path_ratio > 1.02 || max_dev > 0.002 || max_turn_deg > 10.0) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "[FK_TRACE:%s] Non-straight Cartesian trace suspected: ratio=%.6f, max_dev=%.6fm, max_turn=%.3fdeg",
+                label.c_str(), path_ratio, max_dev, max_turn_deg);
+        }
     }
 
     // Trajectory sanity check before sending to the controller
@@ -900,7 +1070,7 @@ namespace motion_control
             oss_c << "[MoveToPose] Joint constraints: ";
             for (size_t i = 0; i < req->constrained_joints.size(); ++i) {
                 if (i > 0) oss_c << ", ";
-                oss_c << req->constrained_joints[i] << "=[" 
+                oss_c << req->constrained_joints[i] << "=["
                     << req->joint_min[i] << ", " << req->joint_max[i] << "]";
             }
             RCLCPP_INFO(this->get_logger(), "%s", oss_c.str().c_str());
@@ -924,10 +1094,11 @@ namespace motion_control
             auto end_time = std::chrono::high_resolution_clock::now();
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
-            RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)", 
+            RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)",
                         cart_msg.c_str(), planning_duration);
+            logCartesianFkTrace("MOVE_TO_POSE_RAW_AFTER_COMPUTE", trajectory);
 
-            
+
             if (fraction < kCartesianAcceptThreshold) {
                 // --- Cartesian-specific diagnostic ---
                 auto scene = getLockedPlanningScene();
@@ -950,11 +1121,12 @@ namespace motion_control
                 res->message += " (took " + std::to_string(planning_duration) + "s)";
                 return;
             }
-             RCLCPP_INFO(this->get_logger(), "Cartesian path planned successfully with fraction %.1f%% (%.2fs)", 
+             RCLCPP_INFO(this->get_logger(), "Cartesian path planned successfully with fraction %.1f%% (%.2fs)",
                         fraction * 100.0, planning_duration);
 
             // Apply velocity/acceleration scaling to the raw Cartesian trajectory
             applyVelocityScaling(trajectory);
+            logCartesianFkTrace("MOVE_TO_POSE_AFTER_RETIMER", trajectory);
 
             // Validate trajectory before sending to controller
             std::string traj_err;
@@ -986,7 +1158,7 @@ namespace motion_control
                 }
             }
         }
-        else 
+        else
         {
             // Apply optional joint constraints (joint-space only)
             {
@@ -1022,8 +1194,8 @@ namespace motion_control
         }
 
         // --- VERIFY PARALLEL ARRAYS ---
-        if (req->is_relative_list.size() != req->waypoints.size() || 
-            req->reference_frame_list.size() != req->waypoints.size()) 
+        if (req->is_relative_list.size() != req->waypoints.size() ||
+            req->reference_frame_list.size() != req->waypoints.size())
         {
             res->success = false;
             res->message = "Configuration arrays (is_relative_list, reference_frame_list) must match the waypoints array size.";
@@ -1063,7 +1235,7 @@ namespace motion_control
         // Conversion loop
         for (size_t i = 0; i < req->waypoints.size(); ++i) {
             tf2::Transform wp_tf;
-            tf2::fromMsg(req->waypoints[i], wp_tf); 
+            tf2::fromMsg(req->waypoints[i], wp_tf);
             tf2::Transform target_tf;
 
             // Retrieve the specific configuration for THIS waypoint
@@ -1133,8 +1305,9 @@ namespace motion_control
             auto end_time = std::chrono::high_resolution_clock::now();
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
-            RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)", 
+            RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)",
                         cart_msg.c_str(), planning_duration);
+            logCartesianFkTrace("MOVE_WAYPOINTS_RAW_AFTER_COMPUTE", trajectory);
 
             if (fraction < kCartesianAcceptThreshold) {
                 auto scene = getLockedPlanningScene();
@@ -1160,6 +1333,7 @@ namespace motion_control
 
             // Apply velocity/acceleration scaling to the raw Cartesian trajectory
             applyVelocityScaling(trajectory);
+            logCartesianFkTrace("MOVE_WAYPOINTS_AFTER_RETIMER", trajectory);
 
             // Validate trajectory before sending to controller
             std::string traj_err;
@@ -1221,7 +1395,7 @@ namespace motion_control
                 RCLCPP_INFO(this->get_logger(),
                     "[MoveWaypoints] Segment %zu/%zu — %s",
                     i + 1, absolute_waypoints.size(), ik_msg.c_str());
-                    
+
                 // Map best_joints to the {name:value} format expected by setJointValueTarget
                 std::map<std::string, double> joint_map;
                 for (size_t j = 0; j < names.size(); ++j) {
@@ -1266,16 +1440,16 @@ namespace motion_control
                     move_group_->setStartStateToCurrentState();
                     return;
                 }
-                            
+
                 // Assemble the trajectory and adjust timing
                 int32_t segment_duration_sec = 0;
                 uint32_t segment_duration_nanosec = 0;
-                
+
                 // Warn about velocity discontinuity at segment junctions.
                 // MoveIt plans each segment with zero-velocity endpoints. Skipping
                 // points[0] avoids duplicate positions but does NOT guarantee
                 // velocity continuity. The controller may experience a velocity jump.
-                size_t start_index = (i == 0) ? 0 : 1; 
+                size_t start_index = (i == 0) ? 0 : 1;
 
                 if (i > 0 && !combined_trajectory.joint_trajectory.points.empty()
                     && segment_plan.trajectory_.joint_trajectory.points.size() > 1) {
@@ -1295,23 +1469,23 @@ namespace motion_control
                         }
                     }
                 }
-                
+
                 for (size_t j = start_index; j < segment_plan.trajectory_.joint_trajectory.points.size(); ++j) {
                     auto pt = segment_plan.trajectory_.joint_trajectory.points[j];
-                    
+
                     segment_duration_sec = pt.time_from_start.sec;
                     segment_duration_nanosec = pt.time_from_start.nanosec;
-                    
+
                     uint32_t total_nanosec = pt.time_from_start.nanosec + acc_nanosec;
                     int32_t total_sec = pt.time_from_start.sec + acc_sec + (total_nanosec / 1000000000);
                     total_nanosec = total_nanosec % 1000000000;
-                    
+
                     pt.time_from_start.sec = total_sec;
                     pt.time_from_start.nanosec = total_nanosec;
-                    
+
                     combined_trajectory.joint_trajectory.points.push_back(pt);
                 }
-                
+
                 // Accumulate time for the next segment
                 acc_sec += segment_duration_sec;
                 acc_nanosec += segment_duration_nanosec;
@@ -1319,7 +1493,7 @@ namespace motion_control
                     acc_sec += (acc_nanosec / 1000000000);
                     acc_nanosec = acc_nanosec % 1000000000;
                 }
-                
+
                 // Update the start state for the next segment calculation
                 if (segment_plan.trajectory_.joint_trajectory.points.empty()) {
                     res->success = false;
@@ -1330,11 +1504,11 @@ namespace motion_control
                 std::vector<double> last_positions = segment_plan.trajectory_.joint_trajectory.points.back().positions;
                 current_start_state->setJointGroupPositions(planning_group_, last_positions);
             }
-            
+
             // Restore normal state
             move_group_->clearPoseTargets();
             move_group_->setStartStateToCurrentState();
-            
+
             auto end_time = std::chrono::high_resolution_clock::now();
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
@@ -1355,7 +1529,7 @@ namespace motion_control
                 res->message = traj_err;
                 return;
             }
-            
+
             // Execute
             if (req->execute) {
                 const auto& pts = combined_trajectory.joint_trajectory.points;
@@ -1416,7 +1590,7 @@ namespace motion_control
                 is_relative ? "true" : "false",
                 execute ? "true" : "false");
         }
-        
+
         move_group_->setStartStateToCurrentState();
         move_group_->setJointValueTarget(target);
         move_group_->setMaxVelocityScalingFactor(vel_scale_);
@@ -1521,7 +1695,7 @@ namespace motion_control
 
     void MotionServer::onMoveJoints(
         const std::shared_ptr<motion_control::srv::MoveJoints::Request> req,
-        std::shared_ptr<motion_control::srv::MoveJoints::Response> res) 
+        std::shared_ptr<motion_control::srv::MoveJoints::Response> res)
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
@@ -1538,7 +1712,7 @@ namespace motion_control
             oss_c << "[MoveJoints] Joint constraints: ";
             for (size_t i = 0; i < req->constrained_joints.size(); ++i) {
                 if (i > 0) oss_c << ", ";
-                oss_c << req->constrained_joints[i] << "=[" 
+                oss_c << req->constrained_joints[i] << "=["
                     << req->joint_min[i] << ", " << req->joint_max[i] << "]";
             }
             RCLCPP_INFO(this->get_logger(), "%s", oss_c.str().c_str());
@@ -1599,7 +1773,7 @@ namespace motion_control
             oss_c << "[MoveToPoseViaJoint] Joint constraints: ";
             for (size_t i = 0; i < req->constrained_joints.size(); ++i) {
                 if (i > 0) oss_c << ", ";
-                oss_c << req->constrained_joints[i] << "=[" 
+                oss_c << req->constrained_joints[i] << "=["
                     << req->joint_min[i] << ", " << req->joint_max[i] << "]";
             }
             RCLCPP_INFO(this->get_logger(), "%s", oss_c.str().c_str());
@@ -1698,13 +1872,13 @@ namespace motion_control
             tf2::Matrix3x3 m(q);
             double roll, pitch, yaw;
             m.getRPY(roll, pitch, yaw);
-            
+
             // Fill the float array
             res->euler_rpy = {roll, pitch, yaw};
 
             res->success = true;
             res->message = "Pose retrieved via TF2 for link: " + target_frame;
-        } 
+        }
         catch (const tf2::TransformException & ex) {
             // Handle TF2 errors (e.g., frame does not exist)
             res->success = false;
@@ -1746,15 +1920,15 @@ namespace motion_control
             obj.header.frame_id = planning_frame_;
             obj.id = id;
             obj.operation = obj.ADD;
-            
+
             shape_msgs::msg::SolidPrimitive primitive;
             primitive.type = primitive.BOX;
             primitive.dimensions = {sx, sy, sz};
-            
+
             geometry_msgs::msg::Pose pose;
             pose.position.x = cx; pose.position.y = cy; pose.position.z = cz;
             pose.orientation.w = 1.0;
-            
+
             obj.primitives.push_back(primitive);
             obj.primitive_poses.push_back(pose);
             return obj;
@@ -1783,15 +1957,15 @@ namespace motion_control
         //  Floor (-Z)
         collision_objects.push_back(make_wall("cage_bottom", cx, cy, -req->bottom - thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
 
-        
+
         moveit_msgs::msg::PlanningScene planning_scene_msg;
         planning_scene_msg.is_diff = true;
-        
+
         std_msgs::msg::ColorRGBA cage_color;
         cage_color.r = req->r;
         cage_color.g = req->g;
         cage_color.b = req->b;
-        cage_color.a = req->a; 
+        cage_color.a = req->a;
 
         for (const auto& obj : collision_objects) {
             moveit_msgs::msg::ObjectColor oc;
@@ -1799,7 +1973,7 @@ namespace motion_control
             oc.color = cage_color;
             planning_scene_msg.object_colors.push_back(oc);
         }
-        
+
         // Apply the cage to the planning scene
         planning_scene_msg.world.collision_objects = collision_objects;
         planning_scene_->applyPlanningScene(planning_scene_msg);
@@ -1851,16 +2025,16 @@ namespace motion_control
         marker.header.frame_id = planning_frame_;
         marker.header.stamp = this->now();
         marker.ns = "boxes";
-        marker.id = getMarkerId(req->box_id); 
+        marker.id = getMarkerId(req->box_id);
 
         moveit_msgs::msg::PlanningScene planning_scene_msg;
-        planning_scene_msg.is_diff = true; 
+        planning_scene_msg.is_diff = true;
 
         // --- 3. Collision vs Visual Logic ---
         if (req->action == "REMOVE") {
             obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
             marker.action = visualization_msgs::msg::Marker::DELETE;
-            visual_only_boxes_.erase(req->box_id); 
+            visual_only_boxes_.erase(req->box_id);
         } else {
             if (req->enable_collision) {
                 // COLLISION ON: MoveIt handles it
@@ -1886,7 +2060,7 @@ namespace motion_control
                 visual_only_boxes_.erase(req->box_id);
             } else {
                 // COLLISION OFF: Purely visual in RViz
-                obj.operation = moveit_msgs::msg::CollisionObject::REMOVE; 
+                obj.operation = moveit_msgs::msg::CollisionObject::REMOVE;
 
                 marker.action = visualization_msgs::msg::Marker::ADD;
                 marker.type = visualization_msgs::msg::Marker::CUBE;
@@ -1905,7 +2079,7 @@ namespace motion_control
         // --- 4. Apply changes ---
         planning_scene_msg.world.collision_objects.push_back(obj);
         planning_scene_->applyPlanningScene(planning_scene_msg);
-        visual_marker_pub_->publish(marker); 
+        visual_marker_pub_->publish(marker);
 
         res->success = true;
         res->message = "Box '" + req->box_id + "' action '" + req->action + "' applied. Collision: " + (req->enable_collision ? "ON" : "OFF");
@@ -1931,10 +2105,10 @@ namespace motion_control
 
             // Create the scale vector
             Eigen::Vector3d scale(req->scale_x, req->scale_y, req->scale_z);
-            
+
             // Load the mesh from the specified path (must start with file:// or package://)
             shapes::Mesh* m = shapes::createMeshFromResource(req->mesh_path, scale);
-            
+
             if (!m) {
                 res->success = false;
                 res->message = "Failed to load mesh from: " + req->mesh_path;
@@ -2008,7 +2182,7 @@ namespace motion_control
         }
 
         auto object_ids = planning_scene_->getKnownObjectNames();
-        
+
         auto attached = planning_scene_->getAttachedObjects();
         std::set<std::string> attached_ids;
         for (const auto& [id, _] : attached) {

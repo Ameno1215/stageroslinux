@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="ioReceiver" access="public">
+    <Locals>
+      <Local name="l_bAckNeeded" type="bool" xsi:type="array" size="1" />
+      <Local name="l_bFlag" type="bool" xsi:type="array" size="1" />
+      <Local name="l_bState" type="bool" xsi:type="array" size="1" />
+      <Local name="l_bWriteOk" type="bool" xsi:type="array" size="1" />
+      <Local name="l_nModuleId" type="num" xsi:type="array" size="1" />
+      <Local name="l_nPin" type="num" xsi:type="array" size="1" />
+      <Local name="l_nRetVal" type="num" xsi:type="array" size="1" />
+      <Local name="l_nState" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+  // Handles WRITE_SINGLE_IO requests from ROS on Socket\IO.
+
+  while(true)
+    l_bAckNeeded=false
+
+    call recvData(siTcpIpIO,rosIOMsg.prefix.nData,nIOConnFlag,l_bFlag)
+    if (l_bFlag == true)
+      call recvData(siTcpIpIO,rosIOMsg.header.nData,nIOConnFlag,l_bFlag)
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOMsg.prefix.nData,4,"-4l",rosIOMsg.prefix.nLength)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOMsg.header.nData,4,"-4l",rosIOMsg.header.nMsgType)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOMsg.header.nData[4],4,"-4l",rosIOMsg.header.nCommType)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOMsg.header.nData[8],4,"-4l",rosIOMsg.header.nReplyCode)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_bAckNeeded=true
+    endIf
+
+    if (l_bFlag == true)
+      // WRITE_SINGLE_IO carries module ID, pin index and boolean state.
+      if (rosIOMsg.header.nMsgType==1621 and rosIOMsg.prefix.nLength==21)
+        call recvData(siTcpIpIO,rosIOBody.nData,nIOConnFlag,l_bFlag)
+      else
+        l_bFlag=false
+      endIf
+    endIf
+
+    // Default ACK is success; errors below flip it to failure.
+    rosIOAckHeader.nReplyCode=1
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOBody.nData,4,"-4l",l_nModuleId)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOBody.nData[4],4,"-4l",l_nPin)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOBody.nData[8],1,"1",l_nState)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      elseIf (l_nState==1)
+        l_bState=true
+      elseIf (l_nState==0)
+        l_bState=false
+      else
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      call IO:writeSingle(l_nModuleId,l_nPin,l_bState,l_bWriteOk)
+      if (!l_bWriteOk)
+        rosIOAckHeader.nReplyCode=2
+      endIf
+    elseIf (l_bAckNeeded)
+      rosIOAckHeader.nReplyCode=2
+    endIf
+
+    if (l_bAckNeeded and nIOConnFlag==1)
+      call encPrefixHeader(rosIOAckPrefix,rosIOAckHeader)
+      call sendRosMsg(siTcpIpIO,rosIOAckPrefix,rosIOAckHeader,rosIOAckBody,nIOConnFlag)
+    endIf
+
+    delay(0)
+  endWhile
+end]]></Code>
+  </Program>
+</Programs>

@@ -56,7 +56,7 @@ namespace motion_control
 {
     /**
      * @brief Main motion server for the Denso robot.
-     * * This ROS 2 node exposes services to initialize the robot, 
+     * * This ROS 2 node exposes services to initialize the robot,
      * command movements (joint space or Cartesian space), and retrieve the current state
      * using the MoveIt 2 planning interface.
      */
@@ -85,7 +85,7 @@ namespace motion_control
 
             planning_scene_monitor::PlanningSceneMonitorPtr psm_;
             planning_scene::PlanningSceneConstPtr getLockedPlanningScene() const;
-    
+
             // RViz requires a numeric ID (int32), but MoveIt uses names (string).
             // This dictionary maps string IDs to integer IDs.
             std::unordered_map<std::string, int32_t> marker_ids_;
@@ -112,7 +112,7 @@ namespace motion_control
 
             /**
              * @brief Mathematical engine to compute the absolute target pose in the "world" frame.
-             * Resolves complex coordinate transformations including relative movements, 
+             * Resolves complex coordinate transformations including relative movements,
              * Tool Center Point (TCP) offsets, and Euler/Quaternion conversions.
              * @param x Translation along the X axis.
              * @param y Translation along the Y axis.
@@ -129,8 +129,8 @@ namespace motion_control
              */
             /**
              * @brief Computes the absolute target pose in the "world" frame.
-             * 
-             * callers cannot accidentally use an uninitialized pose on error. 
+             *
+             * callers cannot accidentally use an uninitialized pose on error.
              * Returns std::nullopt on failure
              * and populates out_error_msg with the reason.
              */
@@ -144,7 +144,7 @@ namespace motion_control
 
             /**
              * @brief Universal service callback to move the robot to a target Cartesian pose.
-             * Replaces multiple legacy services. Handles absolute positions, relative offsets 
+             * Replaces multiple legacy services. Handles absolute positions, relative offsets
              * (fly-by-wire or crane mode), and both fluid joint-space planning or strict linear Cartesian paths.
              * * @param req Contains target coordinates, formats, reference frames, and motion flags.
              * @param res Returns the success status and informational messages.
@@ -155,7 +155,7 @@ namespace motion_control
 
             /**
              * @brief Service callback to command a movement in the joint space.
-             * Moves the robot's axes to specific angles. Supports both absolute joint configurations 
+             * Moves the robot's axes to specific angles. Supports both absolute joint configurations
              * and relative angular offsets from the current motor states.
              * * @param req Contains the target joint values and the is_relative behavior flag.
              * @param res Returns the success status of the planning and execution.
@@ -166,8 +166,8 @@ namespace motion_control
 
             /**
              * @brief Service callback to follow a continuous multi-point trajectory (Waypoints).
-             * Computes and executes a path passing through a provided list of poses. 
-             * Highly useful for welding, gluing, or complex collision avoidance. 
+             * Computes and executes a path passing through a provided list of poses.
+             * Highly useful for welding, gluing, or complex collision avoidance.
              * Supports relative waypoint chaining (where point N is relative to point N-1).
              * * @param req Contains the list of waypoints and trajectory configuration flags.
              * @param res Returns the success status and the completion percentage of the path.
@@ -237,12 +237,12 @@ namespace motion_control
 
             /**
              * @brief Service callback to dynamically generate a virtual collision cage around the robot.
-             * * Creates 6 walls (CollisionObjects) in the MoveIt planning scene to strictly 
-             * restrict the robot's workspace and prevent any part of the arm from exceeding the limits. 
-             * The dimensions provided define the exact internal free space originating from the 
-             * "world" frame (0, 0, 0). 
-             * * IMPORTANT: The thickness of the collision walls is added exclusively to the OUTSIDE 
-             * of the specified boundaries. Therefore, the given parameters exactly represent the 
+             * * Creates 6 walls (CollisionObjects) in the MoveIt planning scene to strictly
+             * restrict the robot's workspace and prevent any part of the arm from exceeding the limits.
+             * The dimensions provided define the exact internal free space originating from the
+             * "world" frame (0, 0, 0).
+             * * IMPORTANT: The thickness of the collision walls is added exclusively to the OUTSIDE
+             * of the specified boundaries. Therefore, the given parameters exactly represent the
              * permitted internal workspace without any loss of volume due to wall thickness.
              * * @param req Contains the enable flag and the 6 maximum distances (front, back, left, right, top, bottom).
              * @param res Returns the success status of the cage generation or removal.
@@ -253,18 +253,18 @@ namespace motion_control
 
             /**
              * @brief Service callback to add, update, or remove a box in the planning scene.
-             * 
+             *
              * Supports two display modes:
              * 1. Collision enabled: the box is added as a MoveIt CollisionObject, making the
              *    planner treat it as a physical obstacle.
              * 2. Collision disabled: the box is rendered as a purely visual RViz Marker
              *    (no effect on planning).
-             * 
+             *
              * The box position (x, y, z) represents the center of its bottom face.
              * An internal offset along the box's local Z-axis is applied so that the
              * geometric center is correctly placed for MoveIt and RViz.
              * Rotation can be specified in either RPY or Quaternion format.
-             * 
+             *
              * @param req Contains the box ID, action (ADD/REMOVE), dimensions, pose,
              *            rotation format, color (RGBA), and collision toggle.
              * @param res Returns the success status and a descriptive message.
@@ -275,13 +275,13 @@ namespace motion_control
 
             /**
              * @brief Service callback to add or remove a 3D mesh in the MoveIt planning scene.
-             * 
+             *
              * Loads a mesh file (STL, DAE, OBJ, etc.) from a URI (file:// or package://)
              * and inserts it as a CollisionObject. The mesh can be independently scaled
              * along each axis (X, Y, Z) and positioned with a full 6-DOF pose.
              * Rotation can be specified in either RPY or Quaternion format.
              * An RGBA color is applied via the PlanningScene diff for RViz rendering.
-             * 
+             *
              * @param req Contains the mesh ID, action (ADD/REMOVE), file path, scale factors,
              *            pose, rotation format, and color (RGBA).
              * @param res Returns the success status and a descriptive message.
@@ -292,14 +292,14 @@ namespace motion_control
 
             /**
              * @brief Attempts to compute a Cartesian path with progressive fallback strategies.
-             * 
+             *
              * Tries increasingly permissive parameters to maximize the achieved path fraction:
              * 1. Fine resolution (0.5 mm step, 3.0 rad jump threshold).
              * 2. Coarser resolution (1 cm step) if the first attempt falls below 95%.
-             * 
+             *
              * This approach improves reliability near singularities or tight collision zones
              * where the default parameters may fail to produce a sufficient path fraction.
-             * 
+             *
              * @param waypoints Ordered list of target Cartesian poses the end-effector must pass through.
              * @param trajectory Output parameter filled with the best computed trajectory.
              * @param out_msg Output string describing the outcome (e.g., which strategy succeeded or failure details).
@@ -312,19 +312,30 @@ namespace motion_control
 
             /**
              * @brief Applies velocity and acceleration scaling to a raw Cartesian trajectory.
-             * 
+             *
              * MoveIt's computeCartesianPath does NOT respect the scaling factors set via
              * setMaxVelocityScalingFactor / setMaxAccelerationScalingFactor.
-             * This helper re-times the trajectory using the Time-Optimal Trajectory Generation
-             * (TOTG) algorithm, enforcing the current vel_scale_ and accel_scale_ values
-             * while respecting the robot's joint velocity and acceleration limits.
-             * 
+             * This helper re-times the trajectory using the Time-Optimal Trajectory
+             * Generation (TOTG) algorithm, enforcing the current vel_scale_ and
+             * accel_scale_ values while respecting the robot's joint velocity and
+             * acceleration limits.
+             *
              * Must be called on every Cartesian trajectory BEFORE execution to ensure
              * the robot moves at the user-configured speed.
-             * 
+             *
              * @param trajectory The robot trajectory to retime (modified in place).
              */
             void applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory);
+
+            /**
+             * Logs the FK trace of a joint trajectory for Cartesian path diagnostics.
+             *
+             * The INFO log reports straight-line deviation and path length metrics.
+             * Individual FK points are emitted at DEBUG level to avoid flooding normal logs.
+             */
+            void logCartesianFkTrace(
+                const std::string& label,
+                const moveit_msgs::msg::RobotTrajectory& trajectory) const;
 
             /**
              * Validates a trajectory before execution.
@@ -346,12 +357,12 @@ namespace motion_control
 
             /**
              * @brief Plans and optionally executes a joint-space trajectory.
-             * 
+             *
              * Sets the target joint values (absolute or relative to current state),
              * applies velocity/acceleration scaling, plans via MoveIt, and optionally
              * executes the trajectory. Includes full diagnostic analysis on planning
              * failure and post-execution diagnostics on controller errors.
-             * 
+             *
              * @param joints Target joint values (one per active joint in the planning group).
              * @param is_relative If true, values are treated as deltas from the current joint state.
              * @param execute If true, the planned trajectory is sent to the controller.
@@ -361,23 +372,23 @@ namespace motion_control
              *         failed, or execution was rejected by the controller.
              */
             bool planAndExecuteJoints(const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg);
-                  
+
             /**
              * @brief Service callback to move the robot to a Cartesian pose via joint-space planning.
-             * 
+             *
              * Resolves the target pose using computeAbsoluteTarget (supporting relative offsets,
              * TOOL/WORLD frames, RPY/Quaternion formats), then solves Inverse Kinematics to obtain
              * a joint configuration and plans entirely in joint space. This avoids the constraints
              * of Cartesian-space planners (singularities, straight-line requirements) at the cost
              * of a non-linear end-effector path.
-             * 
+             *
              * Delegates to solveIKAndPlanJoints after pose resolution and quaternion validation.
-             * 
+             *
              * @param req Contains target coordinates, rotation format, reference frame, and flags.
              * @param res Returns the success status and informational messages prefixed with "[IK OK]".
              */
             void onMoveToPoseViaJoint(const std::shared_ptr<motion_control::srv::MoveToPose::Request> req, std::shared_ptr<motion_control::srv::MoveToPose::Response> res);
-            
+
             /**
              * @brief Multi-seed IK search returning the best joint configuration (no planning, no execution).
              *
@@ -404,7 +415,7 @@ namespace motion_control
              *                    with per-filter rejection breakdown.
              * @param all_branches Optional output: all distinct valid branches sorted by ascending
              * cost (best first). Pass nullptr if not needed (e.g. waypoint sequencing);
-             * used by the demo mode in solveIKAndPlanJoints to replay every branch. 
+             * used by the demo mode in solveIKAndPlanJoints to replay every branch.
              * @return true  If at least one valid, collision-free solution was found.
              * @return false If the planning group is unknown, the planning scene is unavailable,
              *         or no candidate survived the filters after NUM_ATTEMPTS.
@@ -464,11 +475,11 @@ namespace motion_control
 
             /**
              * @brief Retrieves the joint position limits of the planning group.
-             * 
+             *
              * Queries MoveIt's RobotModel to extract the [min, max] bounds of every
              * active joint. Output vectors are resized to nb_joints. For continuous
              * (unbounded) joints, falls back to [-pi, pi] with a warning.
-             * 
+             *
              * @param joint_min   Output vector of lower position limits (rad or m).
              * @param joint_max   Output vector of upper position limits, parallel to joint_min.
              * @param joint_names Optional output vector of joint names. Pass nullptr if not needed.
