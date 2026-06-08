@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="start">
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : start
+//*@author        : Yves Ragot
+//*@version       : $Id: start.pgx 1576 2017-01-10 13:39:46Z yves $
+//*@brief         : starting program of Rob6x
+//*
+//*******************************************************************************/
+  
+  // global program initialization
+  call Init()
+  
+  // create socket communication task
+  taskCreate "COM_SERIAL", 100, COM_SERIAL()
+  wait(taskStatus("COM_SERIAL") == 1)
+
+  taskCreate "COM", 100, COM()
+  wait(taskStatus("COM") == 1)
+  
+  // create mouvement limits check task
+  taskCreate "CheckLimits", 100, CheckLimits()
+  wait(taskStatus("CheckLimits") == 1)
+  
+  // create error check task
+  taskCreate "CheckStatus", 100, CheckStatus()
+  wait(taskStatus("CheckStatus") == 1)
+
+  taskCreate "Motion", 100, Motion()
+  wait(taskStatus("Motion") == 1)
+  
+  // create client socket communication task for test
+  //taskCreate "Test", 100, test()
+  //wait(taskStatus("Test") == 1)
+  
+  // create recorder program task for test
+//  taskCreateSync "autoRecord", 0.1, bOverload, taskRecord()
+  taskCreate "autoRecord", 100, taskRecord()
+  wait(taskStatus("autoRecord") == 1)
+
+end]]></Code>
+  </Program>
+</Programs>

@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="BytesToS16">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="hByte" type="num" xsi:type="element" />
+      <Parameter name="lByte" type="num" xsi:type="element" />
+      <Parameter name="result" type="num" xsi:type="element" use="reference" />
+    </Parameters>
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : BytesToS16
+//*@author        : Yves Ragot
+//*@version       : $Id: BytesToS16.pgx 1191 2016-10-05 15:10:08Z yves $
+//*@brief         : convert 2 bytes into signed 16 bits word
+//*
+//*******************************************************************************/ 
+
+  if (hByte < 128)
+    result = (hByte * 256) + lByte
+  else
+    result = ((hByte * 256) + lByte) - 65536
+  endIf
+  
+end]]></Code>
+  </Program>
+</Programs>

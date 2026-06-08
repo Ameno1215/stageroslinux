@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<sio>
+  <socketSrv>
+    <String name="name" value="Motion" />
+    <String name="desc" value="" />
+    <Uint name="portNumber" value="11000" />
+    <Int name="endOfString" value="13" />
+    <Float name="timeOut" value="-1" />
+    <Bool name="nagle" value="false" />
+  </socketSrv>
+  <socketSrv>
+    <String name="name" value="System" />
+    <String name="desc" value="" />
+    <Uint name="portNumber" value="11001" />
+    <Int name="endOfString" value="13" />
+    <Float name="timeOut" value="-1" />
+    <Bool name="nagle" value="false" />
+  </socketSrv>
+  <socketSrv>
+    <String name="name" value="Feedback" />
+    <String name="desc" value="" />
+    <Uint name="portNumber" value="11002" />
+    <Int name="endOfString" value="13" />
+    <Float name="timeOut" value="-1" />
+    <Bool name="nagle" value="false" />
+  </socketSrv>
+  <socketSrv>
+    <String name="name" value="IO" />
+    <String name="desc" value="" />
+    <Uint name="portNumber" value="11003" />
+    <Int name="endOfString" value="13" />
+    <Float name="timeOut" value="-1" />
+    <Bool name="nagle" value="false" />
+  </socketSrv>
+</sio>

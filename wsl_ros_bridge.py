@@ -304,6 +304,8 @@ class MotionRosClient(Node):
         super().__init__("motion_http_bridge")
 
         self.motors_on = False
+        self.sim = False
+        self.model = None
 
         self.init_cli = self.create_client(InitRobot, "/init_robot")
         self.scale_cli = self.create_client(SetScaling, "/set_scaling")
@@ -429,10 +431,11 @@ class MotionRosClient(Node):
             if not self.servo_on_cli.wait_for_service(timeout_sec=10.0):
                 logger.warning(f"SetServoOn service not available for {model}")
 
-        if not self.sim and not is_staubli:
-            self.pump_grab_cli = self.create_client(SetBool, f"/{model}/pump/grab")
-            self.pump_release_cli = self.create_client(SetBool, f"/{model}/pump/release")
-            self.pump_is_grabbed_cli = self.create_client(SetBool, f"/{model}/pump/is_grabbed")
+        if not self.sim:
+            pump_service_prefix = f"/{model}/pump"
+            self.pump_grab_cli = self.create_client(SetBool, f"{pump_service_prefix}/grab")
+            self.pump_release_cli = self.create_client(SetBool, f"{pump_service_prefix}/release")
+            self.pump_is_grabbed_cli = self.create_client(SetBool, f"{pump_service_prefix}/is_grabbed")
             for cli, name in [
                 (self.pump_grab_cli, "pump/grab"),
                 (self.pump_release_cli, "pump/release"),
@@ -440,7 +443,8 @@ class MotionRosClient(Node):
             ]:
                 if not cli.wait_for_service(timeout_sec=10.0):
                     logger.warning(f"Pump service {name} not available for {model}")
-            logger.info("Pump control services connected.")
+            robot_family = "Staubli" if is_staubli else "Denso"
+            logger.info(f"{robot_family} pump control services connected under {pump_service_prefix}.")
 
         return {"success": True, "message": str(res.message)}
     

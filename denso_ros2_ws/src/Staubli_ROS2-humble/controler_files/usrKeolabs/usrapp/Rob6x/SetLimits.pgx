@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="SetLimits">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="limits" type="num" xsi:type="array" use="reference" />
+    </Parameters>
+    <Locals>
+      <Local name="prevLimits" type="num" xsi:type="array" size="6" />
+      <Local name="inLimits" type="bool" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : SetLimits
+  //*@author        : Yves Ragot
+  //*@version       : $Id: SetLimits.pgx 1645 2017-01-24 08:09:09Z yves $
+  //*@brief         : Set the limits of authorized area
+  //*
+  //*******************************************************************************/ 
+  
+  // save previous limits
+  prevLimits[0] = CurLimitsTable["Xmin"]
+  prevLimits[1] = CurLimitsTable["Ymin"]
+  prevLimits[2] = CurLimitsTable["Zmin"]
+  prevLimits[3] = CurLimitsTable["Xmax"]
+  prevLimits[4] = CurLimitsTable["Ymax"]
+  prevLimits[5] = CurLimitsTable["Zmax"]
+  
+  // set limits table elements
+  CurLimitsTable["Xmin"] = limits[0]
+  CurLimitsTable["Ymin"] = limits[1]
+  CurLimitsTable["Zmin"] = limits[2]
+  CurLimitsTable["Xmax"] = limits[3]
+  CurLimitsTable["Ymax"] = limits[4]
+  CurLimitsTable["Zmax"] = limits[5]
+    
+  // check if current position is in new limits
+  call IsInLimits(inLimits) 
+
+  // if not, error
+  if (!inLimits)
+    
+      // restore previous limits
+      CurLimitsTable["Xmin"] = prevLimits[0]
+      CurLimitsTable["Ymin"] = prevLimits[1]
+      CurLimitsTable["Zmin"] = prevLimits[2]
+      CurLimitsTable["Xmax"] = prevLimits[3]
+      CurLimitsTable["Ymax"] = prevLimits[4]
+      CurLimitsTable["Zmax"] = prevLimits[5]
+  
+      // parameter error
+      GeneralStatus = 101
+      LastErrorCode = 0
+
+  endIf
+
+end]]></Code>
+  </Program>
+</Programs>
