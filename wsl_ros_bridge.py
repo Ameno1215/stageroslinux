@@ -429,7 +429,7 @@ class MotionRosClient(Node):
             if not self.servo_on_cli.wait_for_service(timeout_sec=10.0):
                 logger.warning(f"SetServoOn service not available for {model}")
 
-        if not self.sim and not self.model.startswith("staubli_"):
+        if not self.sim and not is_staubli:
             self.pump_grab_cli = self.create_client(SetBool, f"/{model}/pump/grab")
             self.pump_release_cli = self.create_client(SetBool, f"/{model}/pump/release")
             self.pump_is_grabbed_cli = self.create_client(SetBool, f"/{model}/pump/is_grabbed")
