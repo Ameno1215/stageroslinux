@@ -79,13 +79,6 @@
   rosSysAckHeader.nMsgType=1610
   rosSysAckHeader.nCommType=3
   rosSysAckHeader.nReplyCode=1
-
-  // Write single IO ACK message (Staubli specific ID 1621)
-  // prefix length = 12 + 9
-  rosIOAckPrefix.nLength=21
-  rosIOAckHeader.nMsgType=1621
-  rosIOAckHeader.nCommType=3
-  rosIOAckHeader.nReplyCode=1
 end]]></Code>
   </Program>
 </Programs>

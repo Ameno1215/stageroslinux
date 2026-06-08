@@ -78,20 +78,16 @@
   sScreenTaskName = "screenTask"
   sHtbtTaskName = "htbtTask"
   sSystemTaskName = "systemTask"
-  sIOTaskName = "ioTask"
 
   // initialise TCP/IP parameters
   call initParams()
   // setup prefix and header of ROS messages
   call setupRosMsgs()
-  // initialize IO module links and availability flags
-  call IO:init()
   
   // socket connection status flags: initially disconnected
   nInConnFlag = 0
   nOutConnFlag = 0
   nSystemConnFlag = 0
-  nIOConnFlag = 0
   
   // flag defining whether velocity to be overwritten to max. vel.
   bOverwriteVel = false
@@ -105,8 +101,6 @@
   clearBuffer(siTcpIpFbk)
   // flush buffer of system request socket
   clearBuffer(siTcpIpSystem)
-  // flush buffer of IO request socket
-  clearBuffer(siTcpIpIO)
   
   // check if robot is not in emergency stop and wait until estop is reset
   if(esStatus() == 2)
@@ -148,9 +142,6 @@
 
   // create asynchronous task to handle system requests on port 11001
   taskCreate sSystemTaskName, 100, systemReceiver()
-
-  // create asynchronous task to handle IO requests on port 11003
-  taskCreate sIOTaskName, 100, ioReceiver()
 
 end]]></Code>
   </Program>

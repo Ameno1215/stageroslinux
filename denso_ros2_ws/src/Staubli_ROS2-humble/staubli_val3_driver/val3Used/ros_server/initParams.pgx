@@ -35,11 +35,6 @@
   if (l_nRetVal!=0)
     popUpMsg("Error while setting System socket timeout")
   endIf
-
-  l_nRetVal=sioCtrl(siTcpIpIO,"timeout",-1)
-  if (l_nRetVal!=0)
-    popUpMsg("Error while setting IO socket timeout")
-  endIf
 end]]></Code>
   </Program>
 </Programs>

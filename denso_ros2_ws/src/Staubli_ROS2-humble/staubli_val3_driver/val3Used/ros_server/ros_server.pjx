@@ -17,7 +17,6 @@
     <Program file="fetchStatus.pgx" />
     <Program file="initParams.pgx" />
     <Program file="interpolateVel.pgx" />
-    <Program file="ioReceiver.pgx" />
     <Program file="motionControl.pgx" />
     <Program file="pushMotion.pgx" />
     <Program file="recvData.pgx" />
@@ -41,7 +40,6 @@
     <Data file="ros_server.dtx" />
   </Database>
   <Libraries>
-    <Library alias="IO" path="Disk://ros_libs/IOInterface/IOInterface.pjx" />
     <Library alias="libQueueFuncs" path="Disk://ros_libs/QueueFuncs/QueueFuncs.pjx" />
     <Library alias="libInterface" path="Disk://ros_libs/UserInterface/interfaceDefault/interfaceDefault.pjx" autoload="false" />
   </Libraries>
