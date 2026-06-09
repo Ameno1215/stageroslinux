@@ -1,0 +1,149 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="taskRecord">
+    <Locals>
+      <Local name="l_nAxis" type="num" xsi:type="array" size="1" />
+      <Local name="l_nRecFrequency" type="num" xsi:type="array" size="1" />
+      <Local name="l_nRecTime" type="num" xsi:type="array" size="1" />
+      <Local name="l_nFileNumber" type="num" xsi:type="array" size="1" />
+      <Local name="l_sFileName" type="string" xsi:type="array" size="1" />
+      <Local name="l_sFileNumber" type="string" xsi:type="array" size="1" />
+      <Local name="speed1" type="num" xsi:type="array" size="1" />
+      <Local name="speed2" type="num" xsi:type="array" size="1" />
+      <Local name="file" type="num" xsi:type="array" size="1" />
+      <Local name="strLine" type="string" xsi:type="array" size="1" />
+      <Local name="date" type="string" xsi:type="array" size="1" />
+      <Local name="timems" type="num" xsi:type="array" size="1" />
+      <Local name="pos" type="pointRx" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+  
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : taskRecord
+  //*@author        : Yves Ragot
+  //*@version       : $Id: taskRecord.pgx 1558 2017-01-05 08:13:36Z yves $
+  //*@brief         : Execute recorder functions
+  //*
+  //*******************************************************************************/ 
+
+  sPath = "Disk://autoRecord.csv"
+  
+if $fileExists(sPath)
+    $delete(sPath)
+endIf
+
+do
+    
+  wait(bStartRecording)
+  
+  file = $fileOpen(sPath, "a")
+
+  timems = 0
+  while (bStartRecording)
+    
+      date = getDate("%y%m%d %H:%M:%S")
+      speed1 = getSpeed(tCurrentTool)
+      //speed2 = $getSpeedFbk(tCurrentTool)
+      pos = here(tCurrentTool, fCurrentFrame)
+    
+    strLine = date + ";"  + toString("", timems) + ";" + toString(".3", speed1) + ";" + toString(".3", pos.trsf.z)
+    if (file >= 0)
+      $fileSet(file, strLine[0], 1)
+    endIf
+      
+    timems = timems + 5
+    delay(0.005)
+    
+  endWhile
+  
+  if (file >= 0)
+    $fileClose(file)
+  endIf
+    
+until(false)  
+//    //
+//  // initialisation des variables
+//  l_nRecTime=5
+//  l_nRecFrequency=250
+//  l_nFileNumber=0
+//  //
+//  // boucle infinie
+//  do
+//    //
+//    // make sure the record is empty
+//    $recClean("c")
+//    $recClean("d")
+//    //
+//    // record parameters
+//    $recAdd("c","jntCmdPos")
+//    $recAdd("c","moveType")
+//    $recAdd("c","moveId")
+//    for l_nAxis=1 to 6
+//      $recAdd("d","pcmd"+toString("1.0",l_nAxis))
+//    endFor
+//    for l_nAxis=1 to 6
+//      $recAdd("d","pfbk"+toString("1.0",l_nAxis))
+//    endFor
+//    for l_nAxis=1 to 6
+//      $recAdd("d","icmd"+toString("1.0",l_nAxis))
+//    endFor
+//    for l_nAxis=1 to 6
+//      $recAdd("d","iphA"+toString("1.0",l_nAxis))
+//    endFor
+//    for l_nAxis=1 to 6
+//      $recAdd("d","iphC"+toString("1.0",l_nAxis))
+//    endFor
+//    //
+//    // waits signal to start the recording
+//    do
+//      delay(0)
+//    until bStartRecording==true
+//    bStartRecording=false
+//    //
+//    // starts recording
+//    $recStart("c",l_nRecTime,l_nRecFrequency)
+//    $recStart("d",l_nRecTime,l_nRecFrequency)
+//    //
+//    // waits for the end of the recordings
+//    $recWait("c")
+//    $recWait("d")
+//    //
+//    // store the recorder datas
+//    l_sFileNumber=toString("1.0",l_nFileNumber)
+//    switch len(l_sFileNumber)
+//      case 1
+//        l_sFileNumber="000"+l_sFileNumber
+//      break
+//      case 2
+//        l_sFileNumber="00"+l_sFileNumber
+//      break
+//      case 3
+//        l_sFileNumber="0"+l_sFileNumber
+//      break
+//      default
+//      break
+//    endSwitch
+//    l_sFileName="Usr://recorder/record_"+l_sFileNumber
+//    $recStore("c",l_sFileName+"_c"+".rec")
+//    $recStore("d",l_sFileName+"_d"+".rec")
+//    l_nFileNumber=l_nFileNumber+1
+//    if l_nFileNumber>50
+//      l_nFileNumber=0
+//    endIf    
+//    //
+//    // fin de boucle infinie
+//    delay(0)
+//  until false
+end]]></Code>
+  </Program>
+</Programs>

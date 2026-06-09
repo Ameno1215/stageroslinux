@@ -1,0 +1,236 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="COM">
+    <Locals>
+      <Local name="nbBuffer" type="num" xsi:type="array" size="1" />
+      <Local name="nbSent" type="num" xsi:type="array" size="1" />
+      <Local name="dataIn" type="num" xsi:type="array" size="50" />
+      <Local name="dataOut" type="num" xsi:type="array" size="32" />
+      <Local name="crc_l" type="num" xsi:type="array" size="1" />
+      <Local name="crc_h" type="num" xsi:type="array" size="1" />
+      <Local name="ret" type="num" xsi:type="array" size="1" />
+      <Local name="lenDataIn" type="num" xsi:type="array" size="1" />
+      <Local name="lenDataOut" type="num" xsi:type="array" size="1" />
+      <Local name="answer" type="num" xsi:type="array" size="1" />
+      <Local name="stringAnswer" type="string" xsi:type="array" size="1" />
+      <Local name="i" type="num" xsi:type="array" size="1" />
+      <Local name="j" type="num" xsi:type="array" size="1" />
+      <Local name="arrayAnswer" type="num" xsi:type="array" size="6" />
+      <Local name="buffer" type="num" xsi:type="array" size="64" />
+      <Local name="l_nIndex" type="num" xsi:type="array" size="1" />
+      <Local name="cpt" type="num" xsi:type="array" size="1" />
+      <Local name="nbBufTcp" type="num" xsi:type="array" size="1" />
+      <Local name="bufferTCP" type="num" xsi:type="array" size="64" />
+    </Locals>
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : COM
+//*@author        : Yves Ragot
+//*@version       : $Id: Com.pgx 1608 2017-01-13 10:03:43Z yves $
+//*@brief         : PC socket communication management
+//*
+//*******************************************************************************/
+  
+  //== configuration socket ==
+  // 1 seul client
+  ret = sioCtrl(siTcpServer, "clients", 1)
+  
+  // timeout = 10ms
+  ret = sioCtrl(siTcpServer, "timeout", 0.01)
+
+  // buffers length
+  lenDataIn = 32
+  lenDataOut = 32
+
+  NbCharReceived = 0
+  ModeSerial = false
+  
+  // auto detection com port with first frame
+  do
+    nbBufTcp = sioGet(siTcpServer, bufferTCP)
+  until ((NbBufSerial > 0) or (nbBufTcp > 0))
+
+  // serial detection done by COM_SERIAL task
+  if (NbBufSerial > 0)
+      nbBuffer = NbBufSerial
+      ModeSerial = true
+  endIf
+  if (nbBufTcp > 0)
+      nbBuffer = nbBufTcp
+      ModeSerial = false
+  endIf
+  
+  if (nbBuffer > lenDataIn)
+      nbBuffer = lenDataIn
+  endIf
+
+  if (ModeSerial)
+      for l_nIndex = 0 to nbBuffer
+          dataIn[NbCharReceived + l_nIndex] = BufferSerial[l_nIndex]        
+      endFor
+  else
+      for l_nIndex = 0 to nbBuffer
+          dataIn[NbCharReceived + l_nIndex] = bufferTCP[l_nIndex]        
+      endFor
+  endIf
+  
+  NbCharReceived = NbCharReceived + nbBuffer
+
+  // main loop
+  do
+    
+      cpt = 0
+
+      do
+          if (ModeSerial)
+              nbBuffer = sioGet(siSerial1, buffer)
+          else
+              nbBuffer = sioGet(siTcpServer, buffer)
+          endIf
+        
+          if (nbBuffer > 0) 
+              if (nbBuffer > lenDataIn)
+                  nbBuffer = lenDataIn
+              endIf
+              if (NbCharReceived + nbBuffer > lenDataIn)
+                  NbCharReceived = lenDataIn
+              else
+
+                  for l_nIndex = 0 to nbBuffer
+                      dataIn[NbCharReceived + l_nIndex] = buffer[l_nIndex]        
+                  endFor
+                  NbCharReceived = NbCharReceived + nbBuffer
+                  cpt = cpt + 1
+              endIf
+
+          endIf
+      
+      // loop on charactere until all frame or 1s timeout 
+      until (NbCharReceived == lenDataIn) or cpt > 100    
+      
+    if (NbCharReceived == lenDataIn)
+      
+      // check CRC
+      call crc16(lenDataIn - 2, crc_h, crc_l, dataIn)
+      
+      if ((dataIn[lenDataIn - 2] != crc_h) or (dataIn[lenDataIn - 1] != crc_l))
+          FrameReceiveNOK = FrameReceiveNOK + 1
+      else
+          FrameReceiveOK = FrameReceiveOK + 1
+        
+        //== command treatment ==
+        setMutex(MotionTaskMutex)
+        if  (taskStatus("Motion") == -1)
+            taskCreate "Motion", 100, Motion()
+        endIf
+        
+        // be sure that the task is running
+        wait(taskStatus("Motion") == 1)
+        MotionTaskMutex = false
+        
+        call Command(ret, dataIn, answer, stringAnswer, arrayAnswer)
+        
+        //== prepare response ==
+        
+        // command number
+        dataOut[0] = dataIn[0]
+        
+        // frame number
+        dataOut[1] = dataIn[1]
+        
+        // last error code
+        dataOut[2] = LastErrorCode
+        
+        // status
+        dataOut[3] = GeneralStatus
+        
+        // check response type      
+        switch (dataIn[0])
+          
+          // string
+          case 10, 11, 13, 15
+              for i = 0 to len(stringAnswer) - 1
+                  dataOut[4 + i] = asc(stringAnswer, i)
+              endFor
+              for j = i to 24
+                  dataOut[4 + j] = 0
+              endFor
+          break
+          
+          // numerical or nothing
+          default
+              // if not limits or ToolParam
+              if ((dataIn[0] != 6) and (dataIn[0] != 16))
+                  // current Cartesian position
+                  call GetCurrentPos(arrayAnswer)
+              endIf
+            
+              call FloatToBytes(arrayAnswer[0], dataOut[4], dataOut[5])
+              call FloatToBytes(arrayAnswer[1], dataOut[6], dataOut[7])
+              call FloatToBytes(arrayAnswer[2], dataOut[8], dataOut[9])
+              call FloatToBytes(arrayAnswer[3], dataOut[10], dataOut[11])
+              call FloatToBytes(arrayAnswer[4], dataOut[12], dataOut[13])
+              call FloatToBytes(arrayAnswer[5], dataOut[14], dataOut[15])
+            
+              // current Joint position
+              call GetJointPos(arrayAnswer)
+              call FloatToBytes(arrayAnswer[0], dataOut[16], dataOut[17])
+              call FloatToBytes(arrayAnswer[1], dataOut[18], dataOut[19])
+              call FloatToBytes(arrayAnswer[2], dataOut[20], dataOut[21])
+              call FloatToBytes(arrayAnswer[3], dataOut[22], dataOut[23])
+              call FloatToBytes(arrayAnswer[4], dataOut[24], dataOut[25])
+              call FloatToBytes(arrayAnswer[5], dataOut[26], dataOut[27])
+              
+              // command response (GetAccel/GetSpeed/GetToolParam or not)
+              if (dataIn[0] == 3) or (dataIn[0] == 4) or (dataIn[0] == 5)
+                  call FloatToBytes(answer, dataOut[28], dataOut[29])
+              else
+                  dataOut[28] = answer
+              endIf
+            break
+          
+        endSwitch
+        
+          // compute CRC
+          call crc16(lenDataOut - 2, crc_h, crc_l, dataOut)
+          dataOut[lenDataOut - 2] = crc_h
+          dataOut[lenDataOut - 1] = crc_l
+        
+        // send response
+        if (ModeSerial)
+            nbSent = sioSet(siSerial1, dataOut)
+        else
+            nbSent = sioSet(siTcpServer, dataOut)
+        endIf
+        
+        if (nbSent != lenDataOut)
+            // TODO error
+        endIf  
+        
+        //if ((dataIn[30] != crc_h) or (dataIn[31] != crc_l))
+      endIf
+      
+        //if (nbReceived == lenDataIn)
+      elseIf (NbCharReceived > 0)
+          FrameReceiveNOK = FrameReceiveNOK + 1
+      endIf
+    
+      NbCharReceived = 0
+    
+      delay(0)
+    
+  until(bExit)
+  
+end]]></Code>
+  </Program>
+</Programs>

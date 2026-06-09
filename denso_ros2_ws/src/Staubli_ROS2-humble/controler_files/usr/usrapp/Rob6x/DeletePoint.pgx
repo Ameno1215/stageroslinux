@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="DeletePoint">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="bufferIn" type="num" xsi:type="array" use="reference" />
+    </Parameters>
+    <Locals>
+      <Local name="pointName" type="string" xsi:type="array" size="1" />
+      <Local name="i" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : DeletePoint
+  //*@author        : Yves Ragot
+  //*@version       : $Id: DeletePoint.pgx 1198 2016-10-07 06:48:14Z yves $
+  //*@brief         : Forget a memorized position point
+  //*
+  //*******************************************************************************/
+  
+  pointName = ""
+  
+  // get the name of the point
+  for i = 0 to 9
+      pointName = pointName + chr(bufferIn[17 + i])
+  endFor
+  
+  if (len(pointName)) > 0
+    
+      // delete the point from the collection
+      if (isDefined(pPointsTable[pointName]) == true)
+          delete(pPointsTable[pointName])
+      else
+          GeneralStatus = 101
+          LastErrorCode = 0
+      endIf
+    
+  else
+      GeneralStatus = 101
+      LastErrorCode = 0
+  endIf
+  
+end]]></Code>
+  </Program>
+</Programs>

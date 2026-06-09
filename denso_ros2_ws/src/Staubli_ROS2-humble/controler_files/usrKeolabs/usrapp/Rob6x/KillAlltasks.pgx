@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="KillAllTasks">
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : KillTasks
+//*@author        : Yves Ragot
+//*@version       : $Id: KillAlltasks.pgx 1191 2016-10-05 15:10:08Z yves $
+//*@brief         : kill all running tasks
+//*
+//*******************************************************************************/
+  
+  if taskStatus("COM") != -1
+    taskKill("COM")
+    wait(taskStatus("COM") == -1)
+  endIf
+  
+  if taskStatus("Motion") != -1
+    taskKill("Motion")
+    wait(taskStatus("Motion") == -1)
+  endIf
+  
+  if taskStatus("CheckStatus") != -1
+    taskKill("CheckStatus")
+    wait(taskStatus("CheckStatus") == -1)
+  endIf
+  
+  if taskStatus("CheckLimits") != -1
+    taskKill("CheckLimits")
+    wait(taskStatus("CheckLimits") == -1)
+  endIf
+  
+end]]></Code>
+  </Program>
+</Programs>

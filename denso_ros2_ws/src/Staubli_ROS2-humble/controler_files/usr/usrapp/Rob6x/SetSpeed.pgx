@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="SetSpeed">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="value" type="num" xsi:type="element" />
+    </Parameters>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : SetSpeed
+  //*@author        : Yves Ragot
+  //*@version       : $Id: SetSpeed.pgx 1644 2017-01-24 08:08:07Z yves $
+  //*@brief         : Change speed parameter
+  //*
+  //*******************************************************************************/
+  
+  if ((value > 0) and (value <= 10000))
+    
+      // max translation speed
+      mNomSpeed.tvel = value
+
+      // max rotation speed
+      mNomSpeed.vel = value / 10
+      if (mNomSpeed.vel) > 100
+          mNomSpeed.vel = 100
+      endIf
+  else
+      GeneralStatus = 101
+      LastErrorCode = 0
+  endIf
+
+end]]></Code>
+  </Program>
+</Programs>

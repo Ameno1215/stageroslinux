@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="ioReceiver" access="public">
+    <Locals>
+      <Local name="l_bAckNeeded" type="bool" xsi:type="array" size="1" />
+      <Local name="l_bFlag" type="bool" xsi:type="array" size="1" />
+      <Local name="l_bState" type="bool" xsi:type="array" size="1" />
+      <Local name="l_nData" type="num" xsi:type="array" size="1" />
+      <Local name="l_nModuleId" type="num" xsi:type="array" size="1" />
+      <Local name="l_nPin" type="num" xsi:type="array" size="1" />
+      <Local name="l_nRetVal" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+  // Handles Staubli WRITE_SINGLE_IO requests from ROS on Socket\IO.
+  // Also handles local READ_VACUUM requests (message 1622) used by
+  // command_pump_staubli when robot_ip_address is configured.
+  // Mapping copied from the Keolabs controller:
+  //   VALVE_OUT pin 0 -> valve1
+  //   VALVE_OUT pin 1 -> valve2
+  //   BASIC_OUT pin 0 -> fOut0 (vacuum pump)
+
+  while(true)
+    l_bAckNeeded=false
+    l_bFlag=false
+
+    call recvData(siTcpIpIO,rosIOMsg.prefix.nData,nIOConnFlag,l_bFlag)
+    if (l_bFlag == true)
+      call recvData(siTcpIpIO,rosIOMsg.header.nData,nIOConnFlag,l_bFlag)
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOMsg.prefix.nData,4,"-4l",rosIOMsg.prefix.nLength)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOMsg.header.nData,4,"-4l",rosIOMsg.header.nMsgType)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOMsg.header.nData[4],4,"-4l",rosIOMsg.header.nCommType)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_nRetVal=fromBinary(rosIOMsg.header.nData[8],4,"-4l",rosIOMsg.header.nReplyCode)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true)
+      l_bAckNeeded=true
+    endIf
+
+    if (l_bFlag == true)
+      if (rosIOMsg.header.nMsgType==1621 and rosIOMsg.prefix.nLength==21)
+        call recvData(siTcpIpIO,rosIOBody.nData,nIOConnFlag,l_bFlag)
+      elseIf (rosIOMsg.header.nMsgType==1622 and rosIOMsg.prefix.nLength==12)
+        // no body to read
+      else
+        l_bFlag=false
+      endIf
+    endIf
+
+    rosIOAckHeader.nMsgType=rosIOMsg.header.nMsgType
+    rosIOAckHeader.nCommType=3
+    rosIOAckHeader.nReplyCode=1
+    if (rosIOMsg.header.nMsgType==1622)
+      rosIOAckPrefix.nLength=13
+    else
+      rosIOAckPrefix.nLength=21
+    endIf
+
+    if (l_bFlag == true and rosIOMsg.header.nMsgType==1622)
+      if (diVacuum==true)
+        l_nData=1
+      else
+        l_nData=0
+      endIf
+      toBinary(l_nData,1,"1",rosIOAckBody.nData)
+    endIf
+
+    if (l_bFlag == true and rosIOMsg.header.nMsgType==1621)
+      l_nRetVal=fromBinary(rosIOBody.nData,1,"-4l",l_nModuleId)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true and rosIOMsg.header.nMsgType==1621)
+      l_nRetVal=fromBinary(rosIOBody.nData[4],1,"-4l",l_nPin)
+      if (l_nRetVal!=1)
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true and rosIOMsg.header.nMsgType==1621)
+      l_nRetVal=fromBinary(rosIOBody.nData[8],1,"1",l_nData)
+      if (l_nRetVal==1 and l_nData==1)
+        l_bState=true
+      elseIf (l_nRetVal==1 and l_nData==0)
+        l_bState=false
+      else
+        l_bFlag=false
+      endIf
+    endIf
+
+    if (l_bFlag == true and rosIOMsg.header.nMsgType==1621)
+      switch l_nModuleId
+        case 2
+          if (l_nPin==0)
+            doValve1=l_bState
+          elseIf (l_nPin==1)
+            doValve2=l_bState
+          else
+            l_bFlag=false
+          endIf
+        break
+        case 4
+          if (l_nPin==0)
+            doPump=l_bState
+          else
+            l_bFlag=false
+          endIf
+        break
+        default
+          l_bFlag=false
+        break
+      endSwitch
+    endIf
+
+    if (l_bFlag == false and l_bAckNeeded)
+      rosIOAckHeader.nReplyCode=2
+    endIf
+
+    if (l_bAckNeeded and nIOConnFlag==1)
+      call encPrefixHeader(rosIOAckPrefix,rosIOAckHeader)
+      call sendRosMsg(siTcpIpIO,rosIOAckPrefix,rosIOAckHeader,rosIOAckBody,nIOConnFlag)
+    endIf
+
+    delay(0)
+  endWhile
+end]]></Code>
+  </Program>
+</Programs>

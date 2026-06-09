@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="Motion">
+    <Locals>
+      <Local name="jJoint" type="jointRx" xsi:type="array" size="1" />
+      <Local name="cr" type="bool" xsi:type="array" size="1" />
+      <Local name="idMove" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : Motion
+  //*@author        : Yves Ragot
+  //*@version       : $Id: Motion.pgx 1365 2016-11-18 16:00:54Z yves $
+  //*@brief         : Execute requested mouvement
+  //*
+  //*******************************************************************************/ 
+  
+  do
+    
+    wait(ExecuteMotion)
+    
+    // check if mouvement order already sent
+    if (isEmpty())
+      
+        if (CartesianMode)
+          
+            // Cartesian mouvement
+            cr = pointToJoint(tCurrentTool, jHome, pTargetPoint, jJoint)
+            if ((isInRange(jJoint)) and (cr == true))
+          
+                restartMove()
+          
+                // launch mouvement
+                if (AlignMode)
+                    idMove = movel(pTargetPoint, tCurrentTool, mNomSpeed)
+                else
+                    idMove = movej(pTargetPoint, tCurrentTool, mNomSpeed)
+                endIf
+            
+            else
+                GeneralStatus = 100
+                LastErrorCode = 153
+            endIf
+          
+        else
+          
+          // joint mouvement
+          if (isInRange(jTargetJoint))
+              restartMove()
+              idMove = movej(jTargetJoint, tCurrentTool, mNomSpeed)
+          else
+              GeneralStatus = 100
+              LastErrorCode = 153
+          endIf
+          
+        endIf
+      
+    // if (isEmpty())
+    else
+        GeneralStatus = 101
+        LastErrorCode = 150
+    endIf
+    
+//    if (idMove == -1)
+//        GeneralStatus = 100
+//        LastErrorCode = 153
+//    endIf
+    
+    // if right command
+    if (GeneralStatus == 0)
+        // set status = busy
+        GeneralStatus = 1
+        MoveRunning = true
+    endIf
+    
+    // wait end of mouvement if not asynchronous
+    if (AsyncMode == false)
+        waitEndMove()
+        wait(isSettled())
+    endIf  
+    
+    ExecuteMotion = false
+    
+  until false
+  
+end]]></Code>
+  </Program>
+</Programs>

@@ -1,0 +1,242 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="Command">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="rc" type="num" xsi:type="element" use="reference" />
+      <Parameter name="bufferIn" type="num" xsi:type="array" use="reference" />
+      <Parameter name="answer" type="num" xsi:type="element" use="reference" />
+      <Parameter name="stringAnswer" type="string" xsi:type="element" use="reference" />
+      <Parameter name="arrayValue" type="num" xsi:type="array" use="reference" />
+    </Parameters>
+    <Locals>
+      <Local name="cde" type="bool" xsi:type="array" size="1" />
+      <Local name="value" type="num" xsi:type="array" size="1" />
+      <Local name="result" type="num" xsi:type="array" size="1" />
+      <Local name="numIO" type="num" xsi:type="array" size="1" />
+      <Local name="cartesianCde" type="bool" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : Command
+//*@author        : Yves Ragot
+//*@version       : $Id: Command.pgx 1882 2019-01-10 16:18:45Z xavier $
+//*@brief         : PC command treatment
+//*
+//*******************************************************************************/ 
+  
+  rc = 0
+  answer = 0
+  stringAnswer = ""
+
+  // Reset eventual previous error code, if not busy
+  if (GeneralStatus != 1)
+      GeneralStatus = 0
+  endIf
+  
+  AsyncMode = (bufferIn[16] == 1)
+  
+  // get parameters
+  cde = (bufferIn[3] == 1)
+  value = bufferIn[3]
+  numIO = bufferIn[4]
+
+  // get target point or limits (in 1/10 mm)
+  // x/y inverted in cell coordinates versus robot
+  call BytesToS16(bufferIn[3], bufferIn[4], result)
+  arrayValue[0] = result / 10  
+  
+  call BytesToS16(bufferIn[5], bufferIn[6], result)
+  arrayValue[1] = result / 10  
+  
+  call BytesToS16(bufferIn[7], bufferIn[8], result)
+  arrayValue[2] = result / 10
+
+  call BytesToS16(bufferIn[9], bufferIn[10], result)
+  arrayValue[3] = result / 10
+
+  call BytesToS16(bufferIn[11], bufferIn[12], result)
+  arrayValue[4] = result / 10
+
+  call BytesToS16(bufferIn[13], bufferIn[14], result)
+  arrayValue[5] = result / 10
+
+  // treat command
+  switch bufferIn[0]
+    
+    case 1
+        call InitRobot()
+    break
+    
+    case 2
+        call Calibrate()
+    break
+    
+    // GetSpeed
+    case 3
+        answer = mNomSpeed.tvel
+    break
+    
+    //GetAccel
+    case 4
+        answer = (mNomSpeed.accel  / COEFF_ACCEL) * 100
+    break
+    
+    // GetToolParam
+    case 5
+        // tool length in 1/10 mm
+        answer = tCurrentTool.trsf.z * 10
+    break
+    
+    case 6
+        call GetLimits(arrayValue)
+    break
+    
+    // GetCurrentPosition / GetStatus
+    case 7
+        // nothing to do: already treated by COM
+    break
+
+    // GetVacuum
+    case 9
+        if (diVacuum == true)
+            answer = 1
+        else
+            answer = 0
+        endIf
+    break
+
+    case 10
+        call GetSerialNumber(stringAnswer)
+    break
+    
+    case 11
+        call GetFirmVersion(stringAnswer)
+    break
+    
+    case 12
+        call AsynchStop()
+    break
+    
+    case 13
+        call GetSNCtrl(stringAnswer)
+    break
+    
+    case 14
+        answer = currentToolType
+    break
+    
+    case 15
+      call GetAppVersion(stringAnswer)
+    break
+    
+    case 16
+        call GetToolParam6x(arrayValue)
+    break
+
+    case 40
+        call Energize(cde)
+    break
+    
+    // Align
+    case 41
+        AlignMode = cde
+    break
+
+    case 42
+         doPump = cde
+    break
+
+    case 43
+      call Valve(cde)
+    break
+
+    case 44
+      call Input(numIO, cde)
+      if (cde)
+          answer = 1
+      else
+          answer = 0
+      endIf
+    break
+
+    case 45
+      call Output(numIO, cde)
+    break
+
+    case 46
+        // Speed in mm/s
+        call SetSpeed((value * 256) + numIO)
+    break
+
+    case 47
+        // Acceleration in 1/100 of %
+        call SetAccel(((value * 256) + numIO)  / 100)
+    break
+    
+    case 48
+        // Tool length in 1/10mm on 2 bytes
+        call SetToolParam(((value * 256) + numIO) / 10)
+    break
+    
+    case 49
+        call SetTool(value)
+    break
+    
+    case 70
+        call MoveJoint(arrayValue)
+    break
+    
+    case 71
+        call MoveJointTo(arrayValue)
+    break
+    
+    case 100
+        call SetLimits(arrayValue)
+    break
+    
+    case 101
+        call GotoPosition(arrayValue)
+    break
+    
+    case 102
+        call Move(arrayValue)
+    break
+    
+    case 103
+        call MemPointPos(bufferIn)
+    break
+    
+    case 104
+        call GotoPoint(bufferIn)
+    break
+    
+    case 105
+        call DeletePoint(bufferIn)
+    break
+    
+    case 106
+        call SetToolParam6x(arrayValue)
+    break
+
+
+    default
+        // parameter error
+        GeneralStatus = 101
+        LastErrorCode = 0
+    break
+    
+  endSwitch
+
+end]]></Code>
+  </Program>
+</Programs>

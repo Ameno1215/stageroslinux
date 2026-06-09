@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="GetToolParam6x">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="arrayValue" type="num" xsi:type="array" use="reference" />
+    </Parameters>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : GetToolParam6x
+  //*@author        : Yves Ragot
+  //*@version       : $Id: GetToolParam6x.pgx 1490 2016-12-14 15:39:12Z yves $
+  //*@brief         : Get the current tool parameters
+  //*
+  //*******************************************************************************/
+  
+ // get Cartesian parameters and converts to 1/10 mm
+  arrayValue[0] = tCurrentTool.trsf.x * 10
+  arrayValue[1] = tCurrentTool.trsf.y * 10 
+  arrayValue[2] = tCurrentTool.trsf.z * 10
+  arrayValue[3] = tCurrentTool.trsf.rx * 10
+  arrayValue[4] = tCurrentTool.trsf.ry * 10
+  arrayValue[5] = tCurrentTool.trsf.rz * 10
+  
+end]]></Code>
+  </Program>
+</Programs>

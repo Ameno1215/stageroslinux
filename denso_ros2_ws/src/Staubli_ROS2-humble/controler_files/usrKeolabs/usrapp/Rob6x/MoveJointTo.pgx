@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="MoveJointTo">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="arrayValue" type="num" xsi:type="array" use="reference" />
+    </Parameters>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : MoveJointTo
+  //*@author        : Yves Ragot
+  //*@version       : $Id: MoveJointTo.pgx 1291 2016-10-25 14:40:00Z yves $
+  //*@brief         : Absolute move in joint mode
+  //*
+  //*******************************************************************************/ 
+
+  // current joint position
+  jTargetJoint = herej()
+
+  // get target point on joint requested
+  if (arrayValue[0] != 3276.7)
+      jTargetJoint.j1 = arrayValue[0]
+  endIf
+  if (arrayValue[1] != 3276.7)
+      jTargetJoint.j2 = arrayValue[1]
+  endIf
+  if (arrayValue[2] != 3276.7)
+      jTargetJoint.j3 = arrayValue[2]
+  endIf
+  if (arrayValue[3] != 3276.7)
+      jTargetJoint.j4 = arrayValue[3]
+  endIf
+  if (arrayValue[4] != 3276.7)
+      jTargetJoint.j5 = arrayValue[4]
+  endIf
+  if (arrayValue[5] != 3276.7)
+     jTargetJoint.j6 = arrayValue[5]
+  endIf
+  
+  CartesianMode = false
+  
+  // launch mouvement
+  ExecuteMotion = true
+  
+  // wait for end of execution
+  wait(ExecuteMotion == false)
+  
+end]]></Code>
+  </Program>
+</Programs>

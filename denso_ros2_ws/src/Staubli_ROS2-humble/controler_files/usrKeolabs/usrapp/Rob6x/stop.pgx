@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="stop">
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : start
+//*@author        : Yves Ragot
+//*@version       : $Id: stop.pgx 1176 2016-10-03 15:44:15Z yves $
+//*@brief         : stop program of Rob6x
+//*
+  //*******************************************************************************/
+  
+  call KillAllTasks()
+  
+end]]></Code>
+  </Program>
+</Programs>

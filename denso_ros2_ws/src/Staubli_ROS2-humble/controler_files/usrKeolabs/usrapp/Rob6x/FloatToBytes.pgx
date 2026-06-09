@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="FloatToBytes">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="valIn" type="num" xsi:type="element" />
+      <Parameter name="hByte" type="num" xsi:type="element" use="reference" />
+      <Parameter name="lByte" type="num" xsi:type="element" use="reference" />
+    </Parameters>
+    <Locals>
+      <Local name="int" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : FloatToBytes
+//*@author        : Yves Ragot
+//*@version       : $Id: FloatToBytes.pgx 1558 2017-01-05 08:13:36Z yves $
+//*@brief         : convert 1 float to 2 bytes
+//*
+//*******************************************************************************/ 
+
+ valIn = round(valIn)
+  
+ hByte = roundDown(valIn / 256)
+ lByte = bAnd(valIn, 255)
+   
+end]]></Code>
+  </Program>
+</Programs>

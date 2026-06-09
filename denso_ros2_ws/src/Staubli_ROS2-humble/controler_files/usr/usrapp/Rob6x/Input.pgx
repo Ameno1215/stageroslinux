@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="Input">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="io" type="num" xsi:type="element" />
+      <Parameter name="value" type="bool" xsi:type="element" use="reference" />
+    </Parameters>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : Input
+  //*@author        : Yves Ragot
+  //*@version       : $Id: Input.pgx 1202 2016-10-07 12:12:19Z yves $
+  //*@brief         : get Input value
+  //*
+  //*******************************************************************************/
+  
+   switch (io)
+    
+    case 1
+        value = diVacuum
+    break
+    
+    case 2
+        value = difIn1
+    break
+
+    case 3
+        value = diusrIn0
+    break
+
+    case 4
+        value = diusrIn1
+    break
+
+    default
+        GeneralStatus = 101
+        LastErrorCode = 0
+    break
+    
+  endSwitch
+    
+end]]></Code>
+  </Program>
+</Programs>

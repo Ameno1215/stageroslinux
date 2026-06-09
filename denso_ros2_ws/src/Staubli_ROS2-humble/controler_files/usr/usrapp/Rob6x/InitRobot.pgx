@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="InitRobot">
+    <Locals>
+      <Local name="maxSpeed" type="num" xsi:type="array" size="1" />
+      <Local name="cpt" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : InitRobot
+//*@author        : Yves Ragot
+//*@version       : $Id: InitRobot.pgx 1658 2017-01-25 07:36:52Z yves $
+//*@brief         : InitRobot command treatment
+//*
+//*******************************************************************************/
+  
+  // reinit default values
+  call Init()
+  
+  // remote ?
+  if (workingMode() != 4)
+      popUpMsg("Please switch to remote mode")
+      GeneralStatus = 106
+  else      
+      // auto connection mouvement in remote mode
+      autoConnectMove(true)
+
+      // reset motion task
+      resetMotion()
+      
+      // power
+      enablePower()
+      cpt = 0
+      do
+        delay(0.1)
+        cpt = cpt + 1
+      until (isPowered() or (cpt >  50))
+      
+      if (cpt > 50)
+          GeneralStatus = 106
+      else
+          //set max speed 
+          maxSpeed = getMonitorSpeed()
+          if (maxSpeed < 100)
+              setMonitorSpeed(100)
+          endIf  
+      endIf
+  endIf
+end]]></Code>
+  </Program>
+</Programs>

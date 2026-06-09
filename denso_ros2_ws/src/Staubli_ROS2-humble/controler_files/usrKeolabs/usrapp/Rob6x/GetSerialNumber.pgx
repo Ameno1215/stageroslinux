@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="GetSerialNumber">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="answer" type="string" xsi:type="element" use="reference" />
+    </Parameters>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : GetSerialNumber
+  //*@author        : Yves Ragot
+  //*@version       : $Id: GetSerialNumber.pgx 1198 2016-10-07 06:48:14Z yves $
+  //*@brief         : Get Serial Number of the arm
+  //*
+  //*******************************************************************************/
+  
+  answer = left(getVersion("ArmSN"), 20)
+
+end]]></Code>
+  </Program>
+</Programs>

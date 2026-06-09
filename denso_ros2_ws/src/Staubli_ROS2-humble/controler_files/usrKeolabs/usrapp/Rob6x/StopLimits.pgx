@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="StopLimits">
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : StopLimits
+//*@author        : Yves Ragot
+//*@version       : $Id: StopLimits.pgx 1648 2017-01-24 08:43:21Z yves $
+//*@brief         : Stop movements if out of limits (called by CheckLimits)
+//*
+//*******************************************************************************/
+  
+  // stop movement
+  call AsynchStop()
+  
+  //set error code
+  GeneralStatus = 104
+  LastErrorCode = 0
+
+end]]></Code>
+  </Program>
+</Programs>

@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="crc16">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="n" type="num" xsi:type="element" />
+      <Parameter name="rh" type="num" xsi:type="element" use="reference" />
+      <Parameter name="rl" type="num" xsi:type="element" use="reference" />
+      <Parameter name="buf" type="num" xsi:type="array" use="reference" />
+    </Parameters>
+    <Locals>
+      <Local name="Poly" type="num" xsi:type="array" size="1" />
+      <Local name="i" type="num" xsi:type="array" size="1" />
+      <Local name="j" type="num" xsi:type="array" size="1" />
+      <Local name="crc" type="num" xsi:type="array" size="1" />
+      <Local name="carry" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+  
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : crc16
+//*@author        : Yves Ragot
+//*@version       : $Id: crc16.pgx 1561 2017-01-06 10:24:51Z yves $
+//*@brief         : CRC16 computing of a PC frame
+//*
+//*******************************************************************************/
+  
+  //#define Poly 0xA001
+  Poly = 40961
+  
+  crc = 65535
+  
+  for i = 0 to (n - 1)
+    
+      crc = bXor(crc, bAnd(buf[i], 255))
+      
+      for j = 0 to 7
+        
+          carry = bAnd(crc, 1)
+          crc = roundDown(crc / 2)
+          
+          if ( carry == 1 )
+              crc = bXor(crc, Poly)
+          endIf
+        
+      endFor
+    
+  endFor
+  
+  rh = bAnd(crc, 255)
+  rl = roundDown(crc / 256)
+  
+end]]></Code>
+  </Program>
+</Programs>

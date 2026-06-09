@@ -21,6 +21,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "simple_message/smpl_msg_connection.hpp"
 #include "simple_message/socket/simple_socket.hpp"
+#include "staubli_msgs/msg/io_states.hpp"
+#include "staubli_msgs/msg/tri_state.hpp"
 #include "staubli_msgs/srv/write_single_io.hpp"
 #include "netinet/in.h"
 #include "sys/socket.h"
@@ -28,7 +30,9 @@
 #include "stdio.h"
 
 
+#include <mutex>
 #include <string>
+#include <vector>
 
 class IOInterface : public rclcpp::Node
 {
@@ -49,6 +53,21 @@ public:
   bool writeSingleIO(IOModule moduleId, int pin, bool state);
 
 private:
+  bool readVacuum(bool& state);
+  void publishIOStates();
+  bool sendSimpleRequest(int msg_type, const std::vector<char>& body, int& reply_code, std::vector<char>& reply_body);
+  bool receiveExact(int socket_fd, void* data, size_t size);
+  static void appendInt32(std::vector<char>& data, int value);
+  static staubli_msgs::msg::TriState makeTriState(int8_t value);
+
   std::shared_ptr<industrial::smpl_msg_connection::SmplMsgConnection> connection_;
   rclcpp::Service<staubli_msgs::srv::WriteSingleIO>::SharedPtr service;
+  rclcpp::Publisher<staubli_msgs::msg::IOStates>::SharedPtr io_states_pub_;
+  rclcpp::TimerBase::SharedPtr io_states_timer_;
+  std::mutex connection_mutex_;
+  bool publish_io_states_;
+  int vacuum_module_id_;
+  int vacuum_pin_;
+  std::string ip_;
+  int port_;
 };

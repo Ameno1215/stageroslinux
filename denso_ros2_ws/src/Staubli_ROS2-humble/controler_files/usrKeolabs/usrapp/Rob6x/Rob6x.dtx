@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Database xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Data/2">
+  <Datas>
+    <Data name="mNomSpeed" access="private" xsi:type="array" type="mdesc" size="1">
+      <Value key="0" accel="50" vel="20" decel="50" tmax="1000" leave="10" reach="10" blend="off" />
+    </Data>
+    <Data name="tGripper3Sucks" access="private" xsi:type="array" type="tool" size="1">
+      <Value key="0" z="200" rx="-180" fatherId="flange[0]" ioLink="valve1" />
+    </Data>
+    <Data name="pPointHome" access="private" xsi:type="array" type="pointRx" size="1">
+      <Value key="0" x="200" fatherId="world[0]" />
+    </Data>
+    <Data name="bExit" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="siTcpServer" access="private" xsi:type="array" type="sio" size="1">
+      <Value key="0" link="Socket\Server" />
+    </Data>
+    <Data name="tCurrentTool" access="private" xsi:type="array" type="tool" size="1">
+      <Value key="0" fatherId="flange[0]" ioLink="valve1" />
+    </Data>
+    <Data name="AlignMode" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="pPointsTable" access="private" xsi:type="collection" type="pointRx" />
+    <Data name="LastErrorCode" access="private" xsi:type="array" type="num" size="1" />
+    <Data name="GeneralStatus" access="private" xsi:type="array" type="num" size="1" />
+    <Data name="CurLimitsTable" access="private" xsi:type="collection" type="num" />
+    <Data name="pTargetPoint" access="private" xsi:type="array" type="pointRx" size="1">
+      <Value key="0" fatherId="world[0]" />
+    </Data>
+    <Data name="jTargetJoint" access="private" xsi:type="array" type="jointRx" size="1" />
+    <Data name="FrameReceiveOK" access="private" xsi:type="array" type="num" size="1" />
+    <Data name="FrameReceiveNOK" access="private" xsi:type="array" type="num" size="1" />
+    <Data name="fCurrentFrame" access="private" xsi:type="array" type="frame" size="1">
+      <Value key="0" fatherId="world[0]" />
+    </Data>
+    <Data name="AsyncMode" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="siTcpClient" access="private" xsi:type="array" type="sio" size="1">
+      <Value key="0" link="Socket\Client" />
+    </Data>
+    <Data name="ExecuteMotion" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="CartesianMode" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="jHome" access="private" xsi:type="array" type="jointRx" size="1">
+      <Value key="0" j3="90" />
+    </Data>
+    <Data name="MotionTaskMutex" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="NbCharReceived" access="private" xsi:type="array" type="num" size="1" />
+    <Data name="diVacuum" access="private" xsi:type="array" type="dio" size="1">
+      <Value key="0" link="fIn0" />
+    </Data>
+    <Data name="doPump" access="private" xsi:type="array" type="dio" size="1">
+      <Value key="0" link="fOut0" />
+    </Data>
+    <Data name="difIn1" access="private" xsi:type="array" type="dio" size="1">
+      <Value key="0" link="fIn1" />
+    </Data>
+    <Data name="diusrIn0" access="private" xsi:type="array" type="dio" size="1">
+      <Value key="0" link="usrIn0" />
+    </Data>
+    <Data name="diusrIn1" access="private" xsi:type="array" type="dio" size="1">
+      <Value key="0" link="usrIn1" />
+    </Data>
+    <Data name="doValve2" access="private" xsi:type="array" type="dio" size="1">
+      <Value key="0" link="valve2" />
+    </Data>
+    <Data name="currentToolType" access="private" xsi:type="array" type="num" size="1" />
+    <Data name="tGripper4Sucks" access="private" xsi:type="array" type="tool" size="1">
+      <Value key="0" z="200" rx="-180" fatherId="flange[0]" ioLink="valve1" />
+    </Data>
+    <Data name="tPICC_ISO" access="private" xsi:type="array" type="tool" size="1">
+      <Value key="0" x="160.4" z="200" rx="-180" fatherId="flange[0]" ioLink="valve1" />
+    </Data>
+    <Data name="tPICC_NFC" access="private" xsi:type="array" type="tool" size="1">
+      <Value key="0" x="137.46" z="200" rx="-180" fatherId="flange[0]" ioLink="valve1" />
+    </Data>
+    <Data name="tPICC_EMV" access="private" xsi:type="array" type="tool" size="1">
+      <Value key="0" x="127.7" z="200" rx="-180" fatherId="flange[0]" ioLink="valve1" />
+    </Data>
+    <Data name="jUser" access="private" xsi:type="array" type="jointRx" size="1">
+      <Value key="0" j3="90" j5="90" />
+    </Data>
+    <Data name="MoveRunning" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="bStartRecording" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="bOverload" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="sPath" access="private" xsi:type="array" type="string" size="1" />
+    <Data name="siSerial1" access="private" xsi:type="array" type="sio" size="1">
+      <Value key="0" link="Serial\1" />
+    </Data>
+    <Data name="NbBufSerial" access="private" xsi:type="array" type="num" size="1" />
+    <Data name="BufferSerial" access="private" xsi:type="array" type="num" size="64" />
+    <Data name="ModeSerial" access="private" xsi:type="array" type="bool" size="1" />
+    <Data name="COEFF_ACCEL" access="private" xsi:type="array" type="num" size="1" />
+  </Datas>
+</Database>

@@ -1,0 +1,100 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="CheckLimits">
+    <Locals>
+      <Local name="pt" type="pointRx" xsi:type="array" size="1" />
+      <Local name="curErr_Z" type="bool" xsi:type="array" size="1" />
+      <Local name="err_x" type="bool" xsi:type="array" size="1" />
+      <Local name="err_y" type="bool" xsi:type="array" size="1" />
+      <Local name="curErr_Y" type="bool" xsi:type="array" size="1" />
+      <Local name="err_z" type="bool" xsi:type="array" size="1" />
+      <Local name="hysteresis" type="num" xsi:type="array" size="1" />
+      <Local name="curErr_X" type="bool" xsi:type="array" size="1" />
+      <Local name="inLimits" type="bool" xsi:type="array" size="1" />
+      <Local name="hysteresisZmin" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : CheckLimits
+//*@author        : Yves Ragot
+//*@version       : $Id: CheckLimits.pgx 1645 2017-01-24 08:09:09Z yves $
+//*@brief         : Check the if the current mouvement is in the limits
+//*
+//*******************************************************************************/
+  
+  // hysteresis in mm
+  hysteresis = 70
+  hysteresisZmin = 10
+  
+  do
+    
+      // get current position
+      pt = here(tCurrentTool, fCurrentFrame)
+    
+      // round values before comparing with limits (integer values)
+      pt.trsf.x = round(pt.trsf.x * 10) / 10
+      pt.trsf.y = round(pt.trsf.y * 10) / 10
+      pt.trsf.z = round(pt.trsf.z * 10) / 10
+
+      // check first non fatal X limits
+      if ((pt.trsf.x < CurLimitsTable["Xmin"]) or (pt.trsf.x > CurLimitsTable["Xmax"]))
+          if (!curErr_X)
+              call StopLimits()
+          endIf
+      else
+          curErr_X = false
+      endIf
+
+      if ((pt.trsf.x >= CurLimitsTable["Xmin"] - hysteresis) and (pt.trsf.x <= CurLimitsTable["Xmax"] + hysteresis))
+          curErr_X = true
+      else
+          call StopLimits()
+      endIf
+    
+      // check first non fatal Y limits
+      if ((pt.trsf.y < CurLimitsTable["Ymin"]) or (pt.trsf.y > CurLimitsTable["Ymax"]))
+          if (!curErr_Y)
+              call StopLimits()
+          endIf
+      else
+          curErr_Y = false
+      endIf
+
+      if ((pt.trsf.y >= CurLimitsTable["Ymin"] - hysteresis) and (pt.trsf.y <= CurLimitsTable["Ymax"] + hysteresis))
+          curErr_Y = true
+      else
+          call StopLimits()
+      endIf
+    
+      // check first non fatal Z limits
+      if ((pt.trsf.z < CurLimitsTable["Zmin"]) or (pt.trsf.z > CurLimitsTable["Zmax"]))
+          if (!curErr_Z)
+              call StopLimits()
+          endIf
+      else
+          curErr_Z = false
+      endIf
+
+      if ((pt.trsf.z >= CurLimitsTable["Zmin"] - hysteresisZmin) and (pt.trsf.z <= CurLimitsTable["Zmax"] + hysteresis))
+          curErr_Z = true
+      else
+          call StopLimits()
+      endIf
+       
+     delay(0)
+    
+  until false
+
+end]]></Code>
+  </Program>
+</Programs>

@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="AsynchStop">
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : AsynchStop
+  //*@author        : Yves Ragot
+  //*@version       : $Id: AsynchStop.pgx 1365 2016-11-18 16:00:54Z yves $
+  //*@brief         : Stop asynchronous mouvement
+  //*
+  //*******************************************************************************/ 
+  
+  // stop the mouvement
+  stopMove()
+  
+  // clear all recorded commands
+  if isEmpty() == false
+    resetMotion()
+  endIf  
+  
+  // wait for mouvement ending
+  waitEndMove()
+  wait(isSettled())
+
+  MoveRunning = false
+
+end]]></Code>
+  </Program>
+</Programs>

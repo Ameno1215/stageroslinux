@@ -1,0 +1,162 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="test">
+    <Locals>
+      <Local name="lenDataOut" type="num" xsi:type="array" size="1" />
+      <Local name="j" type="joint" xsi:type="array" size="1" />
+      <Local name="pt" type="pointRx" xsi:type="array" size="1" />
+      <Local name="ret" type="num" xsi:type="array" size="1" />
+      <Local name="crc_h" type="num" xsi:type="array" size="1" />
+      <Local name="crc_l" type="num" xsi:type="array" size="1" />
+      <Local name="lenDataIn" type="num" xsi:type="array" size="1" />
+      <Local name="l_nNum" type="num" xsi:type="array" size="1" />
+      <Local name="dataOut" type="num" xsi:type="array" size="32" />
+      <Local name="nbReceived" type="num" xsi:type="array" size="1" />
+      <Local name="nbSent" type="num" xsi:type="array" size="1" />
+      <Local name="dataIn" type="num" xsi:type="array" size="50" />
+      <Local name="cycleCount" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : test
+//*@author        : Yves Ragot
+//*@version       : $Id: test.pgx 1267 2016-10-17 13:45:02Z yves $
+//*@brief         : PC socket communication simulation for test
+//*
+//*******************************************************************************/
+  
+  //== configuration socket ==
+  // IP PC
+  //ret = sioCtrl(siTcpClient, "target", "192.168.30.118")
+  
+  // no timeout
+  ret = sioCtrl(siTcpClient, "timeout", 0)
+  
+  // buffers length
+  lenDataIn = 32
+  lenDataOut = 32
+
+  cycleCount = 0
+  
+  do
+      //== prepare resquest ==
+      if (cycleCount == 0)  
+          dataOut[0] = 1
+      else
+          dataOut[0] = 101
+      endIf
+
+      // frame number
+      dataOut[1] = dataOut[1] + 1
+
+      // RFU
+      dataOut[2] = 0
+
+      // target Cartesian position
+       //pt = here(tCurrentTool, fCurrentFrame)
+      if ((cycleCount % 2) != 0)
+          pt.trsf = {2000, 2000, -1000, 0, 0, 0}
+      else
+          pt.trsf = {-2000, 2000, -2000, 0, 0, 0}
+      endIf
+
+      dataOut[3] = roundDown(pt.trsf.x / 256)
+      dataOut[4] =  bAnd(pt.trsf.x, 255)
+      dataOut[5] = roundDown(pt.trsf.y / 256)
+      dataOut[6] =  bAnd(pt.trsf.y, 255)
+      dataOut[7] = roundDown(pt.trsf.z / 256)
+      dataOut[8] =  bAnd(pt.trsf.z, 255)
+      dataOut[9] = roundDown(pt.trsf.rx / 256)
+      dataOut[10] =  bAnd(pt.trsf.rx, 255)
+      dataOut[11] = roundDown(pt.trsf.ry / 256)
+      dataOut[12] =  bAnd(pt.trsf.ry, 255)
+      dataOut[13] = roundDown(pt.trsf.rz / 256)
+      dataOut[14] =  bAnd(pt.trsf.rz, 255)
+
+      // target Joint position
+      //j = herej()
+//      dataOut[3]  = roundDown(j.j1 / 256)
+//      dataOut[4]  =  bAnd(j.j1, 255)
+//      dataOut[5]  = roundDown(j.j2 / 256)
+//      dataOut[6]  =  bAnd(j.j2, 255)
+//      dataOut[7]  = roundDown(j.j3 / 256)
+//      dataOut[8]  =  bAnd(j.j3, 255)
+//      dataOut[9]  = roundDown(j.j4 / 256)
+//      dataOut[10] =  bAnd(j.j4, 255)
+//      dataOut[11] = roundDown(j.j5 / 256)
+//      dataOut[12] =  bAnd(j.j5, 255)
+//      dataOut[13] = roundDown(j.j6 / 256)
+//      dataOut[14] =  bAnd(j.j6, 255)
+  
+      // RFU
+      dataOut[15] = 0
+
+      // asynchronous mode ?
+      dataOut[16] = 0
+
+      // point name
+      dataOut[17] = 0
+      dataOut[18] = 0
+      dataOut[19] = 0
+      dataOut[20] = 0
+      dataOut[21] = 0
+      dataOut[22] = 0
+      dataOut[23] = 0
+      dataOut[24] = 0
+      dataOut[25] = 0
+      dataOut[26] = 0
+
+      // RFU
+      dataOut[27] = 0
+      dataOut[28] = 0
+      dataOut[29] = 0
+
+      // compute CRC
+      call crc16(lenDataOut - 2, crc_h, crc_l, dataOut)
+      dataOut[30] = crc_h
+      dataOut[31] = crc_l
+
+      // send response
+      nbSent = sioSet(siTcpClient, dataOut)
+      if (nbSent != lenDataOut)
+          // TODO error
+          put(nbSent)
+      endIf  
+        
+        //if ((dataIn[30] != crc_h) or (dataIn[31] != crc_l))
+      
+      nbReceived = sioGet(siTcpClient, dataIn)
+      if (nbReceived == lenDataIn)
+      
+          // check CRC
+          call crc16(lenDataIn - 2, crc_h, crc_l, dataIn)
+      
+          if ((dataIn[30] != crc_h) or (dataIn[31] != crc_l))
+              FrameReceiveNOK = FrameReceiveNOK + 1
+          else
+              FrameReceiveOK = FrameReceiveOK + 1
+          endIf
+        
+      //if (nbReceived == lenDataIn)
+      else
+          FrameReceiveNOK = FrameReceiveNOK + 1
+      endIf
+    
+      cycleCount = cycleCount + 1
+      delay(1)
+    
+  until(bExit)
+  
+end]]></Code>
+  </Program>
+</Programs>
