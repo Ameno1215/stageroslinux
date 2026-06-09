@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="SetTool">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="value" type="num" xsi:type="element" />
+    </Parameters>
+    <Locals>
+      <Local name="prevTool" type="tool" xsi:type="array" size="1" />
+      <Local name="prevType" type="num" xsi:type="array" size="1" />
+      <Local name="inLimits" type="bool" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : SetTool
+  //*@author        : Yves Ragot
+  //*@version       : $Id: SetTool.pgx 1490 2016-12-14 15:39:12Z yves $
+  //*@brief         : Choose the current predefined tool
+  //*
+  //*******************************************************************************/
+  
+  // save previous tool parameter
+  prevTool = tCurrentTool
+  prevType = currentToolType
+  
+  // set new tool
+  currentToolType = value
+  switch (value)
+    
+    case 0
+      tCurrentTool = flange
+    break
+    
+    case 1
+      tCurrentTool = tGripper3Sucks
+    break
+    
+    case 2
+      tCurrentTool = tGripper4Sucks
+    break
+    
+    case 3
+      tCurrentTool = tPICC_ISO
+    break
+    
+    case 4
+      tCurrentTool = tPICC_NFC
+    break
+    
+    case 5
+      tCurrentTool = tPICC_EMV
+    break
+    
+    default
+      GeneralStatus = 101
+      LastErrorCode = 0
+      currentToolType = prevType
+    break
+    
+  endSwitch
+
+  // check if current position with new tool is in new limits
+  call IsInLimits(inLimits) 
+
+  // if not, error
+  if (!inLimits)
+    
+      // restore previous limits
+      tCurrentTool = prevTool
+      currentToolType = prevType
+    
+      // parameter error
+      GeneralStatus = 101
+      LastErrorCode = 0
+
+  endIf
+end]]></Code>
+  </Program>
+</Programs>

@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://www.staubli.com/robotics/VAL3/Project/3">
+  <Parameters version="s7.9.1" stackSize="5000" millimeterUnit="true" />
+  <Programs>
+    <Program file="AsynchStop.pgx" />
+    <Program file="BytesToS16.pgx" />
+    <Program file="Calibrate.pgx" />
+    <Program file="CheckLimits.pgx" />
+    <Program file="CheckStatus.pgx" />
+    <Program file="Com.pgx" />
+    <Program file="COM_SERIAL.pgx" />
+    <Program file="Command.pgx" />
+    <Program file="crc16.pgx" />
+    <Program file="DeletePoint.pgx" />
+    <Program file="Energize.pgx" />
+    <Program file="FloatToBytes.pgx" />
+    <Program file="GetAppVersion.pgx" />
+    <Program file="GetCurrentPos.pgx" />
+    <Program file="GetFirmVersion.pgx" />
+    <Program file="GetJointPos.pgx" />
+    <Program file="GetLimits.pgx" />
+    <Program file="GetSerialNumber.pgx" />
+    <Program file="GetSNCtrl.pgx" />
+    <Program file="GetToolParam6x.pgx" />
+    <Program file="GotoPoint.pgx" />
+    <Program file="GotoPosition.pgx" />
+    <Program file="Init.pgx" />
+    <Program file="InitRobot.pgx" />
+    <Program file="Input.pgx" />
+    <Program file="isInLimits.pgx" />
+    <Program file="KillAlltasks.pgx" />
+    <Program file="MemPointPos.pgx" />
+    <Program file="Motion.pgx" />
+    <Program file="Move.pgx" />
+    <Program file="MoveJoint.pgx" />
+    <Program file="MoveJointTo.pgx" />
+    <Program file="Output.pgx" />
+    <Program file="SetAccel.pgx" />
+    <Program file="SetLimits.pgx" />
+    <Program file="SetSpeed.pgx" />
+    <Program file="SetTool.pgx" />
+    <Program file="SetToolParam.pgx" />
+    <Program file="SetToolParam6x.pgx" />
+    <Program file="start.pgx" />
+    <Program file="stop.pgx" />
+    <Program file="StopLimits.pgx" />
+    <Program file="taskRecord.pgx" />
+    <Program file="test.pgx" />
+    <Program file="Valve.pgx" />
+  </Programs>
+  <Database>
+    <Data file="Rob6x.dtx" />
+  </Database>
+  <Libraries />
+</Project>

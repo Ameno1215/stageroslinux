@@ -1,0 +1,2 @@
+    movej(jpa,flange,mNomSpeed)
+    waitEndMove()

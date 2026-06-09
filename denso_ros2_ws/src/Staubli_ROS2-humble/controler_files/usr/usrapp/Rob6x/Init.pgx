@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="Init">
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : Init
+//*@author        : Yves Ragot
+//*@version       : $Id: Init.pgx 1645 2017-01-24 08:09:09Z yves $
+//*@brief         : global program initialization
+//*
+//*******************************************************************************/
+  
+  // creation limits table with default values
+  insert(CurLimitsTable["Xmin"])
+  CurLimitsTable["Xmin"] = -310
+  insert(CurLimitsTable["Xmax"])
+  CurLimitsTable["Xmax"] = 545
+  insert(CurLimitsTable["Ymin"])
+  CurLimitsTable["Ymin"] = -210
+  insert(CurLimitsTable["Ymax"])
+  CurLimitsTable["Ymax"] = 210
+  insert(CurLimitsTable["Zmin"])
+  CurLimitsTable["Zmin"] = -310
+  insert(CurLimitsTable["Zmax"])
+  CurLimitsTable["Zmax"] = 520
+  
+// for test  
+//   insert(CurLimitsTable["Xmin"])
+//  CurLimitsTable["Xmin"] = -1000
+//  insert(CurLimitsTable["Xmax"])
+//  CurLimitsTable["Xmax"] = 1000
+//  insert(CurLimitsTable["Ymin"])
+//  CurLimitsTable["Ymin"] = -1000
+//  insert(CurLimitsTable["Ymax"])
+//  CurLimitsTable["Ymax"] = 1000
+//  insert(CurLimitsTable["Zmin"])
+//  CurLimitsTable["Zmin"] = -1000
+//  insert(CurLimitsTable["Zmax"])
+//  CurLimitsTable["Zmax"] = 1000
+  
+  // Global varaibles initialization
+  bExit = false
+  CartesianMode = true
+  AlignMode = false
+  AsyncMode = true
+  //tCurrentTool = flange
+  //currentToolType = 99
+  call SetToolParam(0)
+  fCurrentFrame = world
+  LastErrorCode = 0
+  GeneralStatus = 0
+  MoveRunning = false
+  bStartRecording = false
+  
+  // Default accleration and speed
+  COEFF_ACCEL = 3
+  mNomSpeed.vel = 20
+  mNomSpeed.accel = 50
+  mNomSpeed.decel = 50
+    
+end]]></Code>
+  </Program>
+</Programs>

@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="SetToolParam6x">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="arrayValue" type="num" xsi:type="array" use="reference" />
+    </Parameters>
+    <Locals>
+      <Local name="prevTool" type="tool" xsi:type="array" size="1" />
+      <Local name="prevType" type="num" xsi:type="array" size="1" />
+      <Local name="inLimits" type="bool" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : SetToolParam6x
+  //*@author        : Yves Ragot
+  //*@version       : $Id: SetToolParam6x.pgx 1490 2016-12-14 15:39:12Z yves $
+  //*@brief         : Set the current tool parametersl
+  //*
+  //*******************************************************************************/
+  
+  // save previous tool parameter
+  prevTool = tCurrentTool
+  prevType = currentToolType
+
+  // set new tool
+  tCurrentTool = flange
+  tCurrentTool.trsf.x = arrayValue[0]
+  tCurrentTool.trsf.y = arrayValue[1]
+  tCurrentTool.trsf.z = arrayValue[2]
+  tCurrentTool.trsf.rx = arrayValue[3]
+  tCurrentTool.trsf.ry = arrayValue[4]
+  tCurrentTool.trsf.rz = arrayValue[5]
+  
+  currentToolType = 99
+  
+  // check if current position with new tool is in new limits
+  call IsInLimits(inLimits) 
+
+  // if not, error
+  if (!inLimits)
+    
+      // restore previous limits
+      tCurrentTool = prevTool
+      currentToolType = prevType
+    
+      // parameter error
+      GeneralStatus = 101
+      LastErrorCode = 0
+
+  endIf
+
+  
+end]]></Code>
+  </Program>
+</Programs>

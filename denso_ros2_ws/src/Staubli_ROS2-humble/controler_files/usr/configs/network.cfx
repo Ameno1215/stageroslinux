@@ -3,8 +3,8 @@
   <Bool name="dhcpClient" value="false" />
   <Int name="dhcpClientType" value="-1" />
   <String name="dhcpClientAddress" value="" />
-  <Inet name="ipAddress" value="172.29.64.1" />
-  <Inet name="ipMask" value="255.255.0.0" />
+  <Inet name="ipAddress" value="192.168.30.33" />
+  <Inet name="ipMask" value="255.255.255.0" />
   <Inet name="ipAddress2" value="172.31.0.1" />
   <Inet name="ipMask2" value="255.255.0.0" />
   <Uint name="remotePort" value="800" />
@@ -12,7 +12,7 @@
   <Uint name="telnetPort" value="23" />
   <soapServer>
     <String name="host" value="" />
-    <Uint name="port" value="851" />
+    <Uint name="port" value="5653" />
     <Int name="sendTimeout" value="60" />
     <Int name="receiveTimeout" value="1" />
     <Int name="acceptTimeout" value="0" />

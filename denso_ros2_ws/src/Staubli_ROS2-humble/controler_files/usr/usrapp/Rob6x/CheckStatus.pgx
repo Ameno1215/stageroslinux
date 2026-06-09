@@ -1,0 +1,124 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="CheckStatus">
+    <Locals>
+      <Local name="esState" type="num" xsi:type="array" size="1" />
+      <Local name="status_err" type="num" xsi:type="array" size="1" />
+      <Local name="com_err" type="num" xsi:type="array" size="1" />
+      <Local name="limits_err" type="num" xsi:type="array" size="1" />
+      <Local name="motion_err" type="num" xsi:type="array" size="1" />
+      <Local name="newErrorCode" type="num" xsi:type="array" size="1" />
+    </Locals>
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : CheckStatus
+//*@author        : Yves Ragot
+//*@version       : $Id: CheckStatus.pgx 1365 2016-11-18 16:00:54Z yves $
+//*@brief         : Check robot status (busy, runing, error ?)
+//*
+//*******************************************************************************/
+
+  do
+       
+      //== get task errors ==
+      com_err = taskStatus("COM")
+      limits_err = taskStatus("CheckLimits")
+      status_err = taskStatus("CheckStatus")
+      motion_err = taskStatus("Motion")
+
+      // update LastErrorCode (taskStatus: 0 = suspended, 1 = running, -1 = dead
+      if ((com_err != 0) and (com_err != 1))
+          newErrorCode = com_err
+      elseIf (motion_err > 1)
+          newErrorCode = motion_err
+      elseIf ((limits_err != 0) and (limits_err != 1))
+          newErrorCode = limits_err
+      elseIf ((status_err != 0) and (status_err != 1))
+          newErrorCode = status_err
+      else
+          newErrorCode = 0
+      endIf
+      
+      //== GeneralStatus
+      // emergency stop ?
+      esState = esStatus()
+      if (esState != 0)
+          call AsynchStop()
+          GeneralStatus = 105
+          LastErrorCode = 0
+      
+      // mouvement error ?
+      elseIf (GeneralStatus == 0)
+      
+        switch (newErrorCode)
+          
+          // mouvement
+          case 81, 150, 153, 154
+            GeneralStatus = 100
+          break
+          
+          // parameter
+          case 70, 100, 101, 102, 103, 104, 160, 161, 165
+            GeneralStatus = 101
+          break
+          
+          // system
+          case -1, 40, 41, 60, 61, 90, 125, 250
+            GeneralStatus = 102
+          break
+          
+          // soft
+          case 10, 11, 20, 21, 29, 30, 31, 32, 80, 82, 105, 106, 122, 123, 124, 162, 163, 164
+            GeneralStatus = 103
+          break
+          
+          default
+          break
+          
+        endSwitch
+        
+        if (newErrorCode != 0)
+            LastErrorCode = newErrorCode
+        endIf
+
+    endIf          
+      
+      // kill motion task if fault      
+    //    if ((GeneralStatus > 1) and (LastErrorCode != 0) and ((LastErrorCode == motion_err) or (LastErrorCode == 153)))
+    if ((MoveRunning and (GeneralStatus > 1) and ((LastErrorCode == motion_err) or (LastErrorCode == 153))))
+        call AsynchStop()
+        setMutex(MotionTaskMutex)
+        if taskStatus("Motion") != -1
+            taskKill("Motion")
+            wait(taskStatus("Motion") == -1)
+            ExecuteMotion = false
+        endIf
+        MotionTaskMutex = false
+    endIf
+    
+    // check movement running
+    if (GeneralStatus == 1)
+        // is mouvement always running ?
+        if (isSettled() and isEmpty())
+            GeneralStatus = 0
+            MoveRunning = false
+        endIf
+    endIf
+    
+   delay(0)
+
+  until false
+  
+end]]></Code>
+  </Program>
+</Programs>

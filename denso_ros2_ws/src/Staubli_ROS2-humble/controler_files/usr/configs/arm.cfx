@@ -1,25 +1,87 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <arm>
+  <String name="date" value="23 FEB 2010  01:18" />
+  <String name="orderNumber" value="F16_53RQA1_A_01" />
   <String name="arm" value="tx40-S2" />
   <String name="tuning" value="" />
   <String name="mount" value="floor" />
-  <Bool name="hardStopAxis1" value="false" />
-  <Bool name="UL_Lamp" value="false" />
-  <Bool name="verticalCableOutlet" value="false" />
-  <FloatArray name="zeroOffset">
-    <Float index="0" value="0.0000000" />
-    <Float index="1" value="0.0000000" />
-    <Float index="2" value="0.0000000" />
-    <Float index="3" value="0.0000000" />
-    <Float index="4" value="0.0000000" />
-    <Float index="5" value="0.0000000" />
+  <String name="oil" value="" />
+  <FloatArray name="minArmJointPos" >
+    <Float index="0" value="-99999" />
+    <Float index="1" value="-99999" />
+    <Float index="2" value="-99999" />
+    <Float index="3" value="-99999" />
+    <Float index="4" value="-99999" />
+    <Float index="5" value="-270" />
   </FloatArray>
-  <FloatArray name="factoryMark">
-    <Float index="0" value="0.0000001" />
-    <Float index="1" value="0.0000000" />
-    <Float index="2" value="0.0000000" />
-    <Float index="3" value="0.0000000" />
-    <Float index="4" value="0.0000000" />
-    <Float index="5" value="0.0000000" />
+  <FloatArray name="maxArmJointPos" >
+    <Float index="0" value="99999" />
+    <Float index="1" value="99999" />
+    <Float index="2" value="99999" />
+    <Float index="3" value="99999" />
+    <Float index="4" value="99999" />
+    <Float index="5" value="270" />
+  </FloatArray>
+  <ArmJntRange>
+  </ArmJntRange>
+  <FloatArray name="zeroOffset" >
+    <Float index="0" value="1181987.380371" />
+    <Float index="1" value="1129241.722412" />
+    <Float index="2" value="318123.435059" />
+    <Float index="3" value="333403.15979" />
+    <Float index="4" value="320511.555176" />
+    <Float index="5" value="265777.190552" />
+  </FloatArray>
+  <FloatArray name="phaseOffset" >
+    <Float index="0" value="347.88208" />
+    <Float index="1" value="186.976318" />
+    <Float index="2" value="158.961182" />
+    <Float index="3" value="248.203125" />
+    <Float index="4" value="147.546387" />
+    <Float index="5" value="193.128662" />
+  </FloatArray>
+  <DhArray name="dhOffset" >
+    <DH index="0" theta="0" d="0" a="0" b="0" alpha="0" beta="0" />
+    <DH index="1" theta="0" d="0" a="0" b="0" alpha="0" beta="0" />
+    <DH index="2" theta="0" d="0" a="0" b="0" alpha="0" beta="0" />
+    <DH index="3" theta="0" d="0" a="0" b="0" alpha="0" beta="0" />
+    <DH index="4" theta="0" d="0" a="0" b="0" alpha="0" beta="0" />
+    <DH index="5" theta="0" d="0" a="0" b="0" alpha="0" beta="0" />
+  </DhArray>
+  <Float name="flangeLengthOffset" value="0" />
+  <StringArray name="motorType" >
+    <String index="0" value="" />
+    <String index="1" value="" />
+    <String index="2" value="" />
+    <String index="3" value="" />
+    <String index="4" value="" />
+    <String index="5" value="" />
+  </StringArray>
+  <FloatArray name="userMark" >
+    <Float index="0" value="-0.104347" />
+    <Float index="1" value="0.018238" />
+    <Float index="2" value="-0.129697" />
+    <Float index="3" value="-0.1375" />
+    <Float index="4" value="-0.163176" />
+    <Float index="5" value="-0.36992" />
+  </FloatArray>
+  <FloatArray name="factoryMark" >
+    <Float index="0" value="-0.104347" />
+    <Float index="1" value="0.018238" />
+    <Float index="2" value="-0.129697" />
+    <Float index="3" value="-0.1375" />
+    <Float index="4" value="-0.163176" />
+    <Float index="5" value="-0.36992" />
+  </FloatArray>
+  <Bool name="factoryMarkLocked" value="true" />
+  <Bool name="hardStopAxis1" value="false" />
+  <Bool name="ul" value="false" />
+  <FloatArray name="jntFlexOffset" >
+    <Float index="0" value="0" />
+    <Float index="1" value="0" />
+    <Float index="2" value="0" />
+    <Float index="3" value="0" />
+    <Float index="4" value="0" />
+    <Float index="5" value="0" />
   </FloatArray>
 </arm>

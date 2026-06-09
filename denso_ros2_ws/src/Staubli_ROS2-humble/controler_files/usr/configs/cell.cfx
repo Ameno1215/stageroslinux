@@ -53,8 +53,8 @@
   </FloatArray>
   <Bool name="parkCheckInAutoMode" value="false" />
   <String name="robotName" value="" />
-  <autoStart name="" location="" />
-  <String name="initWorkingMode" value="remote" />
+  <autoStart name="ros_server" location="Disk" />
+  <String name="initWorkingMode" value="manual" />
   <CellDynamicParams>
     <VectCart name="gravity" x="0" y="0" z="-9.81" />
   </CellDynamicParams>
@@ -63,6 +63,6 @@
   <String name="T1_key" value="valve1" />
   <String name="T2_key" value="valve2" />
   <String name="T3_key" value="" />
-  <String name="defaultUser" value="default" />
+  <String name="defaultUser" value="" />
   <Float name="monitorSpeed" value="100" />
 </cell>

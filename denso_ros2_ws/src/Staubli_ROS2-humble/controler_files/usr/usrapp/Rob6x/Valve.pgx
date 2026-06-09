@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="Valve">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="cde" type="bool" xsi:type="element" />
+    </Parameters>
+    <Code><![CDATA[begin
+  //*******************************************************************************
+  //*   ______
+  //*  / _____) /|
+  //* | |      / /
+  //* | | /\  / /
+  //* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+  //* | |  \__/  | |        http://www.keolabs.com
+  //* | |________| |
+  //*  \__________/
+  //*
+  //********************************************************************************
+  //*@file          : Valve
+  //*@author        : Yves Ragot
+  //*@version       : $Id: Valve.pgx 1882 2019-01-10 16:18:45Z xavier $
+  //*@brief         : Valve command
+  //*
+  //*******************************************************************************/
+  
+  //valve1 = cde
+  if (cde)
+    open(tCurrentTool)
+  else
+    close(tCurrentTool)
+  endIf
+  
+end]]></Code>
+  </Program>
+</Programs>

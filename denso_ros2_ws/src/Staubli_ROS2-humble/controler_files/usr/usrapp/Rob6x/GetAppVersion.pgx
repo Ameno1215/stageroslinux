@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Programs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.staubli.com/robotics/VAL3/Program/2">
+  <Program name="GetAppVersion">
+    <Parameters xmlns="http://www.staubli.com/robotics/VAL3/Param/1">
+      <Parameter name="answer" type="string" xsi:type="element" use="reference" />
+    </Parameters>
+    <Code><![CDATA[begin
+//*******************************************************************************
+//*   ______
+//*  / _____) /|
+//* | |      / /
+//* | | /\  / /
+//* | | \ \/ /  _      Copyright (c) KEOLABS, 2016
+//* | |  \__/  | |        http://www.keolabs.com
+//* | |________| |
+//*  \__________/
+//*
+//********************************************************************************
+//*@file          : GetAppVersion
+//*@author        : Yves Ragot
+//*@version       : $Id: GetAppVersion.pgx 1645 2017-01-24 08:09:09Z yves $
+//*@brief         : Get firmware version (application version)
+//*******************************************************************************/
+  
+  answer = "v1.1 jan 23 2017"
+  
+end]]></Code>
+  </Program>
+</Programs>
