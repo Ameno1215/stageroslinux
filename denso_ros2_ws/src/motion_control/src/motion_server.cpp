@@ -20,6 +20,8 @@ namespace motion_control
         this->declare_parameter<std::string>("solver_plugin", "pick_ik/PickIkPlugin");
         this->declare_parameter<std::string>("kinematics_solver", "pick_ik/PickIkPlugin");
         this->declare_parameter<bool>("use_health_monitor", true);
+        this->declare_parameter<bool>("require_drives_powered", false);
+        this->declare_parameter<std::string>("robot_status_topic", "/robot_status");
         // Keep explicit declarations for nested keys queried by external clients.
         this->declare_parameter<std::string>(
             "robot_description_kinematics.arm.kinematics_solver",
@@ -91,14 +93,29 @@ namespace motion_control
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
+    bool MotionServer::ensureMoveGroupInitialized(std::string& why) const {
+        if (!initialized_ || !move_group_) {
+            why = "Robot not initialized. Call /init_robot first";
+            return false;
+        }
+        return true;
+    }
+
+    bool MotionServer::getRobotFaultMessage(std::string& why) const {
+        if (health_monitor_ && health_monitor_->hasError()) {
+            why = "[ROBOT FAULT] " + health_monitor_->getErrorMessage()
+                + " | Clear the robot fault, then call /init_robot again";
+            return true;
+        }
+        return false;
+    }
+    
     bool MotionServer::ensureInitialized(std::string& why) const {
         if (!initialized_ || !move_group_) {
             why = "Robot not initialized. Call /init_robot first";
             return false;
         }
-        if (health_monitor_ && health_monitor_->hasError()) {
-            why = "[RC8 FAULT] " + health_monitor_->getErrorMessage()
-                + " | Reset error on teach pendant, then call /init_robot again";
+        if (getRobotFaultMessage(why)) {
             return false;
         }
         return true;
@@ -142,9 +159,12 @@ namespace motion_control
             RCLCPP_INFO(this->get_logger(), "Using planning frame: %s", planning_frame_.c_str());
 
             const bool use_health_monitor = this->get_parameter("use_health_monitor").as_bool();
+            const bool require_drives_powered = this->get_parameter("require_drives_powered").as_bool();
+            const auto robot_status_topic = this->get_parameter("robot_status_topic").as_string();
 
             if (use_health_monitor && !health_monitor_) {
-                health_monitor_ = std::make_unique<RobotHealthMonitor>(this, model_);
+                health_monitor_ = std::make_unique<RobotHealthMonitor>(
+                    this, model_, "/joint_states", require_drives_powered, robot_status_topic);
 
                 health_monitor_->onError([this](const std::string& reason) {
                     RCLCPP_ERROR(this->get_logger(),
@@ -1146,7 +1166,11 @@ namespace motion_control
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
 
-                if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                std::string robot_fault;
+                if (getRobotFaultMessage(robot_fault)) {
+                    res->success = false;
+                    res->message = robot_fault;
+                } else if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
                     res->success = false;
                     res->message = diagnoseExecutionFailure(exec_code);
                 } else {
@@ -1353,7 +1377,11 @@ namespace motion_control
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
 
-                if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                std::string robot_fault;
+                if (getRobotFaultMessage(robot_fault)) {
+                    res->success = false;
+                    res->message = robot_fault;
+                } else if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
                     res->success = false;
                     res->message = diagnoseExecutionFailure(exec_code);
                 } else {
@@ -1541,7 +1569,11 @@ namespace motion_control
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
 
-                if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                std::string robot_fault;
+                if (getRobotFaultMessage(robot_fault)) {
+                    res->success = false;
+                    res->message = robot_fault;
+                } else if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
                     res->success = false;
                     res->message = diagnoseExecutionFailure(exec_code);
                 } else {
@@ -1680,6 +1712,11 @@ namespace motion_control
             double exec_dt = std::chrono::duration<double>(
                 std::chrono::high_resolution_clock::now() - exec_t0).count();
 
+            std::string robot_fault;
+            if (getRobotFaultMessage(robot_fault)) {
+                out_msg = robot_fault;
+                return false;
+            }
             if (exec != moveit::core::MoveItErrorCode::SUCCESS) {
                 out_msg = diagnoseExecutionFailure(exec);
                 return false;
@@ -1806,7 +1843,7 @@ namespace motion_control
 
         // Check if MoveGroupInterface is initialized
         std::string why;
-        if (!ensureInitialized(why)) {
+        if (!ensureMoveGroupInitialized(why)) {
             res->success = false;
             res->message = why;
             return;
@@ -1893,7 +1930,7 @@ namespace motion_control
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
-        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+        if (!ensureMoveGroupInitialized(why)) { res->success = false; res->message = why; return; }
 
         std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
         std::vector<std::string> wall_names = {"cage_front", "cage_back", "cage_left", "cage_right", "cage_top", "cage_bottom"};
@@ -1988,7 +2025,7 @@ namespace motion_control
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
-        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+        if (!ensureMoveGroupInitialized(why)) { res->success = false; res->message = why; return; }
 
         // --- 1. Math and Pose Calculations ---
         tf2::Quaternion q;
@@ -2092,7 +2129,7 @@ namespace motion_control
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
-        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+        if (!ensureMoveGroupInitialized(why)) { res->success = false; res->message = why; return; }
 
         moveit_msgs::msg::CollisionObject obj;
         obj.header.frame_id = planning_frame_; // Placed relative to the planning frame
@@ -2175,7 +2212,7 @@ namespace motion_control
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
-        if (!ensureInitialized(why)) {
+        if (!ensureMoveGroupInitialized(why)) {
             res->success = false;
             res->message = why;
             return;

@@ -497,6 +497,8 @@ namespace motion_control
             // Internal helpers
             // Checks if the MoveGroup interface is initialized before processing motion commands
             bool ensureInitialized(std::string& why) const;
+            bool ensureMoveGroupInitialized(std::string& why) const;
+            bool getRobotFaultMessage(std::string& why) const;
 
             // Thread-safety: MoveGroupInterface is not designed to be called concurrently
             mutable std::mutex mtx_;

@@ -534,6 +534,7 @@ class MotionRosClient(Node):
                 else:
                     message = f"Staubli drive power command failed (code={res.code.val})"
                     logger.error(message)
+                time.sleep(2)  # Small delay to allow hardware state to stabilize
                 return {"success": success, "message": message}
             except Exception as e:
                 logger.error(f"Critical error during Staubli SetDrivePower call: {e}")

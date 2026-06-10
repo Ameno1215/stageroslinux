@@ -12,6 +12,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_msgs REQUIRED)
+find_package(industrial_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -42,7 +43,7 @@ add_library(motion_server_lib
   src/motion_diagnostics.cpp
 )
 ament_target_dependencies(motion_server_lib
-  rclcpp geometry_msgs moveit_ros_planning_interface moveit_msgs moveit_ros_planning
+  rclcpp geometry_msgs industrial_msgs moveit_ros_planning_interface moveit_msgs moveit_ros_planning
 )
 
 # Make sure the generated interfaces are available to this target
