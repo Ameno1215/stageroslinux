@@ -7,6 +7,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
@@ -43,7 +44,7 @@ add_library(motion_server_lib
   src/motion_diagnostics.cpp
 )
 ament_target_dependencies(motion_server_lib
-  rclcpp geometry_msgs industrial_msgs moveit_ros_planning_interface moveit_msgs moveit_ros_planning
+  rclcpp rclcpp_action geometry_msgs industrial_msgs moveit_ros_planning_interface moveit_msgs moveit_ros_planning
 )
 
 # Make sure the generated interfaces are available to this target

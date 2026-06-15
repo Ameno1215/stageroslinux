@@ -10,10 +10,13 @@
 #include <set>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit/kinematic_constraints/utils.h>
+#include <moveit_msgs/action/move_group_sequence.hpp>
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -328,6 +331,53 @@ namespace motion_control
             void applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory);
 
             /**
+             * @brief Plans a straight-line Cartesian motion to a single pose using Pilz LIN.
+             *
+             * Replaces the old computeCartesianPath pipeline (whose adaptive interpolator
+             * returned too few points, producing a joint-interpolated zigzag). Pilz LIN
+             * natively yields a dense, already time-parameterized straight-line trajectory.
+             *
+             * Selects the "pilz_industrial_motion_planner" pipeline + "LIN" planner, applies
+             * the given velocity scaling (and the current accel scaling), plans from the
+             * current state, then ALWAYS restores the default OMPL pipeline so subsequent
+             * joint-space moves are unaffected.
+             *
+             * @param target       Target end-effector pose (PoseStamped, planning frame).
+             * @param vel_scaling  Velocity scaling factor [0..1] to apply for this motion.
+             * @param trajectory   Output: the planned LIN trajectory (filled on success).
+             * @param out_msg       Status or failure reason.
+             * @return true if Pilz LIN planning succeeded, false otherwise.
+             */
+            bool planCartesianLin(
+                const geometry_msgs::msg::PoseStamped& target,
+                double vel_scaling,
+                moveit_msgs::msg::RobotTrajectory& trajectory,
+                std::string& out_msg);
+
+            /**
+             * @brief Plans (and optionally executes) a Cartesian waypoint sequence as a
+             * single blended Pilz LIN sequence via the /sequence_move_group action.
+             *
+             * Each waypoint becomes a LIN MotionSequenceItem; blend_radius rounds the
+             * corner between consecutive segments (0 = stop at each corner). The last
+             * item's blend is forced to 0 (Pilz requirement). When execute is true the
+             * action plans and executes; otherwise it only plans.
+             *
+             * @param waypoints     Ordered absolute target poses (planning frame).
+             * @param vel_scaling   Velocity scaling factor [0..1].
+             * @param blend_radius  Corner blend radius in meters (0 = stop at corners).
+             * @param execute       If true, plan and execute; if false, plan only.
+             * @param out_msg        Status or failure reason.
+             * @return true on success, false otherwise.
+             */
+            bool planAndExecuteSequence(
+                const std::vector<geometry_msgs::msg::Pose>& waypoints,
+                double vel_scaling,
+                double blend_radius,
+                bool execute,
+                std::string& out_msg);
+
+            /**
              * Logs the FK trace of a joint trajectory for Cartesian path diagnostics.
              *
              * The INFO log reports straight-line deviation and path length metrics.
@@ -509,8 +559,20 @@ namespace motion_control
             double vel_scale_{0.1};
             double accel_scale_{0.1};
 
+            // Absolute Cartesian TCP speed ceiling (m/s) used to convert a requested
+            // absolute speed into a Pilz velocity scaling factor.
+            // MUST match the robot's pilz_cartesian_limits.yaml `max_trans_vel`.
+            // Overridable per robot via the "pilz_max_trans_vel" parameter.
+            double pilz_max_trans_vel_{1.0};
+
             std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
             std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_;
+
+            // Dedicated node + action client for the Pilz MoveGroupSequence action.
+            // Kept on a separate node so we can spin it to completion inside a service
+            // callback without deadlocking the main node's executor.
+            rclcpp::Node::SharedPtr seq_node_;
+            rclcpp_action::Client<moveit_msgs::action::MoveGroupSequence>::SharedPtr seq_client_;
 
             // Services
             rclcpp::Service<srv::InitRobot>::SharedPtr srv_init_;

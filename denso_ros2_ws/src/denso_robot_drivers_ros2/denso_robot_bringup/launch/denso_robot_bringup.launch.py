@@ -232,24 +232,44 @@ def generate_launch_description():
     robot_description_kinematics = {'robot_description_kinematics': kinematics_yaml}
 
     # Planning Configuration
-    ompl_planning_pipeline_config = {
-        'move_group': {
-            'planning_plugin': 'ompl_interface/OMPLPlanner',
-            # 'request_adapters': """default_planner_request_adapters/AddTimeOptimalParameterization \
-                # default_planner_request_adapters/FixWorkspaceBounds \
-                # default_planner_request_adapters/FixStartStateBounds \
-                # default_planner_request_adapters/FixStartStateCollision \
-                # default_planner_request_adapters/FixStartStatePathConstraints""",
-            'request_adapters': 'default_planner_request_adapters/AddTimeOptimalParameterization' \
-                + ' default_planner_request_adapters/FixWorkspaceBounds' \
-                + ' default_planner_request_adapters/FixStartStateBounds' \
-                + ' default_planner_request_adapters/FixStartStateCollision' \
-                + ' default_planner_request_adapters/FixStartStatePathConstraints',
-            'start_state_max_bounds_error': 0.1,
-        }
+    # Multi-pipeline setup: OMPL for joint-space planning, Pilz for straight-line
+    # Cartesian motion (LIN) and Cartesian sequences. Joint moves use OMPL; the
+    # motion_server selects "pilz_industrial_motion_planner"/"LIN" for Cartesian moves.
+    ompl_pipeline = {
+        'planning_plugin': 'ompl_interface/OMPLPlanner',
+        'request_adapters': 'default_planner_request_adapters/AddTimeOptimalParameterization' \
+            + ' default_planner_request_adapters/FixWorkspaceBounds' \
+            + ' default_planner_request_adapters/FixStartStateBounds' \
+            + ' default_planner_request_adapters/FixStartStateCollision' \
+            + ' default_planner_request_adapters/FixStartStatePathConstraints',
+        'start_state_max_bounds_error': 0.1,
     }
     ompl_planning_yaml = load_yaml('denso_robot_moveit_config', 'config/ompl_planning.yaml')
-    ompl_planning_pipeline_config['move_group'].update(ompl_planning_yaml)
+    ompl_pipeline.update(ompl_planning_yaml)
+
+    pilz_pipeline = load_yaml(
+        'denso_robot_moveit_config', 'config/pilz_industrial_motion_planner_planning.yaml')
+
+    ompl_planning_pipeline_config = {
+        'move_group': {
+            'planning_pipelines': ['ompl', 'pilz_industrial_motion_planner'],
+            'default_planning_pipeline': 'ompl',
+            'ompl': ompl_pipeline,
+            'pilz_industrial_motion_planner': pilz_pipeline,
+            # Load the Pilz sequence capabilities (used for Cartesian waypoint sequences).
+            'capabilities': 'pilz_industrial_motion_planner/MoveGroupSequenceAction' \
+                + ' pilz_industrial_motion_planner/MoveGroupSequenceService',
+        }
+    }
+
+    # Cartesian velocity/acceleration limits required by the Pilz LIN/CIRC planners.
+    pilz_cartesian_limits_yaml = load_yaml(
+        'denso_robot_moveit_config', 'config/pilz_cartesian_limits.yaml')
+    pilz_cartesian_limits = {
+        'move_group': {
+            'robot_description_planning': pilz_cartesian_limits_yaml,
+        }
+    }
 
     # Trajectory Execution Configuration
     moveit_controllers = {
@@ -307,6 +327,7 @@ def generate_launch_description():
             robot_description_kinematics,
             robot_limits_file,
             ompl_planning_pipeline_config,
+            pilz_cartesian_limits,
             trajectory_execution,
             moveit_controllers,
             moveit_controllers_file,
