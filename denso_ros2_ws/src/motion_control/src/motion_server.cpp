@@ -877,17 +877,30 @@ namespace motion_control
         }
 
         auto wrapped = result_future.get();
-        if (wrapped.code != rclcpp_action::ResultCode::SUCCEEDED) {
-            out_msg = "Pilz sequence action did not succeed (result code "
-                    + std::to_string(static_cast<int>(wrapped.code)) + ")";
-            return false;
+
+        // The sequence server fills response.error_code with the real MoveIt reason even
+        // when it ABORTS the goal — read it regardless of the action result code so the
+        // failure message is actionable (not just "result code 6 = ABORTED").
+        const bool action_ok = (wrapped.code == rclcpp_action::ResultCode::SUCCEEDED);
+        int err_val = moveit_msgs::msg::MoveItErrorCodes::SUCCESS;
+        if (wrapped.result) {
+            err_val = wrapped.result->response.error_code.val;
         }
-        if (wrapped.result->response.error_code.val
-                != moveit_msgs::msg::MoveItErrorCodes::SUCCESS) {
-            moveit::core::MoveItErrorCode seq_code(wrapped.result->response.error_code);
-            out_msg = "Pilz sequence planning/execution failed: " + moveitErrorCodeToString(seq_code)
-                    + " (a LIN segment is infeasible — singularity, joint limit, collision, "
-                      "or blend_radius too large). Tip: reduce blend_radius or check the waypoints.";
+
+        if (!action_ok || err_val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS) {
+            moveit_msgs::msg::MoveItErrorCodes ec;
+            ec.val = err_val;
+            moveit::core::MoveItErrorCode seq_code(ec);
+
+            const char* action_state =
+                (wrapped.code == rclcpp_action::ResultCode::ABORTED)  ? "ABORTED"  :
+                (wrapped.code == rclcpp_action::ResultCode::CANCELED) ? "CANCELED" :
+                (wrapped.code == rclcpp_action::ResultCode::SUCCEEDED)? "SUCCEEDED": "UNKNOWN";
+
+            out_msg = std::string("Pilz sequence failed (action ") + action_state
+                    + ", MoveIt code: " + moveitErrorCodeToString(seq_code) + ")"
+                    + " — a LIN segment is likely infeasible (singularity, joint/Cartesian limit, "
+                      "collision) or blend_radius too large / segment too short.";
             return false;
         }
 
@@ -897,7 +910,9 @@ namespace motion_control
         return true;
     }
 
-    void MotionServer::applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory)
+    void MotionServer::applyVelocityScaling(
+        moveit_msgs::msg::RobotTrajectory& trajectory,
+        double path_tolerance)
     {
         // Re-time the (concatenated joint-space waypoint) trajectory with TOTG so it honors
         // vel_scale_/accel_scale_ and has continuous velocities at segment junctions.
@@ -907,8 +922,17 @@ namespace motion_control
 
         rt.setRobotTrajectoryMsg(*move_group_->getCurrentState(), trajectory);
 
+        // <= 0 means "use default"; otherwise clamp to a sane range so a bad request can't
+        // ask for a wildly large corner-cut (the final trajectory is collision-checked anyway).
+        double tol = (path_tolerance > 0.0)
+            ? std::min(std::max(path_tolerance, 0.001), 0.5)
+            : kDefaultTotgPathTolerance;
+        RCLCPP_INFO(this->get_logger(),
+            "[TRAJ] TOTG re-timing with path_tolerance=%.4f rad%s",
+            tol, (path_tolerance > 0.0) ? " (requested)" : " (default)");
+
         trajectory_processing::TimeOptimalTrajectoryGeneration totg(
-            0.05,   // path_tolerance (rad) — how much TOTG can deviate from path to smooth corners
+            tol,    // path_tolerance (rad) — how much TOTG can deviate from path to smooth corners
             0.01,   // resample_dt (s) — finer interpolation
             0.001   // min_angle_change
         );
@@ -1142,57 +1166,105 @@ namespace motion_control
         return true;
     }
 
+    // Re-check the (post-TOTG) trajectory against the planning scene. Needed because TOTG's
+    // path_tolerance rounds segment-junction corners, deviating from the per-segment paths
+    // that OMPL validated — a deviation nothing else re-checks. We interpolate between
+    // consecutive points so a thin obstacle can't be tunneled through.
+    bool MotionServer::validateTrajectoryCollisionFree(
+        const moveit_msgs::msg::RobotTrajectory& trajectory,
+        std::string& out_msg) const
+    {
+        const auto& joint_traj = trajectory.joint_trajectory;
+        const auto& points = joint_traj.points;
+
+        if (points.empty()) {
+            // validateTrajectory already rejects this; treat as nothing-to-check here.
+            return true;
+        }
+
+        auto scene = getLockedPlanningScene();
+        if (!scene) {
+            out_msg = "SAFETY: PlanningSceneMonitor unavailable — cannot collision-check "
+                      "the final trajectory; refusing execution";
+            RCLCPP_ERROR(this->get_logger(), "%s", out_msg.c_str());
+            return false;
+        }
+
+        moveit::core::RobotState state(move_group_->getRobotModel());
+        state.setToDefaultValues();
+
+        // Max joint step (rad) between collision samples; finer than this we interpolate.
+        constexpr double MAX_STEP_RAD = 0.02;
+
+        auto check_state = [&](const std::vector<double>& positions,
+                               size_t point_index, std::string& fail) -> bool {
+            for (size_t j = 0; j < joint_traj.joint_names.size() && j < positions.size(); ++j) {
+                state.setVariablePosition(joint_traj.joint_names[j], positions[j]);
+            }
+            state.update();
+
+            std::vector<std::string> pairs, self_pairs, env_pairs;
+            if (checkStateCollision(scene, state, planning_group_, pairs, self_pairs, env_pairs)) {
+                std::ostringstream oss;
+                oss << "SAFETY: post-TOTG trajectory is in collision at point " << point_index
+                    << " (corner-rounding deviated into an obstacle): ";
+                for (size_t i = 0; i < pairs.size() && i < 5; ++i) {
+                    if (i > 0) oss << ", ";
+                    oss << pairs[i];
+                }
+                fail = oss.str();
+                return false;
+            }
+            return true;
+        };
+
+        // Check the very first point.
+        if (!check_state(points.front().positions, 0, out_msg)) {
+            RCLCPP_ERROR(this->get_logger(), "%s", out_msg.c_str());
+            return false;
+        }
+
+        // Check every subsequent point, interpolating sub-steps when the joint delta is large.
+        for (size_t i = 1; i < points.size(); ++i) {
+            const auto& prev = points[i - 1].positions;
+            const auto& curr = points[i].positions;
+            if (prev.size() != curr.size()) continue;
+
+            double max_delta = 0.0;
+            for (size_t j = 0; j < curr.size(); ++j) {
+                max_delta = std::max(max_delta, std::abs(curr[j] - prev[j]));
+            }
+
+            const size_t sub = std::max<size_t>(
+                1, static_cast<size_t>(std::ceil(max_delta / MAX_STEP_RAD)));
+
+            for (size_t s = 1; s <= sub; ++s) {
+                const double alpha = static_cast<double>(s) / static_cast<double>(sub);
+                std::vector<double> interp(curr.size());
+                for (size_t j = 0; j < curr.size(); ++j) {
+                    interp[j] = prev[j] + alpha * (curr[j] - prev[j]);
+                }
+                if (!check_state(interp, i, out_msg)) {
+                    RCLCPP_ERROR(this->get_logger(), "%s", out_msg.c_str());
+                    return false;
+                }
+            }
+        }
+
+        RCLCPP_INFO(this->get_logger(),
+            "[TRAJ] Post-TOTG collision check passed (%zu points)", points.size());
+        return true;
+    }
+
     // Post-execution diagnostics
     std::string MotionServer::diagnoseExecutionFailure(
         const moveit::core::MoveItErrorCode& exec_code)
     {
-        std::ostringstream oss;
-        oss << "Execution failed: " << moveitErrorCodeToString(exec_code);
-
-        // Log the current joint state at the point of failure
-        auto current_state = move_group_->getCurrentState(1.0);
-        if (current_state) {
-            std::vector<double> joint_vals;
-            current_state->copyJointGroupPositions(planning_group_, joint_vals);
-            oss << " | Interrupted joint state: [";
-            for (size_t i = 0; i < joint_vals.size(); ++i) {
-                if (i > 0) oss << ", ";
-                oss << std::fixed << std::setprecision(4) << joint_vals[i];
-            }
-            oss << "]";
-
-            // Run collision check at interrupted state
-            auto scene = getLockedPlanningScene();
-            if (scene) {
-                std::vector<std::string> pairs, self_pairs, env_pairs;
-                if (checkStateCollision(scene, *current_state, planning_group_,
-                                        pairs, self_pairs, env_pairs)) {
-                    oss << " | IN COLLISION at interrupted state: ";
-                    for (size_t i = 0; i < pairs.size() && i < 5; ++i) {
-                        if (i > 0) oss << ", ";
-                        oss << pairs[i];
-                    }
-                    if (!self_pairs.empty()) oss << " (" << self_pairs.size() << " self-collision)";
-                    if (!env_pairs.empty()) oss << " (" << env_pairs.size() << " env-collision)";
-                }
-
-                // Singularity check at interrupted state
-                const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
-                if (jmg) {
-                    auto sing = computeSingularityMetrics(*current_state, jmg);
-                    if (sing.is_singular) {
-                        oss << " | NEAR SINGULARITY: manipulability=" << sing.manipulability
-                            << ", condition=" << sing.condition_number;
-                    }
-                }
-            }
-        } else {
-            oss << " | WARNING: Could not retrieve robot state after execution failure";
-        }
-
-        std::string result = oss.str();
-        RCLCPP_ERROR(this->get_logger(), "[EXEC-DIAG] %s", result.c_str());
-        return result;
+        // Delegates to the free diagnostic (in motion_diagnostics), passing the live
+        // node state it needs (MoveGroup, locked planning scene, planning group).
+        return motion_control::diagnoseExecutionFailure(
+            exec_code, *move_group_, getLockedPlanningScene(),
+            planning_group_, this->get_logger());
     }
 
     void MotionServer::onMoveToPose(
@@ -1634,8 +1706,9 @@ namespace motion_control
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
             // Retime the combined trajectory to eliminate velocity discontinuities
-            // at segment junctions (joint-space waypoints; Cartesian waypoints use Pilz Sequence)
-            applyVelocityScaling(combined_trajectory);
+            // at segment junctions (joint-space waypoints; Cartesian waypoints use Pilz Sequence).
+            // path_tolerance (rad) is the joint-space analogue of the Cartesian blend_radius.
+            applyVelocityScaling(combined_trajectory, req->path_tolerance);
 
             // Summary of the assembled multi-segment trajectory
             RCLCPP_INFO(this->get_logger(),
@@ -1648,6 +1721,15 @@ namespace motion_control
             if (!validateTrajectory(combined_trajectory, traj_err)) {
                 res->success = false;
                 res->message = traj_err;
+                return;
+            }
+
+            // Re-check collisions on the FINAL (post-TOTG) trajectory: TOTG corner-rounding
+            // can deviate from the per-segment paths OMPL validated. Refuse on collision.
+            std::string collision_err;
+            if (!validateTrajectoryCollisionFree(combined_trajectory, collision_err)) {
+                res->success = false;
+                res->message = collision_err;
                 return;
             }
 

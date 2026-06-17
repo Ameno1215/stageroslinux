@@ -391,4 +391,59 @@ namespace motion_control
         return report;
     }
 
+    std::string diagnoseExecutionFailure(
+        const moveit::core::MoveItErrorCode& exec_code,
+        const moveit::planning_interface::MoveGroupInterface& move_group,
+        const planning_scene::PlanningSceneConstPtr& scene,
+        const std::string& group_name,
+        const rclcpp::Logger& logger)
+    {
+        std::ostringstream oss;
+        oss << "Execution failed: " << moveitErrorCodeToString(exec_code);
+
+        // Log the current joint state at the point of failure
+        auto current_state = move_group.getCurrentState(1.0);
+        if (current_state) {
+            std::vector<double> joint_vals;
+            current_state->copyJointGroupPositions(group_name, joint_vals);
+            oss << " | Interrupted joint state: [";
+            for (size_t i = 0; i < joint_vals.size(); ++i) {
+                if (i > 0) oss << ", ";
+                oss << std::fixed << std::setprecision(4) << joint_vals[i];
+            }
+            oss << "]";
+
+            // Run collision check at interrupted state
+            if (scene) {
+                std::vector<std::string> pairs, self_pairs, env_pairs;
+                if (checkStateCollision(scene, *current_state, group_name,
+                                        pairs, self_pairs, env_pairs)) {
+                    oss << " | IN COLLISION at interrupted state: ";
+                    for (size_t i = 0; i < pairs.size() && i < 5; ++i) {
+                        if (i > 0) oss << ", ";
+                        oss << pairs[i];
+                    }
+                    if (!self_pairs.empty()) oss << " (" << self_pairs.size() << " self-collision)";
+                    if (!env_pairs.empty()) oss << " (" << env_pairs.size() << " env-collision)";
+                }
+
+                // Singularity check at interrupted state
+                const auto* jmg = move_group.getRobotModel()->getJointModelGroup(group_name);
+                if (jmg) {
+                    auto sing = computeSingularityMetrics(*current_state, jmg);
+                    if (sing.is_singular) {
+                        oss << " | NEAR SINGULARITY: manipulability=" << sing.manipulability
+                            << ", condition=" << sing.condition_number;
+                    }
+                }
+            }
+        } else {
+            oss << " | WARNING: Could not retrieve robot state after execution failure";
+        }
+
+        std::string result = oss.str();
+        RCLCPP_ERROR(logger, "[EXEC-DIAG] %s", result.c_str());
+        return result;
+    }
+
 }  // namespace motion_control

@@ -210,6 +210,7 @@ class MoveWaypointsReq(BaseModel):
     cartesian_path: bool = True
     cartesian_speed: float = 0.0   # m/s absolute TCP speed (cartesian_path only). 0 = relative scaling.
     blend_radius: float = 0.0      # m blend between LIN segments (Pilz Sequence). 0 = stop at each point.
+    path_tolerance: float = 0.0    # rad TOTG corner rounding (joint-space only). 0 = default (0.05 rad).
     execute: bool = True
 
 class MoveApproachReq(BaseModel):
@@ -657,6 +658,7 @@ class MotionRosClient(Node):
         ros_req.cartesian_path = bool(req.cartesian_path)
         ros_req.cartesian_speed = float(req.cartesian_speed)
         ros_req.blend_radius = float(req.blend_radius)
+        ros_req.path_tolerance = float(req.path_tolerance)
         ros_req.execute = bool(req.execute)
 
         # Construction of the geometry_msgs/Pose table

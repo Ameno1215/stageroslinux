@@ -18,6 +18,14 @@ float64 cartesian_speed
 # 0 = arrêt net à chaque point. > 0 = enchaînement fluide (doit rester < demi-longueur de segment).
 float64 blend_radius
 
+# Tolérance de chemin (rad) du lissage TOTG aux jonctions de segments (uniquement si
+# cartesian_path=False). Equivalent joint-space du blend_radius : plus c'est grand, plus
+# les coins sont arrondis (trajectoire plus fluide mais qui s'écarte davantage du chemin
+# validé) ; plus c'est petit, plus on suit le chemin exact (moins de risque de collision,
+# mais davantage de à-coups). 0 = défaut (0.05 rad). La trajectoire finale est de toute
+# façon re-vérifiée en collision avant exécution.
+float64 path_tolerance
+
 ---
 # Response
 bool success

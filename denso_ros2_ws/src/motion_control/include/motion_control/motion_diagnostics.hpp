@@ -237,4 +237,25 @@ namespace motion_control
         double planning_duration_s,
         const rclcpp::Logger& logger);
 
+    /**
+     * @brief Runs a diagnostic analysis after a trajectory EXECUTION failure.
+     *
+     * Counterpart of diagnosePlanningFailure for controller/execution errors. Reports
+     * the error code, logs the interrupted joint state, and checks collision and
+     * singularity at that state. Returns a human-readable message (also logged at ERROR).
+     *
+     * @param exec_code The MoveIt error code returned by execute().
+     * @param move_group Reference to the MoveGroupInterface (current state + robot model).
+     * @param scene Const snapshot of the planning scene for collision checking (nullable).
+     * @param group_name The planning group name.
+     * @param logger ROS logger for ERROR output.
+     * @return std::string Human-readable diagnostic message.
+     */
+    std::string diagnoseExecutionFailure(
+        const moveit::core::MoveItErrorCode& exec_code,
+        const moveit::planning_interface::MoveGroupInterface& move_group,
+        const planning_scene::PlanningSceneConstPtr& scene,
+        const std::string& group_name,
+        const rclcpp::Logger& logger);
+
 }  // namespace motion_control

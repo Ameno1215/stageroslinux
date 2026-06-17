@@ -69,6 +69,10 @@ namespace motion_control
 
         static constexpr double kCartesianAcceptThreshold = 0.99;
 
+        // Default TOTG path tolerance (rad) for joint-space waypoint re-timing — how much TOTG
+        // may round segment-junction corners. Overridable per-request via MoveWaypoints.path_tolerance.
+        static constexpr double kDefaultTotgPathTolerance = 0.05;
+
         /**
          * @brief Constructs the MotionServer.
          * * Initializes the node, declares parameters, and creates the service servers.
@@ -306,9 +310,15 @@ namespace motion_control
              * NOTE: Cartesian moves no longer use this — Pilz LIN/Sequence produce trajectories
              * that are already time-parameterized and honor the scaling factors directly.
              *
-             * @param trajectory The robot trajectory to retime (modified in place).
+             * @param trajectory     The robot trajectory to retime (modified in place).
+             * @param path_tolerance TOTG path tolerance (rad): how much TOTG may round the
+             *                       segment-junction corners to smooth the path. <= 0 falls
+             *                       back to kDefaultTotgPathTolerance. The joint-space analogue
+             *                       of the Cartesian blend_radius.
              */
-            void applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory);
+            void applyVelocityScaling(
+                moveit_msgs::msg::RobotTrajectory& trajectory,
+                double path_tolerance = kDefaultTotgPathTolerance);
 
             /**
              * @brief Plans a straight-line Cartesian motion to a single pose using Pilz LIN.
@@ -374,6 +384,27 @@ namespace motion_control
              * trajectory is unsafe to execute.
              */
             bool validateTrajectory(
+                const moveit_msgs::msg::RobotTrajectory& trajectory,
+                std::string& out_msg) const;
+
+            /**
+             * @brief Verifies that a re-timed trajectory is collision-free along its path.
+             *
+             * The joint-space waypoint path concatenates per-segment OMPL plans (each
+             * individually collision-checked) and then re-times the result with TOTG. TOTG's
+             * path_tolerance rounds the corners at segment junctions, so the executed path can
+             * deviate from the validated one — that deviation is NOT re-checked anywhere else.
+             * This method re-validates the FINAL trajectory against the planning scene
+             * (self + environment), interpolating between consecutive points so a thin
+             * obstacle cannot be "tunneled" through. Returns false (and fills out_msg with the
+             * first colliding state) if any sampled state is in collision — caller must refuse
+             * execution.
+             *
+             * @param trajectory The trajectory to validate (positions, in joint order).
+             * @param out_msg     First colliding state / contact pairs, on failure.
+             * @return true if every sampled state is collision-free, false otherwise.
+             */
+            bool validateTrajectoryCollisionFree(
                 const moveit_msgs::msg::RobotTrajectory& trajectory,
                 std::string& out_msg) const;
 
