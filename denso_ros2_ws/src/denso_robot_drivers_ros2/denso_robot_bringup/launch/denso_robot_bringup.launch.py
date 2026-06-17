@@ -250,25 +250,33 @@ def generate_launch_description():
     pilz_pipeline = load_yaml(
         'denso_robot_moveit_config', 'config/pilz_industrial_motion_planner_planning.yaml')
 
+    # These MUST be at the move_group node top-level (NOT wrapped under a 'move_group'
+    # key). A Python dict is flattened literally by launch_ros, so wrapping would yield
+    # parameters named move_group.planning_pipelines etc., which the node never reads —
+    # move_group then silently falls back to single-pipeline mode and reports
+    # "Couldn't find requested planning pipeline 'ompl'". This mirrors the flat layout
+    # produced by MoveItConfigsBuilder on the Staubli.
     ompl_planning_pipeline_config = {
-        'move_group': {
-            'planning_pipelines': ['ompl', 'pilz_industrial_motion_planner'],
-            'default_planning_pipeline': 'ompl',
-            'ompl': ompl_pipeline,
-            'pilz_industrial_motion_planner': pilz_pipeline,
-            # Load the Pilz sequence capabilities (used for Cartesian waypoint sequences).
-            'capabilities': 'pilz_industrial_motion_planner/MoveGroupSequenceAction' \
-                + ' pilz_industrial_motion_planner/MoveGroupSequenceService',
-        }
+        'planning_pipelines': ['ompl', 'pilz_industrial_motion_planner'],
+        'default_planning_pipeline': 'ompl',
+        'ompl': ompl_pipeline,
+        'pilz_industrial_motion_planner': pilz_pipeline,
+        # Load the Pilz sequence capabilities (used for Cartesian waypoint sequences).
+        'capabilities': 'pilz_industrial_motion_planner/MoveGroupSequenceAction' \
+            + ' pilz_industrial_motion_planner/MoveGroupSequenceService',
     }
 
     # Cartesian velocity/acceleration limits required by the Pilz LIN/CIRC planners.
+    # These MUST land at the move_group node top-level as
+    # robot_description_planning.cartesian_limits.* (same namespace as joint_limits),
+    # otherwise Pilz cannot find them and LIN/Sequence planning fails. Do NOT wrap
+    # them under a 'move_group' key here: a Python dict is flattened literally by
+    # launch_ros (-> move_group.robot_description_planning.*), which is the wrong
+    # namespace. This mirrors what MoveItConfigsBuilder does on the Staubli.
     pilz_cartesian_limits_yaml = load_yaml(
         'denso_robot_moveit_config', 'config/pilz_cartesian_limits.yaml')
     pilz_cartesian_limits = {
-        'move_group': {
-            'robot_description_planning': pilz_cartesian_limits_yaml,
-        }
+        'robot_description_planning': pilz_cartesian_limits_yaml,
     }
 
     # Trajectory Execution Configuration

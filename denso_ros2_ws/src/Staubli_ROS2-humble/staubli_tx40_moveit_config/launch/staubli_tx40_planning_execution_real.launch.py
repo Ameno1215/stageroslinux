@@ -24,6 +24,10 @@ def launch_setup(context, *args, **kwargs):
         )
         .robot_description_kinematics(file_path="config/kinematics.yaml")
         .trajectory_execution(file_path="config/moveit_controllers.yaml")
+        .planning_pipelines(
+            pipelines=["ompl", "pilz_industrial_motion_planner"],
+            default_planning_pipeline="ompl",
+        )
         .to_moveit_configs()
     )
 
@@ -52,6 +56,13 @@ def launch_setup(context, *args, **kwargs):
         "publish_transforms_updates": True,
     }
 
+    # Load the Pilz Sequence capabilities so move_waypoints (Cartesian) can use
+    # the /sequence_move_group action on the real robot too.
+    move_group_capabilities = {
+        "capabilities": "pilz_industrial_motion_planner/MoveGroupSequenceAction"
+        " pilz_industrial_motion_planner/MoveGroupSequenceService",
+    }
+
     move_group_node = Node(
         package="moveit_ros_move_group",
         executable="move_group",
@@ -61,6 +72,7 @@ def launch_setup(context, *args, **kwargs):
             trajectory_execution,
             moveit_controllers,
             planning_scene_monitor_parameters,
+            move_group_capabilities,
         ],
         arguments=["--ros-args", "--log-level", "info"],
     )

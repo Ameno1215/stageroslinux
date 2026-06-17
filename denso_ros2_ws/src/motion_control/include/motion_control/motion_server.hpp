@@ -58,7 +58,7 @@
 namespace motion_control
 {
     /**
-     * @brief Main motion server for the Denso robot.
+     * @brief Main motion server for the Denso and Staubli robots.
      * * This ROS 2 node exposes services to initialize the robot,
      * command movements (joint space or Cartesian space), and retrieve the current state
      * using the MoveIt 2 planning interface.
@@ -148,7 +148,7 @@ namespace motion_control
             /**
              * @brief Universal service callback to move the robot to a target Cartesian pose.
              * Replaces multiple legacy services. Handles absolute positions, relative offsets
-             * (fly-by-wire or crane mode), and both fluid joint-space planning or strict linear Cartesian paths.
+             * (fly-by-wire), and both fluid joint-space planning or strict linear Cartesian paths.
              * * @param req Contains target coordinates, formats, reference frames, and motion flags.
              * @param res Returns the success status and informational messages.
              */
@@ -294,37 +294,17 @@ namespace motion_control
                 std::shared_ptr<motion_control::srv::ManageMesh::Response> res);
 
             /**
-             * @brief Attempts to compute a Cartesian path with progressive fallback strategies.
+             * @brief Re-times a trajectory with TOTG, enforcing vel_scale_/accel_scale_.
              *
-             * Tries increasingly permissive parameters to maximize the achieved path fraction:
-             * 1. Fine resolution (0.5 mm step, 3.0 rad jump threshold).
-             * 2. Coarser resolution (1 cm step) if the first attempt falls below 95%.
+             * Re-times the trajectory using Time-Optimal Trajectory Generation (TOTG),
+             * applying the current vel_scale_ and accel_scale_ while respecting the robot's
+             * joint velocity/acceleration limits. On TOTG failure the trajectory points are
+             * cleared (safety: never execute with raw timestamps).
              *
-             * This approach improves reliability near singularities or tight collision zones
-             * where the default parameters may fail to produce a sufficient path fraction.
-             *
-             * @param waypoints Ordered list of target Cartesian poses the end-effector must pass through.
-             * @param trajectory Output parameter filled with the best computed trajectory.
-             * @param out_msg Output string describing the outcome (e.g., which strategy succeeded or failure details).
-             * @return double The fraction of the path successfully computed (0.0 to 1.0).
-            */
-            double computeCartesianPathRobust(
-                const std::vector<geometry_msgs::msg::Pose>& waypoints,
-                moveit_msgs::msg::RobotTrajectory& trajectory,
-                std::string& out_msg);
-
-            /**
-             * @brief Applies velocity and acceleration scaling to a raw Cartesian trajectory.
-             *
-             * MoveIt's computeCartesianPath does NOT respect the scaling factors set via
-             * setMaxVelocityScalingFactor / setMaxAccelerationScalingFactor.
-             * This helper re-times the trajectory using the Time-Optimal Trajectory
-             * Generation (TOTG) algorithm, enforcing the current vel_scale_ and
-             * accel_scale_ values while respecting the robot's joint velocity and
-             * acceleration limits.
-             *
-             * Must be called on every Cartesian trajectory BEFORE execution to ensure
-             * the robot moves at the user-configured speed.
+             * Used by the joint-space waypoint path (onMoveWaypoints, non-Cartesian) to
+             * smooth velocity discontinuities at the junctions of concatenated segments.
+             * NOTE: Cartesian moves no longer use this — Pilz LIN/Sequence produce trajectories
+             * that are already time-parameterized and honor the scaling factors directly.
              *
              * @param trajectory The robot trajectory to retime (modified in place).
              */

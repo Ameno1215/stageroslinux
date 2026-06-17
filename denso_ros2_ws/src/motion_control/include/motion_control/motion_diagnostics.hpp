@@ -237,40 +237,4 @@ namespace motion_control
         double planning_duration_s,
         const rclcpp::Logger& logger);
 
-    /**
-     * @brief Runs a diagnostic specifically for Cartesian path failures.
-     * 
-     * Called when computeCartesianPath returns a fraction below the acceptable
-     * threshold. Walks through each waypoint sequentially to pinpoint WHERE
-     * and WHY the interpolated path breaks:
-     * 
-     * 1. Checks the start state for collision.
-     * 2. For each waypoint: attempts IK, checks collision, and evaluates
-     *    singularity at the resulting joint state. Stops at the first failure
-     *    for IK and collision (singularity analysis continues to gather all data).
-     * 3. If all individual waypoints are reachable and collision-free, the failure
-     *    is attributed to the interpolated path between waypoints (collision zone,
-     *    singularity, or joint-limit boundary crossed during interpolation).
-     * 
-     * The `cartesian_fail_waypoint_index` and `cartesian_fail_pose` fields in the
-     * returned report identify the approximate location of the break.
-     * 
-     * @param move_group Reference to the MoveGroupInterface (used for current state and robot model).
-     * @param scene Const snapshot of the planning scene for collision checking.
-     * @param group_name The planning group name.
-     * @param waypoints Ordered list of Cartesian poses the end-effector must pass through.
-     * @param achieved_fraction Fraction of the path successfully computed (0.0 to 1.0).
-     * @param planning_duration_s Wall-clock time the Cartesian planner spent.
-     * @param logger ROS logger for WARN/DEBUG output during analysis.
-     * @return DiagnosticReport Fully populated report with spatial failure localization.
-     */
-    DiagnosticReport diagnoseCartesianFailure(
-        const moveit::planning_interface::MoveGroupInterface& move_group,
-        const planning_scene::PlanningSceneConstPtr& scene,
-        const std::string& group_name,
-        const std::vector<geometry_msgs::msg::Pose>& waypoints,
-        double achieved_fraction,
-        double planning_duration_s,
-        const rclcpp::Logger& logger);
-
 }  // namespace motion_control

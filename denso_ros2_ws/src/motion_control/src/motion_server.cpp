@@ -504,11 +504,15 @@ namespace motion_control
         std::string ik_msg;
 
         // Seed = current state of the robot (move_to_pose: we start from where the robot is)
-        if (!solveBestIK(target_pose, *current_state, best_joints, ik_msg, &all_branches)) {
-            out_msg = ik_msg;
+        auto ik_t0 = std::chrono::high_resolution_clock::now();
+        bool ik_ok = solveBestIK(target_pose, *current_state, best_joints, ik_msg, &all_branches);
+        double ik_dt = std::chrono::duration<double>(
+            std::chrono::high_resolution_clock::now() - ik_t0).count();
+        if (!ik_ok) {
+            out_msg = ik_msg + " (solve took " + std::to_string(ik_dt) + "s)";
             return false;
         }
-        RCLCPP_INFO(this->get_logger(), "[IK] %s", ik_msg.c_str());
+        RCLCPP_INFO(this->get_logger(), "[IK] %s (solve took %.3fs)", ik_msg.c_str(), ik_dt);
 
         return planAndExecuteJoints(best_joints, false, execute, out_msg);
 
@@ -755,22 +759,6 @@ namespace motion_control
         return final_pose;
     }
 
-    double MotionServer::computeCartesianPathRobust(
-        const std::vector<geometry_msgs::msg::Pose>& waypoints,
-        moveit_msgs::msg::RobotTrajectory& trajectory,
-        std::string& out_msg)
-    {
-        double fraction = move_group_->computeCartesianPath(waypoints, 0.001, 10.0, trajectory);
-
-        if (fraction >= kCartesianAcceptThreshold) {
-            out_msg = "OK (standard, fraction=" + std::to_string(fraction) + ")";
-            return fraction;
-        }
-
-        out_msg = "FAILED (best fraction: " + std::to_string(fraction * 100) + "%)";
-        return fraction;
-    }
-
     bool MotionServer::planCartesianLin(
         const geometry_msgs::msg::PoseStamped& target,
         double vel_scaling,
@@ -788,7 +776,10 @@ namespace motion_control
         move_group_->setPoseTarget(target);
 
         moveit::planning_interface::MoveGroupInterface::Plan plan;
+        auto plan_t0 = std::chrono::high_resolution_clock::now();
         auto code = move_group_->plan(plan);
+        double plan_dt = std::chrono::duration<double>(
+            std::chrono::high_resolution_clock::now() - plan_t0).count();
 
         // ALWAYS restore the default OMPL pipeline so a following joint-space move
         // is not silently planned with Pilz (MoveGroupInterface is stateful).
@@ -796,8 +787,20 @@ namespace motion_control
         move_group_->setPlannerId("");
 
         if (code != moveit::core::MoveItErrorCode::SUCCESS) {
-            out_msg = "Pilz LIN planning failed (code " + std::to_string(code.val)
-                    + "): straight line infeasible — singularity, joint limit, or collision";
+            out_msg = "Pilz LIN planning failed: " + moveitErrorCodeToString(code)
+                    + " (took " + std::to_string(plan_dt) + "s)";
+
+            // Full diagnosis on the LIN goal pose (collision / IK reachability / singularity
+            // / joint limits / timeout) — same analyzer used for joint-space planning.
+            auto scene = getLockedPlanningScene();
+            if (scene) {
+                auto report = diagnosePlanningFailure(
+                    code, *move_group_, scene, planning_group_,
+                    &target.pose, nullptr, plan_dt, this->get_logger());
+                if (!report.summary.empty()) {
+                    out_msg += " | " + report.summary;
+                }
+            }
             return false;
         }
 
@@ -881,8 +884,10 @@ namespace motion_control
         }
         if (wrapped.result->response.error_code.val
                 != moveit_msgs::msg::MoveItErrorCodes::SUCCESS) {
-            out_msg = "Pilz sequence planning/execution failed (MoveItErrorCode "
-                    + std::to_string(wrapped.result->response.error_code.val) + ")";
+            moveit::core::MoveItErrorCode seq_code(wrapped.result->response.error_code);
+            out_msg = "Pilz sequence planning/execution failed: " + moveitErrorCodeToString(seq_code)
+                    + " (a LIN segment is infeasible — singularity, joint limit, collision, "
+                      "or blend_radius too large). Tip: reduce blend_radius or check the waypoints.";
             return false;
         }
 
@@ -894,8 +899,9 @@ namespace motion_control
 
     void MotionServer::applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory)
     {
-        // computeCartesianPath does NOT respect setMaxVelocityScalingFactor.
-        // We must manually retime the trajectory using TOTG (Time Optimal Trajectory Generation).
+        // Re-time the (concatenated joint-space waypoint) trajectory with TOTG so it honors
+        // vel_scale_/accel_scale_ and has continuous velocities at segment junctions.
+        // (Cartesian moves no longer pass here: Pilz LIN/Sequence time their own trajectories.)
         robot_trajectory::RobotTrajectory rt(
             move_group_->getRobotModel(), planning_group_);
 
@@ -1246,8 +1252,7 @@ namespace motion_control
 
         if (req->cartesian_path)
         {
-            // Cartesian => straight TCP line via Pilz LIN (replaces computeCartesianPath,
-            // whose adaptive interpolator returned too few points -> joint-interpolated zigzag).
+            // Cartesian => straight TCP line via Pilz LIN
             moveit_msgs::msg::RobotTrajectory trajectory;
             std::string lin_msg;
 
@@ -1629,7 +1634,7 @@ namespace motion_control
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
             // Retime the combined trajectory to eliminate velocity discontinuities
-            // at segment junctions (same mechanism as cartesian paths)
+            // at segment junctions (joint-space waypoints; Cartesian waypoints use Pilz Sequence)
             applyVelocityScaling(combined_trajectory);
 
             // Summary of the assembled multi-segment trajectory
