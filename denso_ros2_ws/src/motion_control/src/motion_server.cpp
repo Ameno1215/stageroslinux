@@ -449,13 +449,17 @@ namespace motion_control
         }
 
         if (valid_solutions.empty()) {
-            std::ostringstream oss;
-            oss << "IK failed: no valid solution found after " << NUM_ATTEMPTS << " attempts "
-                << "(IK fails=" << ik_failures
-                << ", limits=" << rejected_limits
-                << ", constraints=" << rejected_constraints
-                << ", collision=" << rejected_collision << ")";
-            out_msg = oss.str();
+            const std::string breakdown =
+                "IK fails=" + std::to_string(ik_failures)
+                + ", limits=" + std::to_string(rejected_limits)
+                + ", constraints=" + std::to_string(rejected_constraints)
+                + ", collision=" + std::to_string(rejected_collision);
+            RCLCPP_WARN(this->get_logger(),
+                "[IK] FAILED — 0/%d seeds valid, 0 branches | rejected: %s",
+                NUM_ATTEMPTS, breakdown.c_str());
+
+            out_msg = "IK failed: no valid solution found after "
+                    + std::to_string(NUM_ATTEMPTS) + " attempts (" + breakdown + ")";
             return false;
         }
 
@@ -539,6 +543,20 @@ namespace motion_control
             std::chrono::high_resolution_clock::now() - ik_t0).count();
         if (!ik_ok) {
             out_msg = ik_msg + " (solve took " + std::to_string(ik_dt) + "s)";
+
+            // Rich diagnosis on the target pose (collision / reachability / singularity /
+            // joint limits), same analyzer as the Pilz LIN path, so an IK-only failure is
+            auto scene = getLockedPlanningScene();
+            if (scene) {
+                moveit::core::MoveItErrorCode ik_code;
+                ik_code.val = moveit::core::MoveItErrorCode::NO_IK_SOLUTION;
+                auto report = diagnosePlanningFailure(
+                    ik_code, *move_group_, scene, planning_group_,
+                    &target_pose, nullptr, ik_dt, this->get_logger());
+                if (!report.summary.empty()) {
+                    out_msg += " | " + report.summary;
+                }
+            }
             return false;
         }
         RCLCPP_INFO(this->get_logger(), "[IK] %s (solve took %.3fs)", ik_msg.c_str(), ik_dt);
