@@ -59,8 +59,10 @@
   // in_motion
   if (isSettled()==true)
     rosStatusMsg.robotStatus.nInMotion=0
+    rosStatusMsg.robotStatus.nTrajComplete=1
   else
     rosStatusMsg.robotStatus.nInMotion=1
+    rosStatusMsg.robotStatus.nTrajComplete=0
   endIf
 
   // mode (controller/pendant mode)

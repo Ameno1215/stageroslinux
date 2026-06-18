@@ -30,6 +30,7 @@ def generate_launch_description():
         DeclareLaunchArgument("accel_scale", default_value="0.1", description="Max acceleration scaling factor [0..1]."),
         DeclareLaunchArgument("tool", default_value="none", description="End-effector tool to attach (e.g., none, effecteur_v1)"),
         DeclareLaunchArgument("ik_solver", default_value="pick_ik", choices=['kdl', 'pick_ik']),
+        DeclareLaunchArgument("robot_status_topic", default_value="/robot_status", description="RobotStatus topic used by the health monitor."),
     ]
 
     # --- Launch configs (defined BEFORE any PythonExpression that uses them) ---
@@ -39,6 +40,7 @@ def generate_launch_description():
     velocity_scale = LaunchConfiguration("velocity_scale")
     accel_scale = LaunchConfiguration("accel_scale")
     ik_solver = LaunchConfiguration("ik_solver")
+    robot_status_topic = LaunchConfiguration("robot_status_topic")
     planning_group_arg = LaunchConfiguration("planning_group")
 
     kinematics_plugin_name = PythonExpression([
@@ -111,6 +113,31 @@ def generate_launch_description():
     merged_kinematics.update(staubli_tx2_60l_kinematics)
     merged_kinematics.update(staubli_tx40_kinematics)
 
+    # --- Pilz Cartesian speed ceiling (auto, per robot) ---
+    # Read max_trans_vel from each robot's pilz_cartesian_limits.yaml so that the
+    # `cartesian_speed` (m/s) -> velocity scaling conversion stays in sync with what
+    # move_group actually enforces. Falls back to 1.0 m/s if the file/key is missing.
+    PILZ_MAX_TRANS_VEL_DEFAULT = 1.0
+
+    def _max_trans_vel(pkg):
+        data = load_yaml(pkg, "config/pilz_cartesian_limits.yaml") or {}
+        try:
+            return float(data["cartesian_limits"]["max_trans_vel"])
+        except (KeyError, TypeError, ValueError):
+            return PILZ_MAX_TRANS_VEL_DEFAULT
+
+    tx40_mtv = _max_trans_vel("staubli_tx40_moveit_config")
+    tx2_60l_mtv = _max_trans_vel("staubli_tx2_60l_moveit_config")
+    denso_mtv = _max_trans_vel("denso_robot_moveit_config")
+
+    pilz_max_trans_vel = ParameterValue(
+        PythonExpression([
+            f"{tx40_mtv} if 'tx40' in '", model, "' else (",
+            f"{tx2_60l_mtv} if 'tx2_60l' in '", model, "' else ", f"{denso_mtv})",
+        ]),
+        value_type=float,
+    )
+
     # use_sim_time = ParameterValue(
     #     PythonExpression(["'tx2_60l' not in '", model, "'"]),
     #     value_type=bool,
@@ -118,7 +145,13 @@ def generate_launch_description():
     use_sim_time = True
 
     use_health_monitor = ParameterValue(
-        PythonExpression(["not ('tx2_60l' in '", model, "' or 'tx40' in '", model, "')"]),
+        PythonExpression([
+            "not ('tx2_60l' in '", model, "' or 'tx40' in '", model, "') or '", sim, "' == 'false'"
+        ]),
+        value_type=bool,
+    )
+    require_drives_powered = ParameterValue(
+        PythonExpression(["'tx2_60l' in '", model, "' or 'tx40' in '", model, "'"]),
         value_type=bool,
     )
 
@@ -131,12 +164,15 @@ def generate_launch_description():
             robot_description_semantic,
             {"use_sim_time": use_sim_time},
             {"use_health_monitor": use_health_monitor},
+            {"require_drives_powered": require_drives_powered},
             {"robot_description_kinematics": merged_kinematics},
             {
                 "model": model,
                 "planning_group": planning_group,
                 "velocity_scale": velocity_scale,
                 "accel_scale": accel_scale,
+                "pilz_max_trans_vel": pilz_max_trans_vel,
+                "robot_status_topic": robot_status_topic,
                 "ik_solver": ik_solver,
                 "ik_solver_plugin": kinematics_plugin_name,
                 # Backward-compatible aliases for external clients expecting generic keys

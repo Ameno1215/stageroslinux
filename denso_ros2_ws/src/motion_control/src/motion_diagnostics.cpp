@@ -261,17 +261,6 @@ namespace motion_control
         RCLCPP_WARN(logger, "[DIAG] MoveIt error code: %d (%s)",
             error_code.val, moveitErrorCodeToString(error_code).c_str());
 
-        auto formatJoints = [](const std::vector<double>& joints) {
-            std::stringstream ss;
-            ss << "[";
-            for (size_t i = 0; i < joints.size(); ++i) {
-                ss << std::fixed << std::setprecision(4) << joints[i];
-                if (i < joints.size() - 1) ss << ", ";
-            }
-            ss << "]";
-            return ss.str();
-        };
-
         // Trust planner error codes as primary source of truth
         if (error_code.val == moveit_msgs::msg::MoveItErrorCodes::GOAL_IN_COLLISION) {
             report.goal_in_collision = true;
@@ -402,133 +391,59 @@ namespace motion_control
         return report;
     }
 
-    DiagnosticReport diagnoseCartesianFailure(
+    std::string diagnoseExecutionFailure(
+        const moveit::core::MoveItErrorCode& exec_code,
         const moveit::planning_interface::MoveGroupInterface& move_group,
         const planning_scene::PlanningSceneConstPtr& scene,
         const std::string& group_name,
-        const std::vector<geometry_msgs::msg::Pose>& waypoints,
-        double achieved_fraction,
-        double planning_duration_s,
         const rclcpp::Logger& logger)
     {
-        DiagnosticReport report;
-        report.planning_duration_s = planning_duration_s;
-        report.cartesian_fraction = achieved_fraction;
+        std::ostringstream oss;
+        oss << "Execution failed: " << moveitErrorCodeToString(exec_code);
 
-        const auto* jmg = move_group.getRobotModel()->getJointModelGroup(group_name);
-        if (!jmg || waypoints.empty()) {
-            report.primary_cause = DiagnosticReport::Cause::UNKNOWN;
-            report.summary = "[DIAG] Cannot diagnose Cartesian failure: no waypoints or invalid group.";
-            return report;
-        }
-
-        auto formatJoints = [](const std::vector<double>& joints) {
-            std::stringstream ss;
-            ss << "[";
-            for (size_t i = 0; i < joints.size(); ++i) {
-                ss << std::fixed << std::setprecision(4) << joints[i];
-                if (i < joints.size() - 1) ss << ", ";
+        // Log the current joint state at the point of failure
+        auto current_state = move_group.getCurrentState(1.0);
+        if (current_state) {
+            std::vector<double> joint_vals;
+            current_state->copyJointGroupPositions(group_name, joint_vals);
+            oss << " | Interrupted joint state: [";
+            for (size_t i = 0; i < joint_vals.size(); ++i) {
+                if (i > 0) oss << ", ";
+                oss << std::fixed << std::setprecision(4) << joint_vals[i];
             }
-            ss << "]";
-            return ss.str();
-        };
+            oss << "]";
 
-        // Use current state as IK seed for waypoint walk
-        moveit::core::RobotStatePtr current = move_group.getCurrentState();
-        moveit::core::RobotState probe_state(move_group.getRobotModel());
-        if (current) {
-            probe_state = *current;
-        }
+            // Run collision check at interrupted state
+            if (scene) {
+                std::vector<std::string> pairs, self_pairs, env_pairs;
+                if (checkStateCollision(scene, *current_state, group_name,
+                                        pairs, self_pairs, env_pairs)) {
+                    oss << " | IN COLLISION at interrupted state: ";
+                    for (size_t i = 0; i < pairs.size() && i < 5; ++i) {
+                        if (i > 0) oss << ", ";
+                        oss << pairs[i];
+                    }
+                    if (!self_pairs.empty()) oss << " (" << self_pairs.size() << " self-collision)";
+                    if (!env_pairs.empty()) oss << " (" << env_pairs.size() << " env-collision)";
+                }
 
-        // Walk through each waypoint: attempt IK, check collision & singularity
-        for (size_t i = 0; i < waypoints.size(); ++i) {
-            bool ik_ok = probe_state.setFromIK(jmg, waypoints[i], 0.1);
-
-            if (!ik_ok) {
-                report.ik_failed = true;
-                report.cartesian_fail_waypoint_index = static_cast<int>(i);
-                report.cartesian_fail_pose = waypoints[i];
-
-                std::ostringstream oss;
-                oss << "IK failed at waypoint #" << i
-                    << " (pose: x=" << waypoints[i].position.x
-                    << " y=" << waypoints[i].position.y
-                    << " z=" << waypoints[i].position.z << ")";
-                report.ik_detail = oss.str();
-                report.all_causes.push_back(DiagnosticReport::Cause::IK_UNREACHABLE);
-                RCLCPP_WARN(logger, "[DIAG-CART] %s", report.ik_detail.c_str());
-                break;
-            }
-
-            probe_state.update();
-
-            // Log IK solution for this waypoint
-            std::vector<double> wp_joints;
-            probe_state.copyJointGroupPositions(jmg, wp_joints);
-            // RCLCPP_WARN(logger, "[DIAG-CART] Waypoint #%zu IK solution: %s (pose: x=%.4f y=%.4f z=%.4f)",
-            //     i, formatJoints(wp_joints).c_str(),
-            //     waypoints[i].position.x, waypoints[i].position.y, waypoints[i].position.z);
-
-            // Collision check at this waypoint
-            std::vector<std::string> wp_pairs, wp_self, wp_env;
-            if (checkStateCollision(scene, probe_state, group_name, wp_pairs, wp_self, wp_env)) {
-                report.goal_in_collision = true;
-                report.goal_collision_pairs = wp_pairs;
-                report.goal_self_collision_pairs = wp_self;
-                report.goal_env_collision_pairs = wp_env;
-                report.cartesian_fail_waypoint_index = static_cast<int>(i);
-                report.cartesian_fail_pose = waypoints[i];
-                report.all_causes.push_back(DiagnosticReport::Cause::PATH_COLLISION);
-                RCLCPP_WARN(logger,
-                    "[DIAG-CART] Collision at waypoint #%zu: %zu pair(s) (%zu self, %zu env)",
-                    i, wp_pairs.size(), wp_self.size(), wp_env.size());
-                break;
-            }
-
-            // Singularity check at this waypoint
-            auto sing = computeSingularityMetrics(probe_state, jmg);
-            if (sing.is_singular) {
-                report.near_singularity = true;
-                report.manipulability = sing.manipulability;
-                report.condition_number = sing.condition_number;
-                report.cartesian_fail_waypoint_index = static_cast<int>(i);
-                report.cartesian_fail_pose = waypoints[i];
-                report.all_causes.push_back(DiagnosticReport::Cause::SINGULARITY);
-                RCLCPP_WARN(logger,
-                    "[DIAG-CART] Near singularity at waypoint #%zu: manipulability=%.6f",
-                    i, sing.manipulability);
-            }
-        }
-
-        // If no specific cause found, interpolation issue
-        if (report.all_causes.empty()) {
-            report.all_causes.push_back(DiagnosticReport::Cause::CARTESIAN_INCOMPLETE);
-            RCLCPP_WARN(logger,
-                "[DIAG-CART] All waypoints individually reachable. "
-                "Interpolated path likely crosses collision/singularity/joint-limit. Fraction=%.1f%%",
-                achieved_fraction * 100.0);
-        }
-
-        // Primary cause determination
-        if (report.all_causes.size() == 1) {
-            report.primary_cause = report.all_causes[0];
-        } else {
-            report.primary_cause = DiagnosticReport::Cause::MULTIPLE_CAUSES;
-            for (auto c : {DiagnosticReport::Cause::PATH_COLLISION,
-                        DiagnosticReport::Cause::IK_UNREACHABLE,
-                        DiagnosticReport::Cause::SINGULARITY,
-                        DiagnosticReport::Cause::CARTESIAN_INCOMPLETE}) {
-                if (std::find(report.all_causes.begin(), report.all_causes.end(), c)
-                    != report.all_causes.end()) {
-                    report.primary_cause = c;
-                    break;
+                // Singularity check at interrupted state
+                const auto* jmg = move_group.getRobotModel()->getJointModelGroup(group_name);
+                if (jmg) {
+                    auto sing = computeSingularityMetrics(*current_state, jmg);
+                    if (sing.is_singular) {
+                        oss << " | NEAR SINGULARITY: manipulability=" << sing.manipulability
+                            << ", condition=" << sing.condition_number;
+                    }
                 }
             }
+        } else {
+            oss << " | WARNING: Could not retrieve robot state after execution failure";
         }
 
-        report.buildSummary();
-        RCLCPP_WARN(logger, "%s", report.summary.c_str());
-        return report;
+        std::string result = oss.str();
+        RCLCPP_ERROR(logger, "[EXEC-DIAG] %s", result.c_str());
+        return result;
     }
 
 }  // namespace motion_control

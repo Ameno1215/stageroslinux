@@ -7,8 +7,24 @@ string[] reference_frame_list
 # Configuration globale pour toute la trajectoire
 string reference_frame     # "WORLD" ou "TOOL"
 bool is_relative           # True = chaque point est relatif au précédent
-bool cartesian_path        # True = relie les points en lignes droites, False = courbe fluide
+bool cartesian_path        # True = lignes droites (Pilz Sequence LIN), False = courbe fluide (OMPL)
 bool execute               # True = planifie et bouge, False = planifie seulement
+
+# Vitesse cartésienne absolue du TCP en m/s (uniquement si cartesian_path=True).
+# 0 = utiliser le scaling relatif courant (set_scaling). > 0 = vitesse absolue.
+float64 cartesian_speed
+
+# Rayon de fusion (m) entre segments LIN consécutifs pour la Pilz Sequence.
+# 0 = arrêt net à chaque point. > 0 = enchaînement fluide (doit rester < demi-longueur de segment).
+float64 blend_radius
+
+# Tolérance de chemin (rad) du lissage TOTG aux jonctions de segments (uniquement si
+# cartesian_path=False). Equivalent joint-space du blend_radius : plus c'est grand, plus
+# les coins sont arrondis (trajectoire plus fluide mais qui s'écarte davantage du chemin
+# validé) ; plus c'est petit, plus on suit le chemin exact (moins de risque de collision,
+# mais davantage de à-coups). 0 = défaut (0.05 rad). La trajectoire finale est de toute
+# façon re-vérifiée en collision avant exécution.
+float64 path_tolerance
 
 ---
 # Response

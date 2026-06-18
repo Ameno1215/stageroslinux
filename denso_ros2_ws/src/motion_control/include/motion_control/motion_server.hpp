@@ -10,10 +10,13 @@
 #include <set>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit/kinematic_constraints/utils.h>
+#include <moveit_msgs/action/move_group_sequence.hpp>
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -49,13 +52,15 @@
 #include "motion_control/srv/manage_box.hpp"
 #include "motion_control/srv/manage_mesh.hpp"
 #include <std_srvs/srv/trigger.hpp>
+#include <std_srvs/srv/set_bool.hpp>
+#include <geometry_msgs/msg/point.hpp>
 
 
 
 namespace motion_control
 {
     /**
-     * @brief Main motion server for the Denso robot.
+     * @brief Main motion server for the Denso and Staubli robots.
      * * This ROS 2 node exposes services to initialize the robot,
      * command movements (joint space or Cartesian space), and retrieve the current state
      * using the MoveIt 2 planning interface.
@@ -65,6 +70,10 @@ namespace motion_control
         public:
 
         static constexpr double kCartesianAcceptThreshold = 0.99;
+
+        // Default TOTG path tolerance (rad) for joint-space waypoint re-timing — how much TOTG
+        // may round segment-junction corners. Overridable per-request via MoveWaypoints.path_tolerance.
+        static constexpr double kDefaultTotgPathTolerance = 0.05;
 
         /**
          * @brief Constructs the MotionServer.
@@ -79,6 +88,9 @@ namespace motion_control
 
             std::unique_ptr<RobotHealthMonitor> health_monitor_;
             std::string planning_frame_ = "world";
+            // End-effector link, cached at init so the TCP-trace timer never has to
+            // call into the (non thread-safe) MoveGroupInterface.
+            std::string ee_link_;
 
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
 
@@ -145,7 +157,7 @@ namespace motion_control
             /**
              * @brief Universal service callback to move the robot to a target Cartesian pose.
              * Replaces multiple legacy services. Handles absolute positions, relative offsets
-             * (fly-by-wire or crane mode), and both fluid joint-space planning or strict linear Cartesian paths.
+             * (fly-by-wire), and both fluid joint-space planning or strict linear Cartesian paths.
              * * @param req Contains target coordinates, formats, reference frames, and motion flags.
              * @param res Returns the success status and informational messages.
              */
@@ -291,41 +303,74 @@ namespace motion_control
                 std::shared_ptr<motion_control::srv::ManageMesh::Response> res);
 
             /**
-             * @brief Attempts to compute a Cartesian path with progressive fallback strategies.
+             * @brief Re-times a trajectory with TOTG, enforcing vel_scale_/accel_scale_.
              *
-             * Tries increasingly permissive parameters to maximize the achieved path fraction:
-             * 1. Fine resolution (0.5 mm step, 3.0 rad jump threshold).
-             * 2. Coarser resolution (1 cm step) if the first attempt falls below 95%.
+             * Re-times the trajectory using Time-Optimal Trajectory Generation (TOTG),
+             * applying the current vel_scale_ and accel_scale_ while respecting the robot's
+             * joint velocity/acceleration limits. On TOTG failure the trajectory points are
+             * cleared (safety: never execute with raw timestamps).
              *
-             * This approach improves reliability near singularities or tight collision zones
-             * where the default parameters may fail to produce a sufficient path fraction.
+             * Used by the joint-space waypoint path (onMoveWaypoints, non-Cartesian) to
+             * smooth velocity discontinuities at the junctions of concatenated segments.
+             * NOTE: Cartesian moves no longer use this — Pilz LIN/Sequence produce trajectories
+             * that are already time-parameterized and honor the scaling factors directly.
              *
-             * @param waypoints Ordered list of target Cartesian poses the end-effector must pass through.
-             * @param trajectory Output parameter filled with the best computed trajectory.
-             * @param out_msg Output string describing the outcome (e.g., which strategy succeeded or failure details).
-             * @return double The fraction of the path successfully computed (0.0 to 1.0).
-            */
-            double computeCartesianPathRobust(
-                const std::vector<geometry_msgs::msg::Pose>& waypoints,
+             * @param trajectory     The robot trajectory to retime (modified in place).
+             * @param path_tolerance TOTG path tolerance (rad): how much TOTG may round the
+             *                       segment-junction corners to smooth the path. <= 0 falls
+             *                       back to kDefaultTotgPathTolerance. The joint-space analogue
+             *                       of the Cartesian blend_radius.
+             */
+            void applyVelocityScaling(
+                moveit_msgs::msg::RobotTrajectory& trajectory,
+                double path_tolerance = kDefaultTotgPathTolerance);
+
+            /**
+             * @brief Plans a straight-line Cartesian motion to a single pose using Pilz LIN.
+             *
+             * Replaces the old computeCartesianPath pipeline (whose adaptive interpolator
+             * returned too few points, producing a joint-interpolated zigzag). Pilz LIN
+             * natively yields a dense, already time-parameterized straight-line trajectory.
+             *
+             * Selects the "pilz_industrial_motion_planner" pipeline + "LIN" planner, applies
+             * the given velocity scaling (and the current accel scaling), plans from the
+             * current state, then ALWAYS restores the default OMPL pipeline so subsequent
+             * joint-space moves are unaffected.
+             *
+             * @param target       Target end-effector pose (PoseStamped, planning frame).
+             * @param vel_scaling  Velocity scaling factor [0..1] to apply for this motion.
+             * @param trajectory   Output: the planned LIN trajectory (filled on success).
+             * @param out_msg       Status or failure reason.
+             * @return true if Pilz LIN planning succeeded, false otherwise.
+             */
+            bool planCartesianLin(
+                const geometry_msgs::msg::PoseStamped& target,
+                double vel_scaling,
                 moveit_msgs::msg::RobotTrajectory& trajectory,
                 std::string& out_msg);
 
             /**
-             * @brief Applies velocity and acceleration scaling to a raw Cartesian trajectory.
+             * @brief Plans (and optionally executes) a Cartesian waypoint sequence as a
+             * single blended Pilz LIN sequence via the /sequence_move_group action.
              *
-             * MoveIt's computeCartesianPath does NOT respect the scaling factors set via
-             * setMaxVelocityScalingFactor / setMaxAccelerationScalingFactor.
-             * This helper re-times the trajectory using the Time-Optimal Trajectory
-             * Generation (TOTG) algorithm, enforcing the current vel_scale_ and
-             * accel_scale_ values while respecting the robot's joint velocity and
-             * acceleration limits.
+             * Each waypoint becomes a LIN MotionSequenceItem; blend_radius rounds the
+             * corner between consecutive segments (0 = stop at each corner). The last
+             * item's blend is forced to 0 (Pilz requirement). When execute is true the
+             * action plans and executes; otherwise it only plans.
              *
-             * Must be called on every Cartesian trajectory BEFORE execution to ensure
-             * the robot moves at the user-configured speed.
-             *
-             * @param trajectory The robot trajectory to retime (modified in place).
+             * @param waypoints     Ordered absolute target poses (planning frame).
+             * @param vel_scaling   Velocity scaling factor [0..1].
+             * @param blend_radius  Corner blend radius in meters (0 = stop at corners).
+             * @param execute       If true, plan and execute; if false, plan only.
+             * @param out_msg        Status or failure reason.
+             * @return true on success, false otherwise.
              */
-            void applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory);
+            bool planAndExecuteSequence(
+                const std::vector<geometry_msgs::msg::Pose>& waypoints,
+                double vel_scaling,
+                double blend_radius,
+                bool execute,
+                std::string& out_msg);
 
             /**
              * Logs the FK trace of a joint trajectory for Cartesian path diagnostics.
@@ -344,6 +389,27 @@ namespace motion_control
              * trajectory is unsafe to execute.
              */
             bool validateTrajectory(
+                const moveit_msgs::msg::RobotTrajectory& trajectory,
+                std::string& out_msg) const;
+
+            /**
+             * @brief Verifies that a re-timed trajectory is collision-free along its path.
+             *
+             * The joint-space waypoint path concatenates per-segment OMPL plans (each
+             * individually collision-checked) and then re-times the result with TOTG. TOTG's
+             * path_tolerance rounds the corners at segment junctions, so the executed path can
+             * deviate from the validated one — that deviation is NOT re-checked anywhere else.
+             * This method re-validates the FINAL trajectory against the planning scene
+             * (self + environment), interpolating between consecutive points so a thin
+             * obstacle cannot be "tunneled" through. Returns false (and fills out_msg with the
+             * first colliding state) if any sampled state is in collision — caller must refuse
+             * execution.
+             *
+             * @param trajectory The trajectory to validate (positions, in joint order).
+             * @param out_msg     First colliding state / contact pairs, on failure.
+             * @return true if every sampled state is collision-free, false otherwise.
+             */
+            bool validateTrajectoryCollisionFree(
                 const moveit_msgs::msg::RobotTrajectory& trajectory,
                 std::string& out_msg) const;
 
@@ -371,7 +437,10 @@ namespace motion_control
              * @return false If joint count mismatch, planning failed, trajectory validation
              *         failed, or execution was rejected by the controller.
              */
-            bool planAndExecuteJoints(const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg);
+            // ik_seconds: time spent in the preceding IK search, for logging only.
+            // Pass a value >= 0 to prepend "IK=...s, " to the result message; -1 (default)
+            // means there was no IK step (e.g. direct joint-space move) and it is omitted.
+            bool planAndExecuteJoints(const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg, double ik_seconds = -1.0);
 
             /**
              * @brief Service callback to move the robot to a Cartesian pose via joint-space planning.
@@ -474,6 +543,43 @@ namespace motion_control
                 std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
             /**
+             * @brief Enables/disables continuous tracing of the tool tip (TCP) path.
+             *
+             * When enabled, a periodic timer samples the REAL TCP pose via TF
+             * (planning_frame -> end-effector link) and appends it to a SPHERE_LIST
+             * marker, so the actual travelled path is shown live in RViz regardless of
+             * the motion type (joint, Pilz LIN, waypoints, manual jog, external control).
+             * Disabling stops sampling but keeps the existing trace displayed.
+             *
+             * @param req data=true -> START tracing, data=false -> STOP tracing.
+             * @param res Success status and message.
+             */
+            void onSetTcpTrace(
+                const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+                std::shared_ptr<std_srvs::srv::SetBool::Response> res);
+
+            /**
+             * @brief Clears the recorded TCP trace and erases the marker in RViz.
+             */
+            void onClearTcpTrace(
+                const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+
+            /**
+             * @brief Timer callback: samples the current TCP position via TF and, if it
+             * moved more than kTraceMinDist since the last sample, appends it to the trace
+             * and republishes the marker. Runs in a dedicated callback group so it keeps
+             * sampling even while a (blocking) motion service callback is executing.
+             */
+            void sampleTcpTrace();
+
+            /**
+             * @brief Publishes the current TCP trace as a SPHERE_LIST marker (ADD), or an
+             * empty/DELETE marker to clear it. Caller must hold trace_mtx_.
+             */
+            void publishTraceMarker(bool clear = false);
+
+            /**
              * @brief Retrieves the joint position limits of the planning group.
              *
              * Queries MoveIt's RobotModel to extract the [min, max] bounds of every
@@ -497,6 +603,8 @@ namespace motion_control
             // Internal helpers
             // Checks if the MoveGroup interface is initialized before processing motion commands
             bool ensureInitialized(std::string& why) const;
+            bool ensureMoveGroupInitialized(std::string& why) const;
+            bool getRobotFaultMessage(std::string& why) const;
 
             // Thread-safety: MoveGroupInterface is not designed to be called concurrently
             mutable std::mutex mtx_;
@@ -507,8 +615,20 @@ namespace motion_control
             double vel_scale_{0.1};
             double accel_scale_{0.1};
 
+            // Absolute Cartesian TCP speed ceiling (m/s) used to convert a requested
+            // absolute speed into a Pilz velocity scaling factor.
+            // MUST match the robot's pilz_cartesian_limits.yaml `max_trans_vel`.
+            // Overridable per robot via the "pilz_max_trans_vel" parameter.
+            double pilz_max_trans_vel_{1.0};
+
             std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
             std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_;
+
+            // Dedicated node + action client for the Pilz MoveGroupSequence action.
+            // Kept on a separate node so we can spin it to completion inside a service
+            // callback without deadlocking the main node's executor.
+            rclcpp::Node::SharedPtr seq_node_;
+            rclcpp_action::Client<moveit_msgs::action::MoveGroupSequence>::SharedPtr seq_client_;
 
             // Services
             rclcpp::Service<srv::InitRobot>::SharedPtr srv_init_;
@@ -524,6 +644,27 @@ namespace motion_control
             rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;
             rclcpp::Service<motion_control::srv::ManageMesh>::SharedPtr srv_manage_mesh_;
             rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_env_;
+
+            // --- Continuous TCP path tracing ---
+            // The timer and the trace services live in a dedicated callback group so the
+            // MultiThreadedExecutor can run them on a separate thread, i.e. keep sampling
+            // the TCP while a (blocking) motion service callback holds the default group.
+            rclcpp::CallbackGroup::SharedPtr trace_cb_group_;
+            rclcpp::TimerBase::SharedPtr trace_timer_;
+            rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr srv_set_trace_;
+            rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_trace_;
+
+            std::mutex trace_mtx_;                              // guards the fields below
+            bool trace_enabled_{false};
+            std::vector<geometry_msgs::msg::Point> trace_points_;
+
+            // Minimum TCP displacement (m) between two recorded points (anti-spam at rest).
+            static constexpr double kTraceMinDist = 0.002;      // 2 mm (< sphere diameter so spheres overlap)
+            // Beyond this single-step displacement (m) we assume a discontinuity/teleport
+            // and start a fresh trace rather than drawing a straight line across space.
+            static constexpr double kTraceMaxJump = 0.25;       // 25 cm
+            // Hard cap on stored points; oldest are dropped (moving window).
+            static constexpr size_t kTraceMaxPoints = 20000;
     };
 
 }  // namespace motion_control

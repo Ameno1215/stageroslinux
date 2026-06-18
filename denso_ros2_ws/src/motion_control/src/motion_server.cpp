@@ -14,12 +14,18 @@ namespace motion_control
         this->declare_parameter<std::string>("planning_group", "arm");
         this->declare_parameter<double>("velocity_scale", 1.0);
         this->declare_parameter<double>("accel_scale", 1.0);
+        // Absolute Cartesian speed ceiling (m/s); MUST match this robot's
+        // pilz_cartesian_limits.yaml max_trans_vel. Used to map an absolute requested
+        // TCP speed (cartesian_speed) to a Pilz velocity scaling factor.
+        this->declare_parameter<double>("pilz_max_trans_vel", 1.0);
         this->declare_parameter<std::string>("ik_solver", "pick_ik");
         this->declare_parameter<std::string>("ik_solver_plugin", "pick_ik/PickIkPlugin");
         this->declare_parameter<std::string>("solver", "pick_ik");
         this->declare_parameter<std::string>("solver_plugin", "pick_ik/PickIkPlugin");
         this->declare_parameter<std::string>("kinematics_solver", "pick_ik/PickIkPlugin");
         this->declare_parameter<bool>("use_health_monitor", true);
+        this->declare_parameter<bool>("require_drives_powered", false);
+        this->declare_parameter<std::string>("robot_status_topic", "/robot_status");
         // Keep explicit declarations for nested keys queried by external clients.
         this->declare_parameter<std::string>(
             "robot_description_kinematics.arm.kinematics_solver",
@@ -35,6 +41,11 @@ namespace motion_control
         rclcpp::QoS qos(10);
         qos.transient_local();
         visual_marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("motion_server_markers", qos);
+
+        // Separate node + action client for the Pilz MoveGroupSequence action.
+        seq_node_ = std::make_shared<rclcpp::Node>("motion_server_seq_client");
+        seq_client_ = rclcpp_action::create_client<moveit_msgs::action::MoveGroupSequence>(
+            seq_node_, "/sequence_move_group");
 
         srv_init_ = this->create_service<srv::InitRobot>(
             "init_robot",
@@ -88,17 +99,54 @@ namespace motion_control
             "clear_environment",
             std::bind(&MotionServer::onClearEnvironment, this, std::placeholders::_1, std::placeholders::_2));
 
+        // --- Continuous TCP path tracing ---
+        // Dedicated callback group: on the MultiThreadedExecutor this lets the sampling
+        // timer (and the trace services) run while a blocking motion callback is busy in
+        // the default group, so the trace keeps growing DURING a movement.
+        trace_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+        srv_set_trace_ = this->create_service<std_srvs::srv::SetBool>(
+            "set_tcp_trace",
+            std::bind(&MotionServer::onSetTcpTrace, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, trace_cb_group_);
+
+        srv_clear_trace_ = this->create_service<std_srvs::srv::Trigger>(
+            "clear_tcp_trace",
+            std::bind(&MotionServer::onClearTcpTrace, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, trace_cb_group_);
+
+        // 30 Hz sampler; it early-returns when tracing is disabled, so it is cheap when idle.
+        trace_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(33),
+            std::bind(&MotionServer::sampleTcpTrace, this),
+            trace_cb_group_);
+
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
+    bool MotionServer::ensureMoveGroupInitialized(std::string& why) const {
+        if (!initialized_ || !move_group_) {
+            why = "Robot not initialized. Call /init_robot first";
+            return false;
+        }
+        return true;
+    }
+
+    bool MotionServer::getRobotFaultMessage(std::string& why) const {
+        if (health_monitor_ && health_monitor_->hasError()) {
+            why = "[ROBOT FAULT] " + health_monitor_->getErrorMessage()
+                + " | Clear the robot fault, then call /init_robot again";
+            return true;
+        }
+        return false;
+    }
+    
     bool MotionServer::ensureInitialized(std::string& why) const {
         if (!initialized_ || !move_group_) {
             why = "Robot not initialized. Call /init_robot first";
             return false;
         }
-        if (health_monitor_ && health_monitor_->hasError()) {
-            why = "[RC8 FAULT] " + health_monitor_->getErrorMessage()
-                + " | Reset error on teach pendant, then call /init_robot again";
+        if (getRobotFaultMessage(why)) {
             return false;
         }
         return true;
@@ -131,6 +179,16 @@ namespace motion_control
         planning_group_ = group;
         vel_scale_ = std::min(std::max(v, 0.0), 1.0);
         accel_scale_ = std::min(std::max(a, 0.0), 1.0);
+        pilz_max_trans_vel_ = this->get_parameter("pilz_max_trans_vel").as_double();
+        if (!(pilz_max_trans_vel_ > 0.0)) {
+            RCLCPP_WARN(this->get_logger(),
+                "pilz_max_trans_vel resolved to %.4f (invalid) — falling back to 1.0 m/s",
+                pilz_max_trans_vel_);
+            pilz_max_trans_vel_ = 1.0;
+        }
+        RCLCPP_INFO(this->get_logger(),
+            "Pilz Cartesian speed ceiling: pilz_max_trans_vel = %.4f m/s "
+            "(cartesian_speed in m/s maps 1:1 up to this value)", pilz_max_trans_vel_);
 
         try {
             // Create MoveIt interfaces
@@ -141,10 +199,24 @@ namespace motion_control
             planning_frame_ = move_group_->getPlanningFrame();
             RCLCPP_INFO(this->get_logger(), "Using planning frame: %s", planning_frame_.c_str());
 
+            // Cache the end-effector link for the TCP-trace timer (avoids touching the
+            // non thread-safe MoveGroupInterface from the timer's callback group).
+            {
+                std::lock_guard<std::mutex> tlk(trace_mtx_);
+                ee_link_ = move_group_->getEndEffectorLink();
+            }
+
+            // Resting pipeline = OMPL for all joint-space planning. Cartesian moves
+            // temporarily switch to Pilz LIN (planCartesianLin) and restore OMPL.
+            move_group_->setPlanningPipelineId("ompl");
+
             const bool use_health_monitor = this->get_parameter("use_health_monitor").as_bool();
+            const bool require_drives_powered = this->get_parameter("require_drives_powered").as_bool();
+            const auto robot_status_topic = this->get_parameter("robot_status_topic").as_string();
 
             if (use_health_monitor && !health_monitor_) {
-                health_monitor_ = std::make_unique<RobotHealthMonitor>(this, model_);
+                health_monitor_ = std::make_unique<RobotHealthMonitor>(
+                    this, model_, "/joint_states", require_drives_powered, robot_status_topic);
 
                 health_monitor_->onError([this](const std::string& reason) {
                     RCLCPP_ERROR(this->get_logger(),
@@ -377,13 +449,17 @@ namespace motion_control
         }
 
         if (valid_solutions.empty()) {
-            std::ostringstream oss;
-            oss << "IK failed: no valid solution found after " << NUM_ATTEMPTS << " attempts "
-                << "(IK fails=" << ik_failures
-                << ", limits=" << rejected_limits
-                << ", constraints=" << rejected_constraints
-                << ", collision=" << rejected_collision << ")";
-            out_msg = oss.str();
+            const std::string breakdown =
+                "IK fails=" + std::to_string(ik_failures)
+                + ", limits=" + std::to_string(rejected_limits)
+                + ", constraints=" + std::to_string(rejected_constraints)
+                + ", collision=" + std::to_string(rejected_collision);
+            RCLCPP_WARN(this->get_logger(),
+                "[IK] FAILED — 0/%d seeds valid, 0 branches | rejected: %s",
+                NUM_ATTEMPTS, breakdown.c_str());
+
+            out_msg = "IK failed: no valid solution found after "
+                    + std::to_string(NUM_ATTEMPTS) + " attempts (" + breakdown + ")";
             return false;
         }
 
@@ -461,13 +537,31 @@ namespace motion_control
         std::string ik_msg;
 
         // Seed = current state of the robot (move_to_pose: we start from where the robot is)
-        if (!solveBestIK(target_pose, *current_state, best_joints, ik_msg, &all_branches)) {
-            out_msg = ik_msg;
+        auto ik_t0 = std::chrono::high_resolution_clock::now();
+        bool ik_ok = solveBestIK(target_pose, *current_state, best_joints, ik_msg, &all_branches);
+        double ik_dt = std::chrono::duration<double>(
+            std::chrono::high_resolution_clock::now() - ik_t0).count();
+        if (!ik_ok) {
+            out_msg = ik_msg + " (solve took " + std::to_string(ik_dt) + "s)";
+
+            // Rich diagnosis on the target pose (collision / reachability / singularity /
+            // joint limits), same analyzer as the Pilz LIN path, so an IK-only failure is
+            auto scene = getLockedPlanningScene();
+            if (scene) {
+                moveit::core::MoveItErrorCode ik_code;
+                ik_code.val = moveit::core::MoveItErrorCode::NO_IK_SOLUTION;
+                auto report = diagnosePlanningFailure(
+                    ik_code, *move_group_, scene, planning_group_,
+                    &target_pose, nullptr, ik_dt, this->get_logger());
+                if (!report.summary.empty()) {
+                    out_msg += " | " + report.summary;
+                }
+            }
             return false;
         }
-        RCLCPP_INFO(this->get_logger(), "[IK] %s", ik_msg.c_str());
+        RCLCPP_INFO(this->get_logger(), "[IK] %s (solve took %.3fs)", ik_msg.c_str(), ik_dt);
 
-        return planAndExecuteJoints(best_joints, false, execute, out_msg);
+        return planAndExecuteJoints(best_joints, false, execute, out_msg, ik_dt);
 
     #if 0  // DEMO MODE: visit each distinct branch sequentially
         // Set to `#if 1` to re-enable
@@ -712,33 +806,180 @@ namespace motion_control
         return final_pose;
     }
 
-    double MotionServer::computeCartesianPathRobust(
-        const std::vector<geometry_msgs::msg::Pose>& waypoints,
+    bool MotionServer::planCartesianLin(
+        const geometry_msgs::msg::PoseStamped& target,
+        double vel_scaling,
         moveit_msgs::msg::RobotTrajectory& trajectory,
         std::string& out_msg)
     {
-        double fraction = move_group_->computeCartesianPath(waypoints, 0.001, 10.0, trajectory);
+        const double vscale = std::min(std::max(vel_scaling, 0.0), 1.0);
 
-        if (fraction >= kCartesianAcceptThreshold) {
-            out_msg = "OK (standard, fraction=" + std::to_string(fraction) + ")";
-            return fraction;
+        move_group_->clearPoseTargets();
+        move_group_->setPlanningPipelineId("pilz_industrial_motion_planner");
+        move_group_->setPlannerId("LIN");
+        move_group_->setMaxVelocityScalingFactor(vscale);
+        move_group_->setMaxAccelerationScalingFactor(accel_scale_);
+        move_group_->setStartStateToCurrentState();
+        move_group_->setPoseTarget(target);
+
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        auto plan_t0 = std::chrono::high_resolution_clock::now();
+        auto code = move_group_->plan(plan);
+        double plan_dt = std::chrono::duration<double>(
+            std::chrono::high_resolution_clock::now() - plan_t0).count();
+
+        // ALWAYS restore the default OMPL pipeline so a following joint-space move
+        // is not silently planned with Pilz (MoveGroupInterface is stateful).
+        move_group_->setPlanningPipelineId("ompl");
+        move_group_->setPlannerId("");
+
+        if (code != moveit::core::MoveItErrorCode::SUCCESS) {
+            out_msg = "Pilz LIN planning failed: " + moveitErrorCodeToString(code)
+                    + " (took " + std::to_string(plan_dt) + "s)";
+
+            // Full diagnosis on the LIN goal pose (collision / IK reachability / singularity
+            // / joint limits / timeout) — same analyzer used for joint-space planning.
+            auto scene = getLockedPlanningScene();
+            if (scene) {
+                auto report = diagnosePlanningFailure(
+                    code, *move_group_, scene, planning_group_,
+                    &target.pose, nullptr, plan_dt, this->get_logger());
+                if (!report.summary.empty()) {
+                    out_msg += " | " + report.summary;
+                }
+            }
+            return false;
         }
 
-        out_msg = "FAILED (best fraction: " + std::to_string(fraction * 100) + "%)";
-        return fraction;
+        trajectory = plan.trajectory_;
+        out_msg = "Pilz LIN OK (vel_scale=" + std::to_string(vscale) + ")";
+        return true;
     }
 
-    void MotionServer::applyVelocityScaling(moveit_msgs::msg::RobotTrajectory& trajectory)
+    bool MotionServer::planAndExecuteSequence(
+        const std::vector<geometry_msgs::msg::Pose>& waypoints,
+        double vel_scaling,
+        double blend_radius,
+        bool execute,
+        std::string& out_msg)
     {
-        // computeCartesianPath does NOT respect setMaxVelocityScalingFactor.
-        // We must manually retime the trajectory using TOTG (Time Optimal Trajectory Generation).
+        using MGS = moveit_msgs::action::MoveGroupSequence;
+
+        if (!seq_client_->wait_for_action_server(std::chrono::seconds(5))) {
+            out_msg = "Pilz sequence action '/sequence_move_group' unavailable "
+                      "(MoveGroupSequenceAction capability not loaded in move_group)";
+            return false;
+        }
+
+        const std::string eef = move_group_->getEndEffectorLink();
+        const double vscale = std::min(std::max(vel_scaling, 0.0), 1.0);
+        const double ascale = std::min(std::max(accel_scale_, 0.0), 1.0);
+        const double blend = std::max(0.0, blend_radius);
+
+        moveit_msgs::msg::MotionSequenceRequest seq_req;
+        for (size_t i = 0; i < waypoints.size(); ++i) {
+            moveit_msgs::msg::MotionSequenceItem item;
+
+            item.req.group_name = planning_group_;
+            item.req.pipeline_id = "pilz_industrial_motion_planner";
+            item.req.planner_id = "LIN";
+            item.req.max_velocity_scaling_factor = vscale;
+            item.req.max_acceleration_scaling_factor = ascale;
+            item.req.allowed_planning_time = 5.0;
+            item.req.num_planning_attempts = 1;
+
+            geometry_msgs::msg::PoseStamped ps;
+            ps.header.frame_id = planning_frame_;
+            ps.pose = waypoints[i];
+            item.req.goal_constraints.push_back(
+                kinematic_constraints::constructGoalConstraints(eef, ps, 1e-3, 1e-2));
+
+            // blend_radius applies at the END of a segment; the LAST item must be 0 (Pilz rule).
+            item.blend_radius = (i + 1 < waypoints.size()) ? blend : 0.0;
+
+            seq_req.items.push_back(item);
+        }
+
+        MGS::Goal goal;
+        goal.request = seq_req;
+        goal.planning_options.plan_only = !execute;
+
+        auto goal_future = seq_client_->async_send_goal(goal);
+        if (rclcpp::spin_until_future_complete(seq_node_, goal_future, std::chrono::seconds(30))
+                != rclcpp::FutureReturnCode::SUCCESS) {
+            out_msg = "Failed to send Pilz sequence goal (timeout)";
+            return false;
+        }
+        auto goal_handle = goal_future.get();
+        if (!goal_handle) {
+            out_msg = "Pilz sequence goal rejected by server";
+            return false;
+        }
+
+        auto result_future = seq_client_->async_get_result(goal_handle);
+        if (rclcpp::spin_until_future_complete(seq_node_, result_future, std::chrono::seconds(300))
+                != rclcpp::FutureReturnCode::SUCCESS) {
+            out_msg = "Pilz sequence result timeout";
+            return false;
+        }
+
+        auto wrapped = result_future.get();
+
+        // The sequence server fills response.error_code with the real MoveIt reason even
+        // when it ABORTS the goal — read it regardless of the action result code so the
+        // failure message is actionable (not just "result code 6 = ABORTED").
+        const bool action_ok = (wrapped.code == rclcpp_action::ResultCode::SUCCEEDED);
+        int err_val = moveit_msgs::msg::MoveItErrorCodes::SUCCESS;
+        if (wrapped.result) {
+            err_val = wrapped.result->response.error_code.val;
+        }
+
+        if (!action_ok || err_val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS) {
+            moveit_msgs::msg::MoveItErrorCodes ec;
+            ec.val = err_val;
+            moveit::core::MoveItErrorCode seq_code(ec);
+
+            const char* action_state =
+                (wrapped.code == rclcpp_action::ResultCode::ABORTED)  ? "ABORTED"  :
+                (wrapped.code == rclcpp_action::ResultCode::CANCELED) ? "CANCELED" :
+                (wrapped.code == rclcpp_action::ResultCode::SUCCEEDED)? "SUCCEEDED": "UNKNOWN";
+
+            out_msg = std::string("Pilz sequence failed (action ") + action_state
+                    + ", MoveIt code: " + moveitErrorCodeToString(seq_code) + ")"
+                    + " — a LIN segment is likely infeasible (singularity, joint/Cartesian limit, "
+                      "collision) or blend_radius too large / segment too short.";
+            return false;
+        }
+
+        out_msg = "Pilz Sequence OK (" + std::to_string(waypoints.size())
+                + " LIN segments, blend=" + std::to_string(blend)
+                + "m, vel_scale=" + std::to_string(vscale) + ")";
+        return true;
+    }
+
+    void MotionServer::applyVelocityScaling(
+        moveit_msgs::msg::RobotTrajectory& trajectory,
+        double path_tolerance)
+    {
+        // Re-time the (concatenated joint-space waypoint) trajectory with TOTG so it honors
+        // vel_scale_/accel_scale_ and has continuous velocities at segment junctions.
+        // (Cartesian moves no longer pass here: Pilz LIN/Sequence time their own trajectories.)
         robot_trajectory::RobotTrajectory rt(
             move_group_->getRobotModel(), planning_group_);
 
         rt.setRobotTrajectoryMsg(*move_group_->getCurrentState(), trajectory);
 
+        // <= 0 means "use default"; otherwise clamp to a sane range so a bad request can't
+        // ask for a wildly large corner-cut (the final trajectory is collision-checked anyway).
+        double tol = (path_tolerance > 0.0)
+            ? std::min(std::max(path_tolerance, 0.001), 0.5)
+            : kDefaultTotgPathTolerance;
+        RCLCPP_INFO(this->get_logger(),
+            "[TRAJ] TOTG re-timing with path_tolerance=%.4f rad%s",
+            tol, (path_tolerance > 0.0) ? " (requested)" : " (default)");
+
         trajectory_processing::TimeOptimalTrajectoryGeneration totg(
-            0.05,   // path_tolerance (rad) — how much TOTG can deviate from path to smooth corners
+            tol,    // path_tolerance (rad) — how much TOTG can deviate from path to smooth corners
             0.01,   // resample_dt (s) — finer interpolation
             0.001   // min_angle_change
         );
@@ -972,57 +1213,203 @@ namespace motion_control
         return true;
     }
 
+    // Re-check the (post-TOTG) trajectory against the planning scene. Needed because TOTG's
+    // path_tolerance rounds segment-junction corners, deviating from the per-segment paths
+    // that OMPL validated — a deviation nothing else re-checks. We interpolate between
+    // consecutive points so a thin obstacle can't be tunneled through.
+    bool MotionServer::validateTrajectoryCollisionFree(
+        const moveit_msgs::msg::RobotTrajectory& trajectory,
+        std::string& out_msg) const
+    {
+        const auto& joint_traj = trajectory.joint_trajectory;
+        const auto& points = joint_traj.points;
+
+        if (points.empty()) {
+            // validateTrajectory already rejects this; treat as nothing-to-check here.
+            return true;
+        }
+
+        auto scene = getLockedPlanningScene();
+        if (!scene) {
+            out_msg = "SAFETY: PlanningSceneMonitor unavailable — cannot collision-check "
+                      "the final trajectory; refusing execution";
+            RCLCPP_ERROR(this->get_logger(), "%s", out_msg.c_str());
+            return false;
+        }
+
+        moveit::core::RobotState state(move_group_->getRobotModel());
+        state.setToDefaultValues();
+
+        // Max joint step (rad) between collision samples; finer than this we interpolate.
+        constexpr double MAX_STEP_RAD = 0.02;
+
+        auto check_state = [&](const std::vector<double>& positions,
+                               size_t point_index, std::string& fail) -> bool {
+            for (size_t j = 0; j < joint_traj.joint_names.size() && j < positions.size(); ++j) {
+                state.setVariablePosition(joint_traj.joint_names[j], positions[j]);
+            }
+            state.update();
+
+            std::vector<std::string> pairs, self_pairs, env_pairs;
+            if (checkStateCollision(scene, state, planning_group_, pairs, self_pairs, env_pairs)) {
+                std::ostringstream oss;
+                oss << "SAFETY: post-TOTG trajectory is in collision at point " << point_index
+                    << " (corner-rounding deviated into an obstacle): ";
+                for (size_t i = 0; i < pairs.size() && i < 5; ++i) {
+                    if (i > 0) oss << ", ";
+                    oss << pairs[i];
+                }
+                fail = oss.str();
+                return false;
+            }
+            return true;
+        };
+
+        // Check the very first point.
+        if (!check_state(points.front().positions, 0, out_msg)) {
+            RCLCPP_ERROR(this->get_logger(), "%s", out_msg.c_str());
+            return false;
+        }
+
+        // Check every subsequent point, interpolating sub-steps when the joint delta is large.
+        for (size_t i = 1; i < points.size(); ++i) {
+            const auto& prev = points[i - 1].positions;
+            const auto& curr = points[i].positions;
+            if (prev.size() != curr.size()) continue;
+
+            double max_delta = 0.0;
+            for (size_t j = 0; j < curr.size(); ++j) {
+                max_delta = std::max(max_delta, std::abs(curr[j] - prev[j]));
+            }
+
+            const size_t sub = std::max<size_t>(
+                1, static_cast<size_t>(std::ceil(max_delta / MAX_STEP_RAD)));
+
+            for (size_t s = 1; s <= sub; ++s) {
+                const double alpha = static_cast<double>(s) / static_cast<double>(sub);
+                std::vector<double> interp(curr.size());
+                for (size_t j = 0; j < curr.size(); ++j) {
+                    interp[j] = prev[j] + alpha * (curr[j] - prev[j]);
+                }
+                if (!check_state(interp, i, out_msg)) {
+                    RCLCPP_ERROR(this->get_logger(), "%s", out_msg.c_str());
+                    return false;
+                }
+            }
+        }
+
+        RCLCPP_INFO(this->get_logger(),
+            "[TRAJ] Post-TOTG collision check passed (%zu points)", points.size());
+        return true;
+    }
+
     // Post-execution diagnostics
     std::string MotionServer::diagnoseExecutionFailure(
         const moveit::core::MoveItErrorCode& exec_code)
     {
-        std::ostringstream oss;
-        oss << "Execution failed: " << moveitErrorCodeToString(exec_code);
+        // Delegates to the free diagnostic (in motion_diagnostics), passing the live
+        // node state it needs (MoveGroup, locked planning scene, planning group).
+        return motion_control::diagnoseExecutionFailure(
+            exec_code, *move_group_, getLockedPlanningScene(),
+            planning_group_, this->get_logger());
+    }
 
-        // Log the current joint state at the point of failure
-        auto current_state = move_group_->getCurrentState(1.0);
-        if (current_state) {
-            std::vector<double> joint_vals;
-            current_state->copyJointGroupPositions(planning_group_, joint_vals);
-            oss << " | Interrupted joint state: [";
-            for (size_t i = 0; i < joint_vals.size(); ++i) {
-                if (i > 0) oss << ", ";
-                oss << std::fixed << std::setprecision(4) << joint_vals[i];
-            }
-            oss << "]";
+    void MotionServer::onSetTcpTrace(
+        const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+        std::shared_ptr<std_srvs::srv::SetBool::Response> res)
+    {
+        std::lock_guard<std::mutex> lk(trace_mtx_);
+        trace_enabled_ = req->data;
+        res->success = true;
+        res->message = trace_enabled_
+            ? "TCP trace ENABLED (sampling the live tool-tip path)"
+            : "TCP trace DISABLED (existing trace kept; call clear_tcp_trace to erase it)";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
 
-            // Run collision check at interrupted state
-            auto scene = getLockedPlanningScene();
-            if (scene) {
-                std::vector<std::string> pairs, self_pairs, env_pairs;
-                if (checkStateCollision(scene, *current_state, planning_group_,
-                                        pairs, self_pairs, env_pairs)) {
-                    oss << " | IN COLLISION at interrupted state: ";
-                    for (size_t i = 0; i < pairs.size() && i < 5; ++i) {
-                        if (i > 0) oss << ", ";
-                        oss << pairs[i];
-                    }
-                    if (!self_pairs.empty()) oss << " (" << self_pairs.size() << " self-collision)";
-                    if (!env_pairs.empty()) oss << " (" << env_pairs.size() << " env-collision)";
-                }
+    void MotionServer::onClearTcpTrace(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*req*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+    {
+        std::lock_guard<std::mutex> lk(trace_mtx_);
+        trace_points_.clear();
+        publishTraceMarker(/*clear=*/true);
+        res->success = true;
+        res->message = "TCP trace cleared";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
 
-                // Singularity check at interrupted state
-                const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
-                if (jmg) {
-                    auto sing = computeSingularityMetrics(*current_state, jmg);
-                    if (sing.is_singular) {
-                        oss << " | NEAR SINGULARITY: manipulability=" << sing.manipulability
-                            << ", condition=" << sing.condition_number;
-                    }
-                }
-            }
-        } else {
-            oss << " | WARNING: Could not retrieve robot state after execution failure";
+    void MotionServer::sampleTcpTrace()
+    {
+        // Snapshot the frames under the lock, then do the (thread-safe) TF lookup unlocked.
+        std::string frame, ee;
+        {
+            std::lock_guard<std::mutex> lk(trace_mtx_);
+            if (!trace_enabled_) return;
+            frame = planning_frame_;
+            ee = ee_link_;
+        }
+        if (frame.empty() || ee.empty()) return;
+
+        geometry_msgs::msg::Point p;
+        try {
+            auto tf = tf_buffer_->lookupTransform(frame, ee, tf2::TimePointZero);
+            p.x = tf.transform.translation.x;
+            p.y = tf.transform.translation.y;
+            p.z = tf.transform.translation.z;
+        } catch (const std::exception&) {
+            return;  // TF not available yet — skip this tick silently
         }
 
-        std::string result = oss.str();
-        RCLCPP_ERROR(this->get_logger(), "[EXEC-DIAG] %s", result.c_str());
-        return result;
+        std::lock_guard<std::mutex> lk(trace_mtx_);
+        if (!trace_enabled_) return;  // could have been disabled between the two locks
+
+        if (!trace_points_.empty()) {
+            const auto& last = trace_points_.back();
+            const double dx = p.x - last.x;
+            const double dy = p.y - last.y;
+            const double dz = p.z - last.z;
+            const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+            if (dist < kTraceMinDist) return;        // not enough movement to record
+            if (dist > kTraceMaxJump) {              // discontinuity -> start a fresh line
+                trace_points_.clear();
+            }
+        }
+
+        trace_points_.push_back(p);
+        if (trace_points_.size() > kTraceMaxPoints) {
+            trace_points_.erase(trace_points_.begin());  // moving window
+        }
+        publishTraceMarker(/*clear=*/false);
+    }
+
+    void MotionServer::publishTraceMarker(bool clear)
+    {
+        // Precondition: caller holds trace_mtx_.
+        visualization_msgs::msg::Marker m;
+        m.header.frame_id = planning_frame_;
+        m.header.stamp = this->now();
+        m.ns = "tcp_trace";
+        m.id = 0;
+        m.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+
+        if (clear || trace_points_.empty()) {
+            m.action = visualization_msgs::msg::Marker::DELETE;
+            visual_marker_pub_->publish(m);
+            return;
+        }
+
+        m.action = visualization_msgs::msg::Marker::ADD;
+        m.pose.orientation.w = 1.0;
+        m.scale.x = 0.004;  // sphere diameter (x/y/z) = 4 mm
+        m.scale.y = 0.004;
+        m.scale.z = 0.004;
+        m.color.r = 0.0f;
+        m.color.g = 1.0f;
+        m.color.b = 0.2f;
+        m.color.a = 1.0f;
+        m.points = trace_points_;
+        visual_marker_pub_->publish(m);
     }
 
     void MotionServer::onMoveToPose(
@@ -1082,51 +1469,34 @@ namespace motion_control
 
         if (req->cartesian_path)
         {
-            std::vector<geometry_msgs::msg::Pose> waypoints;
-            waypoints.push_back(target_pose.pose);
-
+            // Cartesian => straight TCP line via Pilz LIN
             moveit_msgs::msg::RobotTrajectory trajectory;
-            std::string cart_msg;
+            std::string lin_msg;
 
-            move_group_->setStartStateToCurrentState();
+            // Velocity: absolute Cartesian speed (m/s) if requested, else relative scaling.
+            double vscale = vel_scale_;
+            if (req->cartesian_speed > 0.0) {
+                vscale = std::min(std::max(req->cartesian_speed / pilz_max_trans_vel_, 0.0), 1.0);
+                RCLCPP_INFO(this->get_logger(),
+                    "[MoveToPose] Absolute Cartesian speed %.4f m/s => vel_scale=%.3f (max_trans_vel=%.4f m/s)",
+                    req->cartesian_speed, vscale, pilz_max_trans_vel_);
+            }
+
             auto start_time = std::chrono::high_resolution_clock::now();
-            double fraction = computeCartesianPathRobust(waypoints, trajectory, cart_msg);
+            bool planned = planCartesianLin(target_pose, vscale, trajectory, lin_msg);
             auto end_time = std::chrono::high_resolution_clock::now();
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
-            RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)",
-                        cart_msg.c_str(), planning_duration);
-            logCartesianFkTrace("MOVE_TO_POSE_RAW_AFTER_COMPUTE", trajectory);
+            RCLCPP_INFO(this->get_logger(), "Cartesian (Pilz LIN) result: %s (%.2fs)",
+                        lin_msg.c_str(), planning_duration);
 
-
-            if (fraction < kCartesianAcceptThreshold) {
-                // --- Cartesian-specific diagnostic ---
-                auto scene = getLockedPlanningScene();
-                std::string diag_summary;
-                if (scene) {
-                    auto report = diagnoseCartesianFailure(
-                        *move_group_, scene, planning_group_,
-                        waypoints, fraction,
-                        planning_duration, this->get_logger());
-                    diag_summary = report.summary;
-                }
-
+            if (!planned) {
                 res->success = false;
-                res->message = "Cartesian path failed — fraction: "
-                            + std::to_string(fraction * 100.0) + "% | "
-                            + cart_msg;
-                if (!diag_summary.empty()) {
-                    res->message += " | " + diag_summary;
-                }
-                res->message += " (took " + std::to_string(planning_duration) + "s)";
+                res->message = lin_msg + " (took " + std::to_string(planning_duration) + "s)";
                 return;
             }
-             RCLCPP_INFO(this->get_logger(), "Cartesian path planned successfully with fraction %.1f%% (%.2fs)",
-                        fraction * 100.0, planning_duration);
 
-            // Apply velocity/acceleration scaling to the raw Cartesian trajectory
-            applyVelocityScaling(trajectory);
-            logCartesianFkTrace("MOVE_TO_POSE_AFTER_RETIMER", trajectory);
+            logCartesianFkTrace("MOVE_TO_POSE_LIN", trajectory);
 
             // Validate trajectory before sending to controller
             std::string traj_err;
@@ -1146,16 +1516,23 @@ namespace motion_control
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
 
-                if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                std::string robot_fault;
+                if (getRobotFaultMessage(robot_fault)) {
+                    res->success = false;
+                    res->message = robot_fault;
+                } else if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
                     res->success = false;
                     res->message = diagnoseExecutionFailure(exec_code);
                 } else {
                     res->success = true;
-                    res->message = "Cartesian path executed. " + cart_msg
+                    res->message = "Cartesian (LIN) executed. " + lin_msg
                                 + " (plan=" + std::to_string(planning_duration)
                                 + "s, trajectory=" + std::to_string(traj_duration)
                                 + "s, real=" + std::to_string(exec_dt) + "s)";
                 }
+            } else {
+                res->success = true;
+                res->message = "Cartesian (LIN) planned (execute=false). " + lin_msg;
             }
         }
         else
@@ -1296,73 +1673,34 @@ namespace motion_control
         if (req->cartesian_path)
         {
 
-            moveit_msgs::msg::RobotTrajectory trajectory;
-            std::string cart_msg;
-
-            move_group_->setStartStateToCurrentState();
-            auto start_time = std::chrono::high_resolution_clock::now();
-            double fraction = computeCartesianPathRobust(absolute_waypoints, trajectory, cart_msg);
-            auto end_time = std::chrono::high_resolution_clock::now();
-            double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
-
-            RCLCPP_INFO(this->get_logger(), "Cartesian path result: %s (%.2fs)",
-                        cart_msg.c_str(), planning_duration);
-            logCartesianFkTrace("MOVE_WAYPOINTS_RAW_AFTER_COMPUTE", trajectory);
-
-            if (fraction < kCartesianAcceptThreshold) {
-                auto scene = getLockedPlanningScene();
-                std::string diag_summary;
-                if (scene) {
-                    auto report = diagnoseCartesianFailure(
-                        *move_group_, scene, planning_group_,
-                        absolute_waypoints, fraction,
-                        planning_duration, this->get_logger());
-                    diag_summary = report.summary;
-                }
-
-                res->success = false;
-                res->message = "Cartesian path failed — fraction: "
-                            + std::to_string(fraction * 100.0) + "% | "
-                            + cart_msg;
-                if (!diag_summary.empty()) {
-                    res->message += " | " + diag_summary;
-                }
-                res->message += " (took " + std::to_string(planning_duration) + "s)";
-                return;
+            // Cartesian waypoints => single blended Pilz LIN sequence (/sequence_move_group).
+            // blend_radius rounds the corners (0 = stop at each corner). The action plans and,
+            // when execute=true, executes the whole blended trajectory natively.
+            double vscale = vel_scale_;
+            if (req->cartesian_speed > 0.0) {
+                vscale = std::min(std::max(req->cartesian_speed / pilz_max_trans_vel_, 0.0), 1.0);
+                RCLCPP_INFO(this->get_logger(),
+                    "[MoveWaypoints] Absolute Cartesian speed %.4f m/s => vel_scale=%.3f",
+                    req->cartesian_speed, vscale);
             }
 
-            // Apply velocity/acceleration scaling to the raw Cartesian trajectory
-            applyVelocityScaling(trajectory);
-            logCartesianFkTrace("MOVE_WAYPOINTS_AFTER_RETIMER", trajectory);
+            auto seq_t0 = std::chrono::high_resolution_clock::now();
+            std::string seq_msg;
+            bool ok = planAndExecuteSequence(absolute_waypoints, vscale,
+                                             req->blend_radius, req->execute, seq_msg);
+            double seq_dt = std::chrono::duration<double>(
+                std::chrono::high_resolution_clock::now() - seq_t0).count();
 
-            // Validate trajectory before sending to controller
-            std::string traj_err;
-            if (!validateTrajectory(trajectory, traj_err)) {
+            RCLCPP_INFO(this->get_logger(), "[MoveWaypoints] Pilz Sequence: %s (%.2fs)",
+                        seq_msg.c_str(), seq_dt);
+
+            std::string robot_fault;
+            if (ok && req->execute && getRobotFaultMessage(robot_fault)) {
                 res->success = false;
-                res->message = traj_err;
-                return;
-            }
-
-            if (req->execute) {
-                const auto& pts = trajectory.joint_trajectory.points;
-                double traj_duration = pts.back().time_from_start.sec
-                                    + pts.back().time_from_start.nanosec * 1e-9;
-
-                auto exec_t0 = std::chrono::high_resolution_clock::now();
-                auto exec_code = move_group_->execute(trajectory);
-                double exec_dt = std::chrono::duration<double>(
-                    std::chrono::high_resolution_clock::now() - exec_t0).count();
-
-                if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
-                    res->success = false;
-                    res->message = diagnoseExecutionFailure(exec_code);
-                } else {
-                    res->success = true;
-                    res->message = "Cartesian path executed. " + cart_msg
-                                + " (plan=" + std::to_string(planning_duration)
-                                + "s, trajectory=" + std::to_string(traj_duration)
-                                + "s, real=" + std::to_string(exec_dt) + "s)";
-                }
+                res->message = robot_fault;
+            } else {
+                res->success = ok;
+                res->message = seq_msg + " (" + std::to_string(seq_dt) + "s)";
             }
         }
         else {
@@ -1513,8 +1851,9 @@ namespace motion_control
             double planning_duration = std::chrono::duration<double>(end_time - start_time).count();
 
             // Retime the combined trajectory to eliminate velocity discontinuities
-            // at segment junctions (same mechanism as cartesian paths)
-            applyVelocityScaling(combined_trajectory);
+            // at segment junctions (joint-space waypoints; Cartesian waypoints use Pilz Sequence).
+            // path_tolerance (rad) is the joint-space analogue of the Cartesian blend_radius.
+            applyVelocityScaling(combined_trajectory, req->path_tolerance);
 
             // Summary of the assembled multi-segment trajectory
             RCLCPP_INFO(this->get_logger(),
@@ -1530,6 +1869,15 @@ namespace motion_control
                 return;
             }
 
+            // Re-check collisions on the FINAL (post-TOTG) trajectory: TOTG corner-rounding
+            // can deviate from the per-segment paths OMPL validated. Refuse on collision.
+            std::string collision_err;
+            if (!validateTrajectoryCollisionFree(combined_trajectory, collision_err)) {
+                res->success = false;
+                res->message = collision_err;
+                return;
+            }
+
             // Execute
             if (req->execute) {
                 const auto& pts = combined_trajectory.joint_trajectory.points;
@@ -1541,7 +1889,11 @@ namespace motion_control
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
 
-                if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                std::string robot_fault;
+                if (getRobotFaultMessage(robot_fault)) {
+                    res->success = false;
+                    res->message = robot_fault;
+                } else if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
                     res->success = false;
                     res->message = diagnoseExecutionFailure(exec_code);
                 } else {
@@ -1556,8 +1908,12 @@ namespace motion_control
     }
 
     bool MotionServer::planAndExecuteJoints(
-        const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg)
+        const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg, double ik_seconds)
     {
+        // Optional "IK=...s, " prefix shown inside the result message when an IK step preceded this call.
+        const std::string ik_prefix = (ik_seconds >= 0.0)
+            ? "IK=" + std::to_string(ik_seconds) + "s, "
+            : "";
         const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
         const auto& names = jmg->getVariableNames();
 
@@ -1680,15 +2036,20 @@ namespace motion_control
             double exec_dt = std::chrono::duration<double>(
                 std::chrono::high_resolution_clock::now() - exec_t0).count();
 
+            std::string robot_fault;
+            if (getRobotFaultMessage(robot_fault)) {
+                out_msg = robot_fault;
+                return false;
+            }
             if (exec != moveit::core::MoveItErrorCode::SUCCESS) {
                 out_msg = diagnoseExecutionFailure(exec);
                 return false;
             }
-            out_msg = "Joint trajectory executed (plan=" + std::to_string(dt)
+            out_msg = "Joint trajectory executed (" + ik_prefix + "plan=" + std::to_string(dt)
                     + "s, trajectory=" + std::to_string(traj_duration)
                     + "s, real=" + std::to_string(exec_dt) + "s)";
         } else {
-            out_msg = "Joint trajectory planned (execute=false) (took " + std::to_string(dt) + "s)";
+            out_msg = "Joint trajectory planned (execute=false) (" + ik_prefix + "took " + std::to_string(dt) + "s)";
         }
         return true;
     }
@@ -1806,7 +2167,7 @@ namespace motion_control
 
         // Check if MoveGroupInterface is initialized
         std::string why;
-        if (!ensureInitialized(why)) {
+        if (!ensureMoveGroupInitialized(why)) {
             res->success = false;
             res->message = why;
             return;
@@ -1893,7 +2254,7 @@ namespace motion_control
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
-        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+        if (!ensureMoveGroupInitialized(why)) { res->success = false; res->message = why; return; }
 
         std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
         std::vector<std::string> wall_names = {"cage_front", "cage_back", "cage_left", "cage_right", "cage_top", "cage_bottom"};
@@ -1988,7 +2349,7 @@ namespace motion_control
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
-        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+        if (!ensureMoveGroupInitialized(why)) { res->success = false; res->message = why; return; }
 
         // --- 1. Math and Pose Calculations ---
         tf2::Quaternion q;
@@ -2092,7 +2453,7 @@ namespace motion_control
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
-        if (!ensureInitialized(why)) { res->success = false; res->message = why; return; }
+        if (!ensureMoveGroupInitialized(why)) { res->success = false; res->message = why; return; }
 
         moveit_msgs::msg::CollisionObject obj;
         obj.header.frame_id = planning_frame_; // Placed relative to the planning frame
@@ -2175,7 +2536,7 @@ namespace motion_control
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
-        if (!ensureInitialized(why)) {
+        if (!ensureMoveGroupInitialized(why)) {
             res->success = false;
             res->message = why;
             return;

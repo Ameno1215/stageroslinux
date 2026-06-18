@@ -19,8 +19,12 @@ float64[] joint_max
 
 # Drapeaux de comportement
 bool is_relative           # True = mouvement relatif, False = cible absolue
-bool cartesian_path        # True = ligne droite, False = mouvement articulaire fluide
+bool cartesian_path        # True = ligne droite (Pilz LIN), False = mouvement articulaire (OMPL)
 bool execute               # True = planifie et bouge, False = planifie seulement
+
+# Vitesse cartésienne absolue du TCP en m/s (uniquement si cartesian_path=True).
+# 0 = utiliser le scaling relatif courant (set_scaling). > 0 = vitesse absolue.
+float64 cartesian_speed
 
 ---
 # Response
