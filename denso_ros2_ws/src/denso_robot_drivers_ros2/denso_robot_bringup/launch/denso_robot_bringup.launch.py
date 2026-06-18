@@ -347,7 +347,7 @@ def generate_launch_description():
         arguments=[
             '--ros-args',
             # Global default for everything in this process
-            '--log-level', 'DEBUG',
+            '--log-level', 'INFO',
             # Silence noisy components that aren't useful
             '--log-level', 'rcl:=INFO',
             '--log-level', 'rmw_fastrtps_cpp:=INFO',

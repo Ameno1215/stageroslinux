@@ -437,7 +437,10 @@ namespace motion_control
              * @return false If joint count mismatch, planning failed, trajectory validation
              *         failed, or execution was rejected by the controller.
              */
-            bool planAndExecuteJoints(const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg);
+            // ik_seconds: time spent in the preceding IK search, for logging only.
+            // Pass a value >= 0 to prepend "IK=...s, " to the result message; -1 (default)
+            // means there was no IK step (e.g. direct joint-space move) and it is omitted.
+            bool planAndExecuteJoints(const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg, double ik_seconds = -1.0);
 
             /**
              * @brief Service callback to move the robot to a Cartesian pose via joint-space planning.
@@ -543,7 +546,7 @@ namespace motion_control
              * @brief Enables/disables continuous tracing of the tool tip (TCP) path.
              *
              * When enabled, a periodic timer samples the REAL TCP pose via TF
-             * (planning_frame -> end-effector link) and appends it to a LINE_STRIP
+             * (planning_frame -> end-effector link) and appends it to a SPHERE_LIST
              * marker, so the actual travelled path is shown live in RViz regardless of
              * the motion type (joint, Pilz LIN, waypoints, manual jog, external control).
              * Disabling stops sampling but keeps the existing trace displayed.
@@ -571,7 +574,7 @@ namespace motion_control
             void sampleTcpTrace();
 
             /**
-             * @brief Publishes the current TCP trace as a LINE_STRIP marker (ADD), or an
+             * @brief Publishes the current TCP trace as a SPHERE_LIST marker (ADD), or an
              * empty/DELETE marker to clear it. Caller must hold trace_mtx_.
              */
             void publishTraceMarker(bool clear = false);
@@ -656,7 +659,7 @@ namespace motion_control
             std::vector<geometry_msgs::msg::Point> trace_points_;
 
             // Minimum TCP displacement (m) between two recorded points (anti-spam at rest).
-            static constexpr double kTraceMinDist = 0.001;      // 1 mm
+            static constexpr double kTraceMinDist = 0.002;      // 2 mm (< sphere diameter so spheres overlap)
             // Beyond this single-step displacement (m) we assume a discontinuity/teleport
             // and start a fresh trace rather than drawing a straight line across space.
             static constexpr double kTraceMaxJump = 0.25;       // 25 cm

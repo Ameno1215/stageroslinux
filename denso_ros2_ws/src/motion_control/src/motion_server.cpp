@@ -543,7 +543,7 @@ namespace motion_control
         }
         RCLCPP_INFO(this->get_logger(), "[IK] %s (solve took %.3fs)", ik_msg.c_str(), ik_dt);
 
-        return planAndExecuteJoints(best_joints, false, execute, out_msg);
+        return planAndExecuteJoints(best_joints, false, execute, out_msg, ik_dt);
 
     #if 0  // DEMO MODE: visit each distinct branch sequentially
         // Set to `#if 1` to re-enable
@@ -1373,10 +1373,9 @@ namespace motion_control
         m.header.stamp = this->now();
         m.ns = "tcp_trace";
         m.id = 0;
-        m.type = visualization_msgs::msg::Marker::LINE_STRIP;
+        m.type = visualization_msgs::msg::Marker::SPHERE_LIST;
 
-        // A LINE_STRIP needs at least 2 points; otherwise just remove the marker.
-        if (clear || trace_points_.size() < 2) {
+        if (clear || trace_points_.empty()) {
             m.action = visualization_msgs::msg::Marker::DELETE;
             visual_marker_pub_->publish(m);
             return;
@@ -1384,7 +1383,9 @@ namespace motion_control
 
         m.action = visualization_msgs::msg::Marker::ADD;
         m.pose.orientation.w = 1.0;
-        m.scale.x = 0.002;  // 2 mm line width
+        m.scale.x = 0.004;  // sphere diameter (x/y/z) = 4 mm
+        m.scale.y = 0.004;
+        m.scale.z = 0.004;
         m.color.r = 0.0f;
         m.color.g = 1.0f;
         m.color.b = 0.2f;
@@ -1889,8 +1890,12 @@ namespace motion_control
     }
 
     bool MotionServer::planAndExecuteJoints(
-        const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg)
+        const std::vector<double>& joints, bool is_relative, bool execute, std::string& out_msg, double ik_seconds)
     {
+        // Optional "IK=...s, " prefix shown inside the result message when an IK step preceded this call.
+        const std::string ik_prefix = (ik_seconds >= 0.0)
+            ? "IK=" + std::to_string(ik_seconds) + "s, "
+            : "";
         const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
         const auto& names = jmg->getVariableNames();
 
@@ -2022,11 +2027,11 @@ namespace motion_control
                 out_msg = diagnoseExecutionFailure(exec);
                 return false;
             }
-            out_msg = "Joint trajectory executed (plan=" + std::to_string(dt)
+            out_msg = "Joint trajectory executed (" + ik_prefix + "plan=" + std::to_string(dt)
                     + "s, trajectory=" + std::to_string(traj_duration)
                     + "s, real=" + std::to_string(exec_dt) + "s)";
         } else {
-            out_msg = "Joint trajectory planned (execute=false) (took " + std::to_string(dt) + "s)";
+            out_msg = "Joint trajectory planned (execute=false) (" + ik_prefix + "took " + std::to_string(dt) + "s)";
         }
         return true;
     }
