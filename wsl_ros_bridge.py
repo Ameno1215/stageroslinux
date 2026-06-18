@@ -326,6 +326,8 @@ class MotionRosClient(Node):
         self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
         self.move_pose_via_joint_cli = self.create_client(MoveToPose, "/move_to_pose_via_joint")
         self.clear_env_cli = self.create_client(Trigger, "/clear_environment")
+        self.set_tcp_trace_cli = self.create_client(SetBool, "/set_tcp_trace")
+        self.clear_tcp_trace_cli = self.create_client(Trigger, "/clear_tcp_trace")
         self.servo_on_cli = None
         self.drive_power_cli = None
         self.pump_grab_cli = None
@@ -350,6 +352,8 @@ class MotionRosClient(Node):
             (self.manage_box_cli, "/manage_box"),
             (self.manage_mesh_cli, "/manage_mesh"),
             (self.clear_env_cli, "/clear_environment"),
+            (self.set_tcp_trace_cli, "/set_tcp_trace"),
+            (self.clear_tcp_trace_cli, "/clear_tcp_trace"),
             (self.move_pose_via_joint_cli, "/move_to_pose_via_joint")
         ]:
             if not cli.wait_for_service(timeout_sec=30.0):
@@ -1082,7 +1086,36 @@ class MotionRosClient(Node):
             logger.error(f"Critical error during ClearEnvironment call: {e}")
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"ClearEnvironment failed: {e}")
-    
+
+    def call_set_tcp_trace(self, enable: bool) -> Dict[str, Any]:
+        logger.info(f"TCP trace {'enable' if enable else 'disable'} requested")
+        ros_req = SetBool.Request()
+        ros_req.data = bool(enable)
+        fut = self.set_tcp_trace_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=10.0)
+            if not res.success:
+                logger.error(f"Set TCP trace failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during SetTcpTrace call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"SetTcpTrace failed: {e}")
+
+    def call_clear_tcp_trace(self) -> Dict[str, Any]:
+        logger.info("Clear TCP trace requested")
+        ros_req = Trigger.Request()
+        fut = self.clear_tcp_trace_cli.call_async(ros_req)
+        try:
+            res = self._wait_for_future(fut, timeout=10.0)
+            if not res.success:
+                logger.error(f"Clear TCP trace failed: {res.message}")
+            return {"success": bool(res.success), "message": str(res.message)}
+        except Exception as e:
+            logger.error(f"Critical error during ClearTcpTrace call: {e}")
+            logger.debug(traceback.format_exc())
+            raise RuntimeError(f"ClearTcpTrace failed: {e}")
+
     def call_move_to_pose_via_joint(self, req: MoveToPoseReq) -> Dict[str, Any]:
         if not self.motors_on:
             logger.error("Motors are OFF. Rejecting movement command.")
@@ -1407,6 +1440,27 @@ def manage_mesh(req: ManageMeshReq):
 def clear_environment():
     try:
         return _ros_client.call_clear_environment()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/trace/start")
+def trace_start():
+    try:
+        return _ros_client.call_set_tcp_trace(True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/trace/stop")
+def trace_stop():
+    try:
+        return _ros_client.call_set_tcp_trace(False)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/trace/clear")
+def trace_clear():
+    try:
+        return _ros_client.call_clear_tcp_trace()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

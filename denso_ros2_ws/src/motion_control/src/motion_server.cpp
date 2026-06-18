@@ -99,6 +99,28 @@ namespace motion_control
             "clear_environment",
             std::bind(&MotionServer::onClearEnvironment, this, std::placeholders::_1, std::placeholders::_2));
 
+        // --- Continuous TCP path tracing ---
+        // Dedicated callback group: on the MultiThreadedExecutor this lets the sampling
+        // timer (and the trace services) run while a blocking motion callback is busy in
+        // the default group, so the trace keeps growing DURING a movement.
+        trace_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+        srv_set_trace_ = this->create_service<std_srvs::srv::SetBool>(
+            "set_tcp_trace",
+            std::bind(&MotionServer::onSetTcpTrace, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, trace_cb_group_);
+
+        srv_clear_trace_ = this->create_service<std_srvs::srv::Trigger>(
+            "clear_tcp_trace",
+            std::bind(&MotionServer::onClearTcpTrace, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, trace_cb_group_);
+
+        // 30 Hz sampler; it early-returns when tracing is disabled, so it is cheap when idle.
+        trace_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(33),
+            std::bind(&MotionServer::sampleTcpTrace, this),
+            trace_cb_group_);
+
         RCLCPP_INFO(this->get_logger(), "MotionServer ready. Call /init_robot first");
     }
 
@@ -176,6 +198,13 @@ namespace motion_control
 
             planning_frame_ = move_group_->getPlanningFrame();
             RCLCPP_INFO(this->get_logger(), "Using planning frame: %s", planning_frame_.c_str());
+
+            // Cache the end-effector link for the TCP-trace timer (avoids touching the
+            // non thread-safe MoveGroupInterface from the timer's callback group).
+            {
+                std::lock_guard<std::mutex> tlk(trace_mtx_);
+                ee_link_ = move_group_->getEndEffectorLink();
+            }
 
             // Resting pipeline = OMPL for all joint-space planning. Cartesian moves
             // temporarily switch to Pilz LIN (planCartesianLin) and restore OMPL.
@@ -1265,6 +1294,103 @@ namespace motion_control
         return motion_control::diagnoseExecutionFailure(
             exec_code, *move_group_, getLockedPlanningScene(),
             planning_group_, this->get_logger());
+    }
+
+    void MotionServer::onSetTcpTrace(
+        const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+        std::shared_ptr<std_srvs::srv::SetBool::Response> res)
+    {
+        std::lock_guard<std::mutex> lk(trace_mtx_);
+        trace_enabled_ = req->data;
+        res->success = true;
+        res->message = trace_enabled_
+            ? "TCP trace ENABLED (sampling the live tool-tip path)"
+            : "TCP trace DISABLED (existing trace kept; call clear_tcp_trace to erase it)";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onClearTcpTrace(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*req*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+    {
+        std::lock_guard<std::mutex> lk(trace_mtx_);
+        trace_points_.clear();
+        publishTraceMarker(/*clear=*/true);
+        res->success = true;
+        res->message = "TCP trace cleared";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::sampleTcpTrace()
+    {
+        // Snapshot the frames under the lock, then do the (thread-safe) TF lookup unlocked.
+        std::string frame, ee;
+        {
+            std::lock_guard<std::mutex> lk(trace_mtx_);
+            if (!trace_enabled_) return;
+            frame = planning_frame_;
+            ee = ee_link_;
+        }
+        if (frame.empty() || ee.empty()) return;
+
+        geometry_msgs::msg::Point p;
+        try {
+            auto tf = tf_buffer_->lookupTransform(frame, ee, tf2::TimePointZero);
+            p.x = tf.transform.translation.x;
+            p.y = tf.transform.translation.y;
+            p.z = tf.transform.translation.z;
+        } catch (const std::exception&) {
+            return;  // TF not available yet — skip this tick silently
+        }
+
+        std::lock_guard<std::mutex> lk(trace_mtx_);
+        if (!trace_enabled_) return;  // could have been disabled between the two locks
+
+        if (!trace_points_.empty()) {
+            const auto& last = trace_points_.back();
+            const double dx = p.x - last.x;
+            const double dy = p.y - last.y;
+            const double dz = p.z - last.z;
+            const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+            if (dist < kTraceMinDist) return;        // not enough movement to record
+            if (dist > kTraceMaxJump) {              // discontinuity -> start a fresh line
+                trace_points_.clear();
+            }
+        }
+
+        trace_points_.push_back(p);
+        if (trace_points_.size() > kTraceMaxPoints) {
+            trace_points_.erase(trace_points_.begin());  // moving window
+        }
+        publishTraceMarker(/*clear=*/false);
+    }
+
+    void MotionServer::publishTraceMarker(bool clear)
+    {
+        // Precondition: caller holds trace_mtx_.
+        visualization_msgs::msg::Marker m;
+        m.header.frame_id = planning_frame_;
+        m.header.stamp = this->now();
+        m.ns = "tcp_trace";
+        m.id = 0;
+        m.type = visualization_msgs::msg::Marker::LINE_STRIP;
+
+        // A LINE_STRIP needs at least 2 points; otherwise just remove the marker.
+        if (clear || trace_points_.size() < 2) {
+            m.action = visualization_msgs::msg::Marker::DELETE;
+            visual_marker_pub_->publish(m);
+            return;
+        }
+
+        m.action = visualization_msgs::msg::Marker::ADD;
+        m.pose.orientation.w = 1.0;
+        m.scale.x = 0.002;  // 2 mm line width
+        m.color.r = 0.0f;
+        m.color.g = 1.0f;
+        m.color.b = 0.2f;
+        m.color.a = 1.0f;
+        m.points = trace_points_;
+        visual_marker_pub_->publish(m);
     }
 
     void MotionServer::onMoveToPose(

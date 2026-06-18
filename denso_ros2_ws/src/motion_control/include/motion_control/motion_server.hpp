@@ -52,6 +52,8 @@
 #include "motion_control/srv/manage_box.hpp"
 #include "motion_control/srv/manage_mesh.hpp"
 #include <std_srvs/srv/trigger.hpp>
+#include <std_srvs/srv/set_bool.hpp>
+#include <geometry_msgs/msg/point.hpp>
 
 
 
@@ -86,6 +88,9 @@ namespace motion_control
 
             std::unique_ptr<RobotHealthMonitor> health_monitor_;
             std::string planning_frame_ = "world";
+            // End-effector link, cached at init so the TCP-trace timer never has to
+            // call into the (non thread-safe) MoveGroupInterface.
+            std::string ee_link_;
 
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
 
@@ -535,6 +540,43 @@ namespace motion_control
                 std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
             /**
+             * @brief Enables/disables continuous tracing of the tool tip (TCP) path.
+             *
+             * When enabled, a periodic timer samples the REAL TCP pose via TF
+             * (planning_frame -> end-effector link) and appends it to a LINE_STRIP
+             * marker, so the actual travelled path is shown live in RViz regardless of
+             * the motion type (joint, Pilz LIN, waypoints, manual jog, external control).
+             * Disabling stops sampling but keeps the existing trace displayed.
+             *
+             * @param req data=true -> START tracing, data=false -> STOP tracing.
+             * @param res Success status and message.
+             */
+            void onSetTcpTrace(
+                const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+                std::shared_ptr<std_srvs::srv::SetBool::Response> res);
+
+            /**
+             * @brief Clears the recorded TCP trace and erases the marker in RViz.
+             */
+            void onClearTcpTrace(
+                const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+
+            /**
+             * @brief Timer callback: samples the current TCP position via TF and, if it
+             * moved more than kTraceMinDist since the last sample, appends it to the trace
+             * and republishes the marker. Runs in a dedicated callback group so it keeps
+             * sampling even while a (blocking) motion service callback is executing.
+             */
+            void sampleTcpTrace();
+
+            /**
+             * @brief Publishes the current TCP trace as a LINE_STRIP marker (ADD), or an
+             * empty/DELETE marker to clear it. Caller must hold trace_mtx_.
+             */
+            void publishTraceMarker(bool clear = false);
+
+            /**
              * @brief Retrieves the joint position limits of the planning group.
              *
              * Queries MoveIt's RobotModel to extract the [min, max] bounds of every
@@ -599,6 +641,27 @@ namespace motion_control
             rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;
             rclcpp::Service<motion_control::srv::ManageMesh>::SharedPtr srv_manage_mesh_;
             rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_env_;
+
+            // --- Continuous TCP path tracing ---
+            // The timer and the trace services live in a dedicated callback group so the
+            // MultiThreadedExecutor can run them on a separate thread, i.e. keep sampling
+            // the TCP while a (blocking) motion service callback holds the default group.
+            rclcpp::CallbackGroup::SharedPtr trace_cb_group_;
+            rclcpp::TimerBase::SharedPtr trace_timer_;
+            rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr srv_set_trace_;
+            rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_trace_;
+
+            std::mutex trace_mtx_;                              // guards the fields below
+            bool trace_enabled_{false};
+            std::vector<geometry_msgs::msg::Point> trace_points_;
+
+            // Minimum TCP displacement (m) between two recorded points (anti-spam at rest).
+            static constexpr double kTraceMinDist = 0.001;      // 1 mm
+            // Beyond this single-step displacement (m) we assume a discontinuity/teleport
+            // and start a fresh trace rather than drawing a straight line across space.
+            static constexpr double kTraceMaxJump = 0.25;       // 25 cm
+            // Hard cap on stored points; oldest are dropped (moving window).
+            static constexpr size_t kTraceMaxPoints = 20000;
     };
 
 }  // namespace motion_control
