@@ -566,6 +566,23 @@ namespace motion_control
                 std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
             /**
+             * @brief Tells the health monitor whether motors are intentionally powered.
+             *
+             * The Python bridge owns the operator's motor on/off intent (self.motors_on).
+             * It calls this BEFORE an intentional power-off (data=false) so the monitor does
+             * NOT flag the resulting drives_powered/motion_possible == FALSE as a hardware
+             * fault, and again AFTER a confirmed power-on (data=true) to resume enforcement.
+             * Genuine faults (E-stop, in_error, RC8 error) remain detected in all cases.
+             *
+             * @param req data=true -> motors expected ON (enforce drives-powered fault),
+             *            data=false -> motors deliberately OFF (suppress drives-powered fault).
+             * @param res Success status and message.
+             */
+            void onSetDrivesExpected(
+                const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+                std::shared_ptr<std_srvs::srv::SetBool::Response> res);
+
+            /**
              * @brief Timer callback: samples the current TCP position via TF and, if it
              * moved more than kTraceMinDist since the last sample, appends it to the trace
              * and republishes the marker. Runs in a dedicated callback group so it keeps
@@ -653,6 +670,7 @@ namespace motion_control
             rclcpp::TimerBase::SharedPtr trace_timer_;
             rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr srv_set_trace_;
             rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_trace_;
+            rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr srv_set_drives_expected_;
 
             std::mutex trace_mtx_;                              // guards the fields below
             bool trace_enabled_{false};

@@ -328,6 +328,7 @@ class MotionRosClient(Node):
         self.clear_env_cli = self.create_client(Trigger, "/clear_environment")
         self.set_tcp_trace_cli = self.create_client(SetBool, "/set_tcp_trace")
         self.clear_tcp_trace_cli = self.create_client(Trigger, "/clear_tcp_trace")
+        self.set_drives_expected_cli = self.create_client(SetBool, "/set_drives_expected")
         self.servo_on_cli = None
         self.drive_power_cli = None
         self.pump_grab_cli = None
@@ -417,6 +418,8 @@ class MotionRosClient(Node):
             return {"success": False, "message": str(res.message)}
 
         logger.info(f"Initialization successful: {res.message}")
+
+        self._notify_drives_expected(self.motors_on)
 
         # Read the model from the C++ node's parameters to build hardware service URLs
         model = self._read_motion_server_param("model")
@@ -516,6 +519,25 @@ class MotionRosClient(Node):
             logger.debug(traceback.format_exc())
             raise RuntimeError(f"GetScaling failed: {e}")
 
+    def _notify_drives_expected(self, expected_on: bool) -> None:
+        """Best-effort: tell the C++ health monitor whether the motors are *meant* to be on.
+
+        """
+        if self.sim:
+            return
+        try:
+            if not self.set_drives_expected_cli.service_is_ready():
+                if not self.set_drives_expected_cli.wait_for_service(timeout_sec=2.0):
+                    logger.warning("set_drives_expected service unavailable — skipping intent sync")
+                    return
+            req = SetBool.Request()
+            req.data = bool(expected_on)
+            fut = self.set_drives_expected_cli.call_async(req)
+            self._wait_for_future(fut, timeout=3.0)
+            logger.debug(f"Drives-expected intent synced to health monitor: {expected_on}")
+        except Exception as e:
+            logger.warning(f"Failed to sync drives-expected intent ({expected_on}): {e}")
+
     def call_set_servo_on(self, enable: bool) -> Dict[str, Any]:
         logger.info(f"Motors {'ON' if enable else 'OFF'} requested")
 
@@ -524,10 +546,16 @@ class MotionRosClient(Node):
             logger.info("Simulation mode: skipping actual motor state change.")
             return {"success": True, "message": "Simulation mode: motors state not changed."}
 
+       
+        if not enable:
+            self._notify_drives_expected(False)
+
         if self.model.startswith("staubli_"):
             if self.drive_power_cli is None:
                 self.drive_power_cli = self.create_client(SetDrivePower, "/system_interface/set_drive_power")
                 if not self.drive_power_cli.wait_for_service(timeout_sec=10.0):
+                    # Reconcile intent with reality (the off never happened -> motors still on).
+                    self._notify_drives_expected(self.motors_on)
                     return {"success": False, "message": "Staubli set_drive_power service not available"}
 
             ros_req = SetDrivePower.Request()
@@ -544,10 +572,14 @@ class MotionRosClient(Node):
                     message = f"Staubli drive power command failed (code={res.code.val})"
                     logger.error(message)
                 time.sleep(2)  # Small delay to allow hardware state to stabilize
+                # Re-sync enforcement with the real outcome: ON (and confirmed) -> enforce again;
+                # OFF -> stay suppressed; any failure -> restore to whatever motors_on really is.
+                self._notify_drives_expected(self.motors_on)
                 return {"success": success, "message": message}
             except Exception as e:
                 logger.error(f"Critical error during Staubli SetDrivePower call: {e}")
                 logger.debug(traceback.format_exc())
+                self._notify_drives_expected(self.motors_on)
                 raise RuntimeError(f"SetDrivePower failed: {e}")
 
         ros_req = SetServoOn.Request()
@@ -560,10 +592,12 @@ class MotionRosClient(Node):
                 logger.info(f"Motor state changed: {res.message}")
             else:
                 logger.error(f"Motor state change failed: {res.message}")
+            self._notify_drives_expected(self.motors_on)
             return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
             logger.error(f"Critical error during SetServoOn call: {e}")
             logger.debug(traceback.format_exc())
+            self._notify_drives_expected(self.motors_on)
             raise RuntimeError(f"SetServoOn failed: {e}")
 
     def call_move_joints(self, req: JointReq) -> Dict[str, Any]:

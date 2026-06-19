@@ -133,10 +133,23 @@ void RobotHealthMonitor::onRobotStatus(const industrial_msgs::msg::RobotStatus::
     oss << "robot error_code=0x" << std::hex << std::uppercase << msg->error_code;
     faults.push_back(oss.str());
   }
-  if (require_drives_powered_ && msg->drives_powered.val == false_state) {
+  // Remember once the drives have actually been energized since activation.
+  if (msg->drives_powered.val == true_state) {
+    drives_seen_on_.store(true);
+  }
+
+  // Only treat drives-off / motion-not-possible as a FAULT when:
+  //   - the motors are *meant* to be on (drives_expected_on_, mirrored from the bridge's
+  //     self.motors_on) — a deliberate power-off is an expected idle state, AND
+  //   - the drives have actually been ON at least once since the last activation
+  //     (drives_seen_on_) — so we only flag a genuine DROP, never the "not energized yet"
+  //     state at startup / right after a re-init (before the program calls set_servo_on).
+  const bool drives_drop_is_fault =
+      require_drives_powered_ && drives_expected_on_.load() && drives_seen_on_.load();
+  if (drives_drop_is_fault && msg->drives_powered.val == false_state) {
     faults.emplace_back("drives are OFF");
   }
-  if (require_drives_powered_ && msg->motion_possible.val == false_state) {
+  if (drives_drop_is_fault && msg->motion_possible.val == false_state) {
     faults.emplace_back("motion_possible is FALSE");
   }
 

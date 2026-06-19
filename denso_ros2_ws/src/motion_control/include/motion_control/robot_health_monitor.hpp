@@ -34,8 +34,21 @@ public:
   void onError(ErrorCallback cb)   { on_error_   = cb; }
   void onCleared(ClearedCallback cb) { on_cleared_ = cb; }
 
-  // Call this once the robot is initialized and in slave mode
-  void setActive(bool active) { active_ = active; }
+  // Call this once the robot is initialized and in slave mode.
+  // Activating resets the "drives seen ON" latch so that, right after a (re-)init, a
+  // drives-OFF status is treated as the not-yet-energized idle state (no fault) until the
+  // program actually powers the drives on via set_servo_on.
+  void setActive(bool active) {
+    if (active) drives_seen_on_.store(false);
+    active_ = active;
+  }
+
+  // Mirror of the operator's intended motor state (pushed by the Python bridge,
+  // which owns `self.motors_on`). When false, drives_powered/motion_possible == FALSE
+  // is treated as EXPECTED (motors deliberately powered off) and does NOT raise a
+  // hardware fault. Genuine faults (E-stop, in_error, RC8 error_code) are unaffected
+  // and still latch regardless of this flag.
+  void setDrivesExpectedOn(bool on) { drives_expected_on_.store(on); }
 
   // Query current status
   bool hasError() const { return has_error_.load(); }
@@ -67,6 +80,13 @@ private:
   std::atomic<bool>    active_{false};
   bool                 is_staubli_{false};
   bool                 require_drives_powered_{false};
+  // Default true: preserve the drives-powered fault for non-bridge usage. The bridge
+  // overrides this to match its intended motor state (false before an intentional power-off).
+  std::atomic<bool>    drives_expected_on_{true};
+  // Latches true once drives_powered is observed TRUE since the last activation. The
+  // drives-OFF fault only fires after this latch is set, so a never-energized state at
+  // startup / re-init does not trigger a spurious fault.
+  std::atomic<bool>    drives_seen_on_{false};
   std::string          robot_status_topic_;
   std::atomic<bool>    robot_status_received_{false};
 

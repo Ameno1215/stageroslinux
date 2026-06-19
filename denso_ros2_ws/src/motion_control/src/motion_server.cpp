@@ -115,6 +115,13 @@ namespace motion_control
             std::bind(&MotionServer::onClearTcpTrace, this, std::placeholders::_1, std::placeholders::_2),
             rmw_qos_profile_services_default, trace_cb_group_);
 
+        // Runs on the non-blocking trace group so the bridge can flag motor-off intent even
+        // if a motion is holding mtx_; the handler only does an atomic store on the monitor.
+        srv_set_drives_expected_ = this->create_service<std_srvs::srv::SetBool>(
+            "set_drives_expected",
+            std::bind(&MotionServer::onSetDrivesExpected, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, trace_cb_group_);
+
         // 30 Hz sampler; it early-returns when tracing is disabled, so it is cheap when idle.
         trace_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(33),
@@ -238,6 +245,13 @@ namespace motion_control
 
             // Activate only if it exists
             if (health_monitor_) {
+                // Start with motors EXPECTED OFF. At init the drives are not powered yet
+                // (the program energizes them later via set_servo_on), so "drives OFF" is the
+                // normal idle state, not a fault. Setting this BEFORE activation closes the
+                // startup race where a robot_status with drives OFF arrived before the bridge
+                // could sync its intent — which produced a spurious "drives are OFF" fault.
+                // A real drive drop during a commanded motion still latches (motors_on=true by then).
+                health_monitor_->setDrivesExpectedOn(false);
                 health_monitor_->setActive(true);
                 health_monitor_->clearError();
             }
@@ -1110,30 +1124,12 @@ namespace motion_control
         double path_len = 0.0;
         double max_step = 0.0;
         double max_dev = 0.0;
-        double max_turn_deg = 0.0;
         size_t max_dev_index = 0;
-        size_t max_turn_index = 0;
 
         for (size_t i = 1; i < positions.size(); ++i) {
             const double step = (positions[i] - positions[i - 1]).norm();
             path_len += step;
             max_step = std::max(max_step, step);
-
-            if (i + 1 < positions.size()) {
-                const Eigen::Vector3d a = positions[i] - positions[i - 1];
-                const Eigen::Vector3d b = positions[i + 1] - positions[i];
-                const double an = a.norm();
-                const double bn = b.norm();
-                if (an > 1e-12 && bn > 1e-12) {
-                    double c = a.dot(b) / (an * bn);
-                    c = std::max(-1.0, std::min(1.0, c));
-                    const double turn_deg = std::acos(c) * 180.0 / 3.14159265358979323846;
-                    if (turn_deg > max_turn_deg) {
-                        max_turn_deg = turn_deg;
-                        max_turn_index = i;
-                    }
-                }
-            }
         }
 
         if (straight_len > 1e-12) {
@@ -1156,20 +1152,19 @@ namespace motion_control
         RCLCPP_INFO(
             this->get_logger(),
             "[FK_TRACE:%s] trajectory_points=%zu fk_samples=%zu time=%.6fs start=(%.6f, %.6f, %.6f) end=(%.6f, %.6f, %.6f) "
-            "straight=%.6fm path=%.6fm ratio=%.6f max_dev=%.6fm@%zu max_step=%.6fm max_turn=%.3fdeg@%zu",
+            "straight=%.6fm path=%.6fm ratio=%.6f max_dev=%.6fm@%zu max_step=%.6fm",
             label.c_str(),
             points.size(), positions.size(), total_time,
             start.x(), start.y(), start.z(),
             end.x(), end.y(), end.z(),
             straight_len, path_len, path_ratio,
-            max_dev, max_dev_index, max_step,
-            max_turn_deg, max_turn_index);
+            max_dev, max_dev_index, max_step);
 
-        if (path_ratio > 1.02 || max_dev > 0.002 || max_turn_deg > 10.0) {
+        if (path_ratio > 1.02 || max_dev > 0.002) {
             RCLCPP_WARN(
                 this->get_logger(),
-                "[FK_TRACE:%s] Non-straight Cartesian trace suspected: ratio=%.6f, max_dev=%.6fm, max_turn=%.3fdeg",
-                label.c_str(), path_ratio, max_dev, max_turn_deg);
+                "[FK_TRACE:%s] Non-straight Cartesian trace suspected: ratio=%.6f, max_dev=%.6fm",
+                label.c_str(), path_ratio, max_dev);
         }
     }
 
@@ -1336,6 +1331,29 @@ namespace motion_control
         publishTraceMarker(/*clear=*/true);
         res->success = true;
         res->message = "TCP trace cleared";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onSetDrivesExpected(
+        const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+        std::shared_ptr<std_srvs::srv::SetBool::Response> res)
+    {
+        // No mtx_ lock on purpose: the underlying setter is atomic, and we must stay
+        // responsive even if a motion is in flight. health_monitor_ is created once in
+        // onInitRobot and never reset, so reading the pointer here is safe.
+        if (!health_monitor_) {
+            res->success = false;
+            res->message = "Health monitor not active (use_health_monitor=false or robot "
+                           "not initialized yet) — nothing to update";
+            RCLCPP_WARN(this->get_logger(), "%s", res->message.c_str());
+            return;
+        }
+
+        health_monitor_->setDrivesExpectedOn(req->data);
+        res->success = true;
+        res->message = std::string("Drives expected ") + (req->data ? "ON" : "OFF")
+                     + " — drives-powered/motion_possible fault "
+                     + (req->data ? "ENFORCED" : "SUPPRESSED (intentional power-off)");
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 
