@@ -189,7 +189,6 @@ class MoveToPoseReq(BaseModel):
     reference_frame: SupportedReferenceFrame = "WORLD"
     is_relative: bool = False
     cartesian_path: bool = False
-    cartesian_speed: float = 0.0   # m/s absolute TCP speed (cartesian_path only). 0 = relative scaling.
     execute: bool = True
 
 class WaypointItem(BaseModel):
@@ -208,7 +207,6 @@ class WaypointItem(BaseModel):
 class MoveWaypointsReq(BaseModel):
     waypoints: List[WaypointItem]
     cartesian_path: bool = True
-    cartesian_speed: float = 0.0   # m/s absolute TCP speed (cartesian_path only). 0 = relative scaling.
     blend_radius: float = 0.0      # m blend between LIN segments (Pilz Sequence). 0 = stop at each point.
     path_tolerance: float = 0.0    # rad TOTG corner rounding (joint-space only). 0 = default (0.05 rad).
     execute: bool = True
@@ -226,7 +224,6 @@ class MoveApproachReq(BaseModel):
     angle_format: SupportedAngleFormat = "RAD"
     z_offset: float = 0.1
     cartesian_path: bool = False
-    cartesian_speed: float = 0.0   # m/s absolute TCP speed (cartesian_path only). 0 = relative scaling.
     execute: bool = True
 
 class ComputeApproachReq(BaseModel):
@@ -664,7 +661,6 @@ class MotionRosClient(Node):
         ros_req.reference_frame = str(req.reference_frame)
         ros_req.is_relative = bool(req.is_relative)
         ros_req.cartesian_path = bool(req.cartesian_path)
-        ros_req.cartesian_speed = float(req.cartesian_speed)
         ros_req.execute = bool(req.execute)
 
         names, mins, maxs = self._resolve_constraints(req.joint_constraints, req.angle_format)
@@ -694,7 +690,6 @@ class MotionRosClient(Node):
         logger.info(f"Waypoints movement requested: {len(req.waypoints)} points (Cartesian={req.cartesian_path}, execute={req.execute})")
         ros_req = MoveWaypoints.Request()
         ros_req.cartesian_path = bool(req.cartesian_path)
-        ros_req.cartesian_speed = float(req.cartesian_speed)
         ros_req.blend_radius = float(req.blend_radius)
         ros_req.path_tolerance = float(req.path_tolerance)
         ros_req.execute = bool(req.execute)
@@ -925,7 +920,6 @@ class MotionRosClient(Node):
         ros_req.reference_frame = "WORLD"  # Absolute position
         ros_req.is_relative = False
         ros_req.cartesian_path = req.cartesian_path
-        ros_req.cartesian_speed = float(req.cartesian_speed)
         ros_req.execute = req.execute
 
         logger.info("Sending approach request to ROS C++ node...")

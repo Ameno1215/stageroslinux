@@ -14,10 +14,6 @@ namespace motion_control
         this->declare_parameter<std::string>("planning_group", "arm");
         this->declare_parameter<double>("velocity_scale", 1.0);
         this->declare_parameter<double>("accel_scale", 1.0);
-        // Absolute Cartesian speed ceiling (m/s); MUST match this robot's
-        // pilz_cartesian_limits.yaml max_trans_vel. Used to map an absolute requested
-        // TCP speed (cartesian_speed) to a Pilz velocity scaling factor.
-        this->declare_parameter<double>("pilz_max_trans_vel", 1.0);
         this->declare_parameter<std::string>("ik_solver", "pick_ik");
         this->declare_parameter<std::string>("ik_solver_plugin", "pick_ik/PickIkPlugin");
         this->declare_parameter<std::string>("solver", "pick_ik");
@@ -186,16 +182,6 @@ namespace motion_control
         planning_group_ = group;
         vel_scale_ = std::min(std::max(v, 0.0), 1.0);
         accel_scale_ = std::min(std::max(a, 0.0), 1.0);
-        pilz_max_trans_vel_ = this->get_parameter("pilz_max_trans_vel").as_double();
-        if (!(pilz_max_trans_vel_ > 0.0)) {
-            RCLCPP_WARN(this->get_logger(),
-                "pilz_max_trans_vel resolved to %.4f (invalid) — falling back to 1.0 m/s",
-                pilz_max_trans_vel_);
-            pilz_max_trans_vel_ = 1.0;
-        }
-        RCLCPP_INFO(this->get_logger(),
-            "Pilz Cartesian speed ceiling: pilz_max_trans_vel = %.4f m/s "
-            "(cartesian_speed in m/s maps 1:1 up to this value)", pilz_max_trans_vel_);
 
         try {
             // Create MoveIt interfaces
@@ -865,8 +851,166 @@ namespace motion_control
             return false;
         }
 
-        trajectory = plan.trajectory_;
-        out_msg = "Pilz LIN OK (vel_scale=" + std::to_string(vscale) + ")";
+        // Pilz emits one joint waypoint every sampling_time (0.1s, hardcoded in MoveIt).
+        // Between them the controller interpolates in JOINT space, which cuts the corner of
+        // the true Cartesian line — the faster the move, the larger that chordal deviation.
+        // We densify the path along the (already validated) line: re-sample it finely, solve
+        // seeded IK on each sub-point, and inherit Pilz's timing so the requested Cartesian
+        // speed is preserved.
+        //
+        // Densification is MANDATORY (no fallback): the raw Pilz trajectory is not precise
+        // enough, and its joint-interpolated path between the sparse nodes is not finely
+        // collision-checked. If densification or the fine collision recheck fails, we refuse
+        // the move rather than execute a coarse/unverified path.
+        const size_t pilz_pts = plan.trajectory_.joint_trajectory.points.size();
+        moveit_msgs::msg::RobotTrajectory dense = plan.trajectory_;
+        std::string dmsg;
+        if (!densifyCartesianTrajectory(dense, kDensifyMaxCartStep, kDensifyMaxAngStep, dmsg)) {
+            out_msg = "Pilz LIN densification failed: " + dmsg
+                    + " (likely a near-singular line where seeded IK can't follow) — move refused";
+            RCLCPP_ERROR(this->get_logger(), "[LIN] %s", out_msg.c_str());
+            return false;
+        }
+
+        std::string cmsg;
+        if (!validateTrajectoryCollisionFree(dense, cmsg)) {
+            out_msg = "Pilz LIN densified trajectory collides between waypoints: " + cmsg
+                    + " — move refused";
+            RCLCPP_ERROR(this->get_logger(), "[LIN] %s", out_msg.c_str());
+            return false;
+        }
+
+        trajectory = dense;
+        RCLCPP_INFO(this->get_logger(),
+            "[LIN] densified %zu -> %zu points (%s)",
+            pilz_pts, dense.joint_trajectory.points.size(), dmsg.c_str());
+        out_msg = "Pilz LIN OK + densified (vel_scale=" + std::to_string(vscale)
+                + ", " + std::to_string(dense.joint_trajectory.points.size()) + " pts)";
+        return true;
+    }
+
+    bool MotionServer::densifyCartesianTrajectory(
+        moveit_msgs::msg::RobotTrajectory& trajectory,
+        double max_cart_step,
+        double max_ang_step,
+        std::string& out_msg)
+    {
+        const auto& jt = trajectory.joint_trajectory;
+        const auto& pts = jt.points;
+        if (pts.size() < 2) { out_msg = "fewer than 2 points to densify"; return false; }
+
+        const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+        if (!jmg) { out_msg = "unknown planning group"; return false; }
+        const std::string ee = move_group_->getEndEffectorLink();
+        const auto& names = jt.joint_names;
+        const size_t ndof = names.size();
+        if (ndof == 0 || pts.front().positions.size() != ndof) {
+            out_msg = "joint name / position size mismatch"; return false;
+        }
+
+        moveit::core::RobotState state(move_group_->getRobotModel());
+        state.setToDefaultValues();
+
+        auto set_state = [&](const std::vector<double>& j) {
+            for (size_t k = 0; k < ndof; ++k) state.setVariablePosition(names[k], j[k]);
+            state.update();
+        };
+        auto fk = [&](const std::vector<double>& j) -> Eigen::Isometry3d {
+            set_state(j);
+            return state.getGlobalLinkTransform(ee);
+        };
+        auto t_of = [](const trajectory_msgs::msg::JointTrajectoryPoint& p) {
+            return p.time_from_start.sec + p.time_from_start.nanosec * 1e-9;
+        };
+
+        std::vector<std::vector<double>> dpos;
+        std::vector<double> dtime;
+        dpos.reserve(pts.size() * 16);
+        dtime.reserve(pts.size() * 16);
+
+        dpos.push_back(pts.front().positions);
+        dtime.push_back(t_of(pts.front()));
+        std::vector<double> seed = pts.front().positions;
+
+        for (size_t i = 1; i < pts.size(); ++i) {
+            const auto& ja = pts[i - 1].positions;
+            const auto& jb = pts[i].positions;
+            const Eigen::Isometry3d Ta = fk(ja);
+            const Eigen::Isometry3d Tb = fk(jb);
+            const Eigen::Vector3d pa = Ta.translation();
+            const Eigen::Vector3d pb = Tb.translation();
+            const Eigen::Quaterniond qa(Ta.rotation());
+            const Eigen::Quaterniond qb(Tb.rotation());
+            const double dpos_m = (pb - pa).norm();
+            const double dang = std::abs(qa.angularDistance(qb));
+            const double ta = t_of(pts[i - 1]);
+            const double tb = t_of(pts[i]);
+
+            size_t K = static_cast<size_t>(std::ceil(std::max(
+                dpos_m / std::max(max_cart_step, 1e-6),
+                dang   / std::max(max_ang_step, 1e-6))));
+            K = std::min<size_t>(std::max<size_t>(K, 1), kDensifyMaxSubSteps);
+
+            for (size_t k = 1; k < K; ++k) {
+                const double a = static_cast<double>(k) / static_cast<double>(K);
+                Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+                T.translation() = pa + a * (pb - pa);
+                T.linear() = qa.slerp(a, qb).toRotationMatrix();
+
+                set_state(seed);  // seed IK from the previous solution -> stays on the branch
+                if (!state.setFromIK(jmg, T, kDensifyIkTimeout)) {
+                    out_msg = "IK failed at segment " + std::to_string(i)
+                            + " substep " + std::to_string(k);
+                    return false;
+                }
+                std::vector<double> jk;
+                state.copyJointGroupPositions(jmg, jk);
+
+                double md = 0.0;
+                for (size_t d = 0; d < ndof; ++d) md = std::max(md, std::abs(jk[d] - seed[d]));
+                if (md > kDensifyMaxJointJump) {
+                    out_msg = "IK branch jump (" + std::to_string(md)
+                            + " rad) at segment " + std::to_string(i);
+                    return false;
+                }
+
+                dpos.push_back(jk);
+                dtime.push_back(ta + a * (tb - ta));
+                seed = jk;
+            }
+            // Pin the node exactly to Pilz's own on-line solution (exact endpoint + anchor).
+            dpos.push_back(jb);
+            dtime.push_back(tb);
+            seed = jb;
+        }
+
+        // Keep timestamps strictly increasing (defensive against equal Pilz samples).
+        for (size_t m = 1; m < dtime.size(); ++m)
+            if (dtime[m] <= dtime[m - 1]) dtime[m] = dtime[m - 1] + 1e-4;
+
+        // Rebuild the message with finite-difference velocities; endpoints stay at rest
+        // (Pilz LIN starts and ends with zero Cartesian velocity).
+        trajectory_msgs::msg::JointTrajectory out;
+        out.joint_names = names;
+        out.points.resize(dpos.size());
+        for (size_t m = 0; m < dpos.size(); ++m) {
+            auto& p = out.points[m];
+            p.positions = dpos[m];
+            p.velocities.assign(ndof, 0.0);
+            p.time_from_start.sec = static_cast<int32_t>(dtime[m]);
+            p.time_from_start.nanosec = static_cast<uint32_t>(
+                (dtime[m] - static_cast<int64_t>(dtime[m])) * 1e9);
+        }
+        for (size_t m = 1; m + 1 < dpos.size(); ++m) {
+            const double dt = dtime[m + 1] - dtime[m - 1];
+            if (dt <= 0.0) continue;
+            for (size_t d = 0; d < ndof; ++d)
+                out.points[m].velocities[d] = (dpos[m + 1][d] - dpos[m - 1][d]) / dt;
+        }
+
+        trajectory.joint_trajectory = out;
+        out_msg = "densified " + std::to_string(pts.size())
+                + " -> " + std::to_string(dpos.size()) + " points";
         return true;
     }
 
@@ -1491,14 +1635,9 @@ namespace motion_control
             moveit_msgs::msg::RobotTrajectory trajectory;
             std::string lin_msg;
 
-            // Velocity: absolute Cartesian speed (m/s) if requested, else relative scaling.
-            double vscale = vel_scale_;
-            if (req->cartesian_speed > 0.0) {
-                vscale = std::min(std::max(req->cartesian_speed / pilz_max_trans_vel_, 0.0), 1.0);
-                RCLCPP_INFO(this->get_logger(),
-                    "[MoveToPose] Absolute Cartesian speed %.4f m/s => vel_scale=%.3f (max_trans_vel=%.4f m/s)",
-                    req->cartesian_speed, vscale, pilz_max_trans_vel_);
-            }
+            // Linear speed is the global scaling (vel_scale_), set centrally via set_scaling —
+            // same knob as joint moves. Cartesian moves take no per-move speed argument.
+            const double vscale = vel_scale_;
 
             auto start_time = std::chrono::high_resolution_clock::now();
             bool planned = planCartesianLin(target_pose, vscale, trajectory, lin_msg);
@@ -1694,13 +1833,8 @@ namespace motion_control
             // Cartesian waypoints => single blended Pilz LIN sequence (/sequence_move_group).
             // blend_radius rounds the corners (0 = stop at each corner). The action plans and,
             // when execute=true, executes the whole blended trajectory natively.
-            double vscale = vel_scale_;
-            if (req->cartesian_speed > 0.0) {
-                vscale = std::min(std::max(req->cartesian_speed / pilz_max_trans_vel_, 0.0), 1.0);
-                RCLCPP_INFO(this->get_logger(),
-                    "[MoveWaypoints] Absolute Cartesian speed %.4f m/s => vel_scale=%.3f",
-                    req->cartesian_speed, vscale);
-            }
+            // Linear speed = global scaling (vel_scale_), set centrally via set_scaling.
+            const double vscale = vel_scale_;
 
             auto seq_t0 = std::chrono::high_resolution_clock::now();
             std::string seq_msg;

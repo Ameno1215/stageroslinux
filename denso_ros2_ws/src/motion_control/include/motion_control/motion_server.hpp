@@ -71,6 +71,13 @@ namespace motion_control
 
         static constexpr double kCartesianAcceptThreshold = 0.99;
 
+        // --- Pilz LIN trajectory densification (see densifyCartesianTrajectory) ---
+        static constexpr double kDensifyMaxCartStep   = 0.002;  // 2 mm between sampled points
+        static constexpr double kDensifyMaxAngStep    = 0.02;   // ~1.1 deg between sampled points
+        static constexpr double kDensifyIkTimeout     = 0.01;   // s, per seeded IK solve (close seed)
+        static constexpr double kDensifyMaxJointJump  = 0.20;   // rad; above this = IK branch jump
+        static constexpr std::size_t kDensifyMaxSubSteps = 50;  // cap per original segment
+
         // Default TOTG path tolerance (rad) for joint-space waypoint re-timing — how much TOTG
         // may round segment-junction corners. Overridable per-request via MoveWaypoints.path_tolerance.
         static constexpr double kDefaultTotgPathTolerance = 0.05;
@@ -347,6 +354,33 @@ namespace motion_control
                 const geometry_msgs::msg::PoseStamped& target,
                 double vel_scaling,
                 moveit_msgs::msg::RobotTrajectory& trajectory,
+                std::string& out_msg);
+
+            /**
+             * @brief Densifies a Pilz LIN trajectory along its (validated) Cartesian line.
+             *
+             * Pilz outputs one joint waypoint every sampling_time (0.1s, hardcoded in MoveIt
+             * Humble). Between them the controller interpolates in joint space, which deviates
+             * from the true straight line — the deviation grows ~quadratically with speed. This
+             * re-samples the line finely (linear position + SLERP orientation), solves seeded
+             * IK on each sub-point (anchoring every original node to Pilz's own on-line
+             * solution), and inherits Pilz's timestamps so the requested Cartesian speed is
+             * preserved. Velocities are recomputed by finite difference; endpoints stay at rest.
+             *
+             * Returns false (leaving @p trajectory untouched) if IK fails or an IK branch jump
+             * is detected. The caller treats this as fatal and refuses the move — there is no
+             * fallback to the raw (coarse, not finely collision-checked) Pilz trajectory.
+             *
+             * @param trajectory   In/out: Pilz LIN trajectory, replaced by the dense one on success.
+             * @param max_cart_step Max TCP translation (m) between two sampled points.
+             * @param max_ang_step  Max TCP rotation (rad) between two sampled points.
+             * @param out_msg       Status or failure reason.
+             * @return true if densification succeeded, false to keep the original trajectory.
+             */
+            bool densifyCartesianTrajectory(
+                moveit_msgs::msg::RobotTrajectory& trajectory,
+                double max_cart_step,
+                double max_ang_step,
                 std::string& out_msg);
 
             /**
@@ -631,12 +665,6 @@ namespace motion_control
             std::string planning_group_{"arm"};
             double vel_scale_{0.1};
             double accel_scale_{0.1};
-
-            // Absolute Cartesian TCP speed ceiling (m/s) used to convert a requested
-            // absolute speed into a Pilz velocity scaling factor.
-            // MUST match the robot's pilz_cartesian_limits.yaml `max_trans_vel`.
-            // Overridable per robot via the "pilz_max_trans_vel" parameter.
-            double pilz_max_trans_vel_{1.0};
 
             std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
             std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_;

@@ -113,31 +113,6 @@ def generate_launch_description():
     merged_kinematics.update(staubli_tx2_60l_kinematics)
     merged_kinematics.update(staubli_tx40_kinematics)
 
-    # --- Pilz Cartesian speed ceiling (auto, per robot) ---
-    # Read max_trans_vel from each robot's pilz_cartesian_limits.yaml so that the
-    # `cartesian_speed` (m/s) -> velocity scaling conversion stays in sync with what
-    # move_group actually enforces. Falls back to 1.0 m/s if the file/key is missing.
-    PILZ_MAX_TRANS_VEL_DEFAULT = 1.0
-
-    def _max_trans_vel(pkg):
-        data = load_yaml(pkg, "config/pilz_cartesian_limits.yaml") or {}
-        try:
-            return float(data["cartesian_limits"]["max_trans_vel"])
-        except (KeyError, TypeError, ValueError):
-            return PILZ_MAX_TRANS_VEL_DEFAULT
-
-    tx40_mtv = _max_trans_vel("staubli_tx40_moveit_config")
-    tx2_60l_mtv = _max_trans_vel("staubli_tx2_60l_moveit_config")
-    denso_mtv = _max_trans_vel("denso_robot_moveit_config")
-
-    pilz_max_trans_vel = ParameterValue(
-        PythonExpression([
-            f"{tx40_mtv} if 'tx40' in '", model, "' else (",
-            f"{tx2_60l_mtv} if 'tx2_60l' in '", model, "' else ", f"{denso_mtv})",
-        ]),
-        value_type=float,
-    )
-
     # use_sim_time = ParameterValue(
     #     PythonExpression(["'tx2_60l' not in '", model, "'"]),
     #     value_type=bool,
@@ -171,7 +146,6 @@ def generate_launch_description():
                 "planning_group": planning_group,
                 "velocity_scale": velocity_scale,
                 "accel_scale": accel_scale,
-                "pilz_max_trans_vel": pilz_max_trans_vel,
                 "robot_status_topic": robot_status_topic,
                 "ik_solver": ik_solver,
                 "ik_solver_plugin": kinematics_plugin_name,
