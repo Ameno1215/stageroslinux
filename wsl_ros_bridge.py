@@ -160,6 +160,7 @@ class InitReq(BaseModel):
 class ScalingReq(BaseModel):
     velocity_scale: float = Field(ge=0.0, le=1.0)
     accel_scale: float = Field(ge=0.0, le=1.0)
+    cartesian_speed: float = Field(default=0.0, ge=0.0, le=1.0)  # 0 = use velocity_scale for Cartesian
 
 
 class JointConstraintItem(BaseModel):
@@ -474,10 +475,11 @@ class MotionRosClient(Node):
         return None
 
     def call_scaling(self, req: ScalingReq) -> Dict[str, Any]:
-        logger.info(f"Scaling change requested (Vel: {req.velocity_scale}, Acc: {req.accel_scale})")
+        logger.info(f"Scaling change requested (Vel: {req.velocity_scale}, Acc: {req.accel_scale}, Cartesian: {req.cartesian_speed})")
         ros_req = SetScaling.Request()
         ros_req.velocity_scale = float(req.velocity_scale)
         ros_req.accel_scale = float(req.accel_scale)
+        ros_req.cartesian_speed = float(req.cartesian_speed)
 
         fut = self.scale_cli.call_async(ros_req)
         
@@ -506,10 +508,11 @@ class MotionRosClient(Node):
                 logger.error(f"Scaling read failed: {res.message}")
                 
             return {
-                "success": bool(res.success), 
+                "success": bool(res.success),
                 "message": str(res.message),
                 "velocity_scale": res.velocity_scale,
-                "accel_scale": res.accel_scale
+                "accel_scale": res.accel_scale,
+                "cartesian_speed": res.cartesian_speed
             }
         except Exception as e:
             logger.error(f"Critical error during GetScaling call: {e}")

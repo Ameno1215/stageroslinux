@@ -687,9 +687,11 @@ namespace motion_control
         // Clamp to [0, 1]
         const double v = std::min(std::max(req->velocity_scale, 0.0), 1.0);
         const double a = std::min(std::max(req->accel_scale, 0.0), 1.0);
+        const double cv = std::min(std::max(req->cartesian_speed, 0.0), 1.0);
 
         vel_scale_ = v;
         accel_scale_ = a;
+        cartesian_vel_scale_ = (cv > 0.0) ? cv : v;
 
         // If MoveGroupInterface is already initialized, apply immediately
         if (move_group_) {
@@ -700,6 +702,8 @@ namespace motion_control
         std::ostringstream oss;
         oss << "Scaling updated: velocity_scale=" << vel_scale_
             << ", accel_scale=" << accel_scale_
+            << ", cartesian_speed=" << cartesian_vel_scale_
+            << (cartesian_vel_scale_ > 0.0 ? "" : " (Cartesian uses velocity_scale)")
             << ". This will be used for all subsequent motions";
 
         res->success = true;
@@ -717,10 +721,12 @@ namespace motion_control
 
         res->velocity_scale = vel_scale_;
         res->accel_scale = accel_scale_;
+        res->cartesian_speed = cartesian_vel_scale_;
 
         std::ostringstream oss;
         oss << "Received request to set scaling: velocity_scale=" << vel_scale_
-            << ", accel_scale=" << accel_scale_;
+            << ", accel_scale=" << accel_scale_
+            << ", cartesian_speed=" << cartesian_vel_scale_;
 
         res->success = true;
         res->message = oss.str();
@@ -1635,9 +1641,8 @@ namespace motion_control
             moveit_msgs::msg::RobotTrajectory trajectory;
             std::string lin_msg;
 
-            // Linear speed is the global scaling (vel_scale_), set centrally via set_scaling —
-            // same knob as joint moves. Cartesian moves take no per-move speed argument.
-            const double vscale = vel_scale_;
+            // Linear speed = dedicated Cartesian scaling (cartesian_vel_scale_)
+            const double vscale = cartesian_vel_scale_;
 
             auto start_time = std::chrono::high_resolution_clock::now();
             bool planned = planCartesianLin(target_pose, vscale, trajectory, lin_msg);
@@ -1833,8 +1838,8 @@ namespace motion_control
             // Cartesian waypoints => single blended Pilz LIN sequence (/sequence_move_group).
             // blend_radius rounds the corners (0 = stop at each corner). The action plans and,
             // when execute=true, executes the whole blended trajectory natively.
-            // Linear speed = global scaling (vel_scale_), set centrally via set_scaling.
-            const double vscale = vel_scale_;
+            // Linear speed = dedicated Cartesian scaling (cartesian_vel_scale_)
+            const double vscale = cartesian_vel_scale_;
 
             auto seq_t0 = std::chrono::high_resolution_clock::now();
             std::string seq_msg;

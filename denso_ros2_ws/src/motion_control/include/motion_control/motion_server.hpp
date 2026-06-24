@@ -665,6 +665,9 @@ namespace motion_control
             std::string planning_group_{"arm"};
             double vel_scale_{0.1};
             double accel_scale_{0.1};
+            // Relative velocity scaling [0..1] applied to Cartesian (Pilz LIN/Sequence)
+            // moves only. 0 = fall back to vel_scale_ (joint-space scaling).
+            double cartesian_vel_scale_{0.0};
 
             std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
             std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_;

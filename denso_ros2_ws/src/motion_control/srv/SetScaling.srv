@@ -1,6 +1,7 @@
 # Request
-float64 velocity_scale   # 0..1
-float64 accel_scale      # 0..1
+float64 velocity_scale   # 0..1  (joint-space velocity scaling)
+float64 accel_scale      # 0..1  (acceleration scaling)
+float64 cartesian_speed  # 0..1  (Cartesian/Pilz velocity scaling; 0 = use velocity_scale)
 ---
 # Response
 bool success
