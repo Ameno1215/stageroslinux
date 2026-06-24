@@ -72,10 +72,10 @@ namespace motion_control
         static constexpr double kCartesianAcceptThreshold = 0.99;
 
         // --- Pilz LIN trajectory densification (see densifyCartesianTrajectory) ---
-        static constexpr double kDensifyMaxCartStep   = 0.002;  // 2 mm between sampled points
+        static constexpr double kDensifyMaxCartStep   = 0.03;  // 30 mm between sampled points
         static constexpr double kDensifyMaxAngStep    = 0.02;   // ~1.1 deg between sampled points
         static constexpr double kDensifyIkTimeout     = 0.01;   // s, per seeded IK solve (close seed)
-        static constexpr double kDensifyMaxJointJump  = 0.20;   // rad; above this = IK branch jump
+        static constexpr double kDensifyMaxJointJump  = 0.25;   // rad; above this = IK branch jump
         static constexpr std::size_t kDensifyMaxSubSteps = 50;  // cap per original segment
 
         // Default TOTG path tolerance (rad) for joint-space waypoint re-timing — how much TOTG
