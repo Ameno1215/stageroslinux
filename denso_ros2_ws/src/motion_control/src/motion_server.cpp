@@ -120,7 +120,7 @@ namespace motion_control
 
         // 30 Hz sampler; it early-returns when tracing is disabled, so it is cheap when idle.
         trace_timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(33),
+            std::chrono::milliseconds(1),
             std::bind(&MotionServer::sampleTcpTrace, this),
             trace_cb_group_);
 
@@ -1569,9 +1569,9 @@ namespace motion_control
 
         m.action = visualization_msgs::msg::Marker::ADD;
         m.pose.orientation.w = 1.0;
-        m.scale.x = 0.004;  // sphere diameter (x/y/z) = 4 mm
-        m.scale.y = 0.004;
-        m.scale.z = 0.004;
+        m.scale.x = 0.001;  // sphere diameter (x/y/z) = 1 mm
+        m.scale.y = 0.001;
+        m.scale.z = 0.001;
         m.color.r = 0.0f;
         m.color.g = 1.0f;
         m.color.b = 0.2f;
