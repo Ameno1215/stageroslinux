@@ -1,6 +1,8 @@
 #include "motion_control/motion_server.hpp"
 
 #include <cmath>
+#include <limits>
+#include <algorithm>
 
 
 namespace motion_control
@@ -1513,7 +1515,7 @@ namespace motion_control
         std::string frame, ee;
         {
             std::lock_guard<std::mutex> lk(trace_mtx_);
-            if (!trace_enabled_) return;
+            if (!trace_enabled_ && !recording_real_) return;
             frame = planning_frame_;
             ee = ee_link_;
         }
@@ -1530,7 +1532,16 @@ namespace motion_control
         }
 
         std::lock_guard<std::mutex> lk(trace_mtx_);
-        if (!trace_enabled_) return;  // could have been disabled between the two locks
+        // Dense, unfiltered capture of the real executed path (independent of the
+        // visualization trace toggle). analyzeRealPath() consumes and clears this.
+        if (recording_real_) {
+            real_path_.push_back(p);
+            if (real_path_.size() > kRealMaxPoints) {
+                real_path_.erase(real_path_.begin());  // moving window safety cap
+            }
+        }
+
+        if (!trace_enabled_) return;  // visualization disabled — recording (if any) done above
 
         if (!trace_points_.empty()) {
             const auto& last = trace_points_.back();
@@ -1578,6 +1589,167 @@ namespace motion_control
         m.color.a = 1.0f;
         m.points = trace_points_;
         visual_marker_pub_->publish(m);
+    }
+
+     bool MotionServer::computeCartesianFkPositions(
+        const moveit_msgs::msg::RobotTrajectory& trajectory,
+        std::vector<geometry_msgs::msg::Point>& positions) const
+    {
+        positions.clear();
+        const auto& joint_traj = trajectory.joint_trajectory;
+        const auto& points = joint_traj.points;
+        if (!move_group_ || points.empty() || joint_traj.joint_names.empty()) return false;
+
+        const std::string ee_link = move_group_->getEndEffectorLink();
+        if (ee_link.empty()) return false;
+        auto state = move_group_->getCurrentState(1.0);
+        if (!state) return false;
+
+        auto append = [&](const std::vector<double>& jp) {
+            for (size_t j = 0; j < joint_traj.joint_names.size(); ++j) {
+                state->setVariablePosition(joint_traj.joint_names[j], jp[j]);
+            }
+            state->update();
+            const Eigen::Vector3d t = state->getGlobalLinkTransform(ee_link).translation();
+            geometry_msgs::msg::Point p;
+            p.x = t.x(); p.y = t.y(); p.z = t.z();
+            positions.push_back(p);
+        };
+
+        // Same densification as logCartesianFkTrace: linearly interpolate joint space
+        // between consecutive trajectory points so the FK polyline is dense.
+        for (size_t i = 0; i < points.size(); ++i) {
+            const auto& pt = points[i];
+            if (pt.positions.size() != joint_traj.joint_names.size()) return false;
+            if (i == 0) { append(pt.positions); continue; }
+
+            const auto& prev = points[i - 1];
+            double max_joint_delta = 0.0;
+            for (size_t j = 0; j < pt.positions.size(); ++j) {
+                max_joint_delta = std::max(max_joint_delta, std::abs(pt.positions[j] - prev.positions[j]));
+            }
+            const size_t samples = std::max<size_t>(
+                1, std::min<size_t>(100, static_cast<size_t>(std::ceil(max_joint_delta / 0.01))));
+            for (size_t s = 1; s <= samples; ++s) {
+                const double alpha = static_cast<double>(s) / static_cast<double>(samples);
+                std::vector<double> interp(pt.positions.size(), 0.0);
+                for (size_t j = 0; j < pt.positions.size(); ++j) {
+                    interp[j] = prev.positions[j] + alpha * (pt.positions[j] - prev.positions[j]);
+                }
+                append(interp);
+            }
+        }
+        return positions.size() >= 2;
+    }
+
+    void MotionServer::startRealPathRecording()
+    {
+        std::lock_guard<std::mutex> lk(trace_mtx_);
+        real_path_.clear();
+        recording_real_ = true;
+    }
+
+    void MotionServer::analyzeRealPath(
+        const std::string& label,
+        const moveit_msgs::msg::RobotTrajectory& planned)
+    {
+        // Snapshot the recorded real path and stop recording.
+        std::vector<geometry_msgs::msg::Point> real;
+        {
+            std::lock_guard<std::mutex> lk(trace_mtx_);
+            recording_real_ = false;
+            real.swap(real_path_);
+        }
+
+        if (real.size() < 2) {
+            RCLCPP_WARN(this->get_logger(),
+                "[REAL_TRACE:%s] Only %zu real TCP sample(s) captured (move too short or "
+                "TF/joint_states not flowing) — cannot analyze executed path",
+                label.c_str(), real.size());
+            return;
+        }
+
+        auto to_eigen = [](const geometry_msgs::msg::Point& p) {
+            return Eigen::Vector3d(p.x, p.y, p.z);
+        };
+
+        // --- 1) Self-consistency metrics on the path the robot actually traced ---
+        const Eigen::Vector3d start = to_eigen(real.front());
+        const Eigen::Vector3d end = to_eigen(real.back());
+        const Eigen::Vector3d line = end - start;
+        const double straight_len = line.norm();
+
+        double path_len = 0.0, max_step = 0.0, max_dev = 0.0;
+        size_t max_dev_index = 0;
+        for (size_t i = 1; i < real.size(); ++i) {
+            const double step = (to_eigen(real[i]) - to_eigen(real[i - 1])).norm();
+            path_len += step;
+            max_step = std::max(max_step, step);
+        }
+        if (straight_len > 1e-12) {
+            for (size_t i = 0; i < real.size(); ++i) {
+                const Eigen::Vector3d rel = to_eigen(real[i]) - start;
+                const Eigen::Vector3d projected =
+                    start + line * (rel.dot(line) / (straight_len * straight_len));
+                const double dev = (to_eigen(real[i]) - projected).norm();
+                if (dev > max_dev) { max_dev = dev; max_dev_index = i; }
+            }
+        }
+        const double path_ratio = straight_len > 1e-12 ? path_len / straight_len : 0.0;
+
+        RCLCPP_INFO(this->get_logger(),
+            "[REAL_TRACE:%s] real_samples=%zu start=(%.6f, %.6f, %.6f) end=(%.6f, %.6f, %.6f) "
+            "straight=%.6fm path=%.6fm ratio=%.6f max_dev=%.3fmm@%zu max_step=%.3fmm",
+            label.c_str(), real.size(),
+            start.x(), start.y(), start.z(), end.x(), end.y(), end.z(),
+            straight_len, path_len, path_ratio, max_dev*1000, max_dev_index, max_step*1000);
+
+        // --- 2) Real vs planned tracking error ---
+        std::vector<geometry_msgs::msg::Point> planned_fk;
+        if (!computeCartesianFkPositions(planned, planned_fk)) {
+            RCLCPP_WARN(this->get_logger(),
+                "[REAL_VS_PLANNED:%s] Could not compute planned FK reference — "
+                "skipping real-vs-planned comparison", label.c_str());
+            return;
+        }
+
+        // Distance from a point to segment [a,b].
+        auto point_to_segment = [](const Eigen::Vector3d& p,
+                                   const Eigen::Vector3d& a,
+                                   const Eigen::Vector3d& b) {
+            const Eigen::Vector3d ab = b - a;
+            const double len2 = ab.squaredNorm();
+            if (len2 < 1e-18) return (p - a).norm();
+            double t = (p - a).dot(ab) / len2;
+            t = std::max(0.0, std::min(1.0, t));
+            return (p - (a + t * ab)).norm();
+        };
+
+        double max_err = 0.0, sum_err = 0.0;
+        size_t max_err_index = 0;
+        for (size_t i = 0; i < real.size(); ++i) {
+            const Eigen::Vector3d rp = to_eigen(real[i]);
+            double best = std::numeric_limits<double>::max();
+            for (size_t k = 1; k < planned_fk.size(); ++k) {
+                best = std::min(best,
+                    point_to_segment(rp, to_eigen(planned_fk[k - 1]), to_eigen(planned_fk[k])));
+            }
+            sum_err += best;
+            if (best > max_err) { max_err = best; max_err_index = i; }
+        }
+        const double mean_err = sum_err / static_cast<double>(real.size());
+
+        RCLCPP_INFO(this->get_logger(),
+            "[REAL_VS_PLANNED:%s] real_samples=%zu planned_fk=%zu mean_err=%.3fmm "
+            "max_err=%.3f3m@%zu",
+            label.c_str(), real.size(), planned_fk.size(),
+            mean_err*1000, max_err*1000, max_err_index);
+
+        if (max_err > 0.002) {
+            RCLCPP_WARN(this->get_logger(),
+                "[REAL_VS_PLANNED:%s] Robot tracking deviates from the planned path by up to "
+                "%.6fm (>2mm) — execution precision suspect", label.c_str(), max_err);
+        }
     }
 
     void MotionServer::onMoveToPose(
@@ -1673,10 +1845,12 @@ namespace motion_control
                 double traj_duration = pts.back().time_from_start.sec
                                     + pts.back().time_from_start.nanosec * 1e-9;
 
+                startRealPathRecording();
                 auto exec_t0 = std::chrono::high_resolution_clock::now();
                 auto exec_code = move_group_->execute(trajectory);
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
+                analyzeRealPath("MOVE_TO_POSE_LIN", trajectory);
 
                 std::string robot_fault;
                 if (getRobotFaultMessage(robot_fault)) {
