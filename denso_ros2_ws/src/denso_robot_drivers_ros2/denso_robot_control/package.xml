@@ -21,6 +21,7 @@
   <depend>bcap_core</depend>
   <depend>bcap_service</depend>
   <depend>denso_robot_core</depend>
+  <depend>std_srvs</depend>
   <depend>std_msgs</depend>
   <depend>denso_robot_core_interfaces</depend>
   <depend>bcap_service_interfaces</depend>
