@@ -44,8 +44,6 @@
 #include "std_msgs/msg/float64_multi_array.hpp"
 #include "std_msgs/msg/string.hpp"
 
-#include "std_srvs/srv/trigger.hpp"
-
 // DENSO libraries
 #include "denso_robot_core/denso_robot_core.h"
 #include "denso_robot_core/denso_controller.h"
@@ -139,12 +137,6 @@ private:
     const std::shared_ptr<denso_robot_core_interfaces::srv::SetServoOn::Request> request,
     std::shared_ptr<denso_robot_core_interfaces::srv::SetServoOn::Response> response);
 
-  // Clears the RC8 controller's latched error without restarting the bringup.
-  // Exits b-CAP slave mode, calls ClearError, then re-enters slave mode.
-  void ClearErrorFunction(
-    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
-
   bool hasError();
   void printErrorDescription(HRESULT error_code, const std::string & error_message);
 
@@ -172,9 +164,6 @@ private:
 
   // SetServoOn Service  ← cette ligne et la suivante doivent être là
   rclcpp::Service<denso_robot_core_interfaces::srv::SetServoOn>::SharedPtr servo_on_srv_;
-
-  // ClearError Service — clears the controller's latched error on demand.
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr clear_error_srv_;
 
 
   std::mutex mtx_mode_;

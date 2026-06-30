@@ -183,38 +183,6 @@ namespace motion_control
         vel_scale_ = std::min(std::max(v, 0.0), 1.0);
         accel_scale_ = std::min(std::max(a, 0.0), 1.0);
 
-        // Clear any latched RC8 controller fault as part of (re-)init. Restarting only
-        // this node does not re-activate the DENSO hardware interface, so without this
-        // the controller stays in error until the whole bringup is restarted. Best-effort
-        // and asynchronous: never blocks init, and is skipped in sim / for Staubli (no
-        // such service). The driver's clear_error only "sticks" if the physical cause is
-        // gone, so this cannot mask a live fault.
-        if (model_.rfind("staubli_", 0) != 0) {
-            if (!clear_error_cli_) {
-                clear_error_cli_ = this->create_client<std_srvs::srv::Trigger>(
-                    "/" + model_ + "/clear_error");
-            }
-            if (clear_error_cli_->wait_for_service(std::chrono::milliseconds(500))) {
-                auto creq = std::make_shared<std_srvs::srv::Trigger::Request>();
-                clear_error_cli_->async_send_request(
-                    creq,
-                    [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future) {
-                        const auto resp = future.get();
-                        if (resp->success) {
-                            RCLCPP_INFO(this->get_logger(),
-                                "[init] clear_error: %s", resp->message.c_str());
-                        } else {
-                            RCLCPP_WARN(this->get_logger(),
-                                "[init] clear_error did not clear the fault: %s",
-                                resp->message.c_str());
-                        }
-                    });
-            } else {
-                RCLCPP_WARN(this->get_logger(),
-                    "[init] clear_error service /%s/clear_error not available — "
-                    "skipping controller error clear (sim or driver not up?)", model_.c_str());
-            }
-        }
 
         try {
             // Create MoveIt interfaces

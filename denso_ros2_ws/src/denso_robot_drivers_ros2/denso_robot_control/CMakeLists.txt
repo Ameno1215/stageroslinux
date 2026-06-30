@@ -24,7 +24,6 @@ set(
   rclcpp_components
   rclcpp_lifecycle
   std_msgs
-  std_srvs
   bcap_core
   bcap_service
   bcap_service_interfaces

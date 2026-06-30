@@ -678,8 +678,6 @@ namespace motion_control
             rclcpp::Node::SharedPtr seq_node_;
             rclcpp_action::Client<moveit_msgs::action::MoveGroupSequence>::SharedPtr seq_client_;
 
-            rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr clear_error_cli_;
-
             // Services
             rclcpp::Service<srv::InitRobot>::SharedPtr srv_init_;
             rclcpp::Service<srv::SetScaling>::SharedPtr srv_scaling_;

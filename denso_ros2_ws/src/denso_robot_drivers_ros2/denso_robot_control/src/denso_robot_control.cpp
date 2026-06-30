@@ -295,13 +295,6 @@ HRESULT DensoRobotControl::Initialize(
       &DensoRobotControl::SetServoOnFunction, this, std::placeholders::_1,
       std::placeholders::_2));
 
-  clear_error_srv_ = node_->create_service<std_srvs::srv::Trigger>(
-    "clear_error",
-    std::bind(
-      &DensoRobotControl::ClearErrorFunction, this, std::placeholders::_1,
-      std::placeholders::_2));
-
-
   pub_cur_mode_ = node_->create_publisher<std_msgs::msg::Int32>("CurMode", 1);
   pub_robot_error_ = node_->create_publisher<std_msgs::msg::Int32>("RobotError", 1);
   pub_robot_error_description_ = node_->create_publisher<std_msgs::msg::String>("RobotErrorDescription", 1);
@@ -716,65 +709,6 @@ void DensoRobotControl::SetServoOnFunction(
 
   response->success = true;
   response->message = request->enable ? "Motors ON" : "Motors OFF";
-}
-
-void DensoRobotControl::ClearErrorFunction(
-  const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
-  std::shared_ptr<std_srvs::srv::Trigger::Response> response)
-{
-  std::unique_lock<std::mutex> lock_mode(mtx_mode_);
-
-  RCLCPP_WARN(
-    rclcpp::get_logger(node_->get_name()),
-    "[ClearError] Clearing RC8 latched error on request.");
-
-  // Step 1: leave slave mode. ClearError must NOT be issued while in b-CAP slave.
-  HRESULT hr = ChangeModeWithClearError(DensoRobot::SLVMODE_NONE);
-  if (FAILED(hr)) {
-    printErrorDescription(hr, "ClearError: Failed to exit slave mode");
-    response->success = false;
-    response->message = "Failed to exit slave mode (HRESULT: " + std::to_string(hr) + ")";
-    return;
-  }
-
-  // Step 2: clear the controller's latched error.
-  hr = ctrl_->ExecClearError();
-  if (FAILED(hr)) {
-    printErrorDescription(hr, "ClearError: ExecClearError failed");
-    response->success = false;
-    response->message = "ExecClearError failed (HRESULT: " + std::to_string(hr) + ")";
-    // Still try to return to slave mode so the driver stays usable.
-    ChangeModeWithClearError(DensoRobot::SLVMODE_SYNC_WAIT | DensoRobot::SLVMODE_POSE_J);
-    return;
-  }
-
-  // Step 3: re-read @ERROR_CODE. If it is still non-zero the physical cause is
-  // still present (E-stop, safety, position deviation...) and the error re-latched.
-  const bool still_in_error = hasError();
-
-  // Step 4: return to slave mode.
-  hr = ChangeModeWithClearError(DensoRobot::SLVMODE_SYNC_WAIT | DensoRobot::SLVMODE_POSE_J);
-  if (FAILED(hr)) {
-    printErrorDescription(hr, "ClearError: Failed to return to slave mode");
-    response->success = false;
-    response->message =
-      "Error cleared but failed to return to slave mode (HRESULT: " + std::to_string(hr) + ")";
-    return;
-  }
-
-  if (still_in_error) {
-    response->success = false;
-    response->message =
-      "ClearError sent but controller still reports an error — physical cause likely "
-      "still present (E-stop, safety, deviation...).";
-    RCLCPP_ERROR(rclcpp::get_logger(node_->get_name()), "[ClearError] %s",
-      response->message.c_str());
-  } else {
-    response->success = true;
-    response->message = "Controller error cleared.";
-    RCLCPP_INFO(rclcpp::get_logger(node_->get_name()), "[ClearError] %s",
-      response->message.c_str());
-  }
 }
 
 

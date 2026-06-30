@@ -98,3 +98,21 @@ ros2 service call /joint_monitor/get_stats std_srvs/srv/Trigger 2>&1 \
 | Parameter | Default | Description |
 |---|---|---|
 | `joint_states_topic` | `/joint_states` | Topic to subscribe to |
+
+
+
+```bash
+ros2 run joint_monitor trajectory_plotter_node --ros-args \
+  -p joint_limits_file:=$(ros2 pkg prefix staubli_tx40_moveit_config)/share/staubli_tx40_moveit_config/config/joint_limits.yaml \
+  -p output_dir:=$HOME/workspace/img
+```
+
+
+
+```bash
+ros2 run joint_monitor trajectory_plotter_node --ros-args \
+  -p joint_limits_file:=$(ros2 pkg prefix denso_robot_moveit_config)/share/denso_robot_moveit_config/robots/vs060/config/joint_limits.yaml \
+  -p output_dir:=$HOME/workspace/img
+```
+
+ros2 service call /trajectory_plotter/reset std_srvs/srv/Trigger
