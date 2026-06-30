@@ -72,7 +72,7 @@ namespace motion_control
         static constexpr double kCartesianAcceptThreshold = 0.99;
 
         // --- Pilz LIN trajectory densification (see densifyCartesianTrajectory) ---
-        static constexpr double kDensifyMaxCartStep   = 0.001;  // 30 mm between sampled points
+        static constexpr double kDensifyMaxCartStep   = 0.005;  // 30 mm between sampled points
         static constexpr double kDensifyMaxAngStep    = 0.02;   // ~1.1 deg between sampled points
         static constexpr double kDensifyIkTimeout     = 0.01;   // s, per seeded IK solve (close seed)
         static constexpr double kDensifyMaxJointJump  = 0.25;   // rad; above this = IK branch jump
@@ -417,39 +417,6 @@ namespace motion_control
                 const moveit_msgs::msg::RobotTrajectory& trajectory) const;
 
             /**
-             * @brief Computes the Cartesian TCP positions of a planned joint trajectory
-             * via forward kinematics, interpolating between trajectory points so the
-             * returned polyline is dense (same sampling as logCartesianFkTrace).
-             *
-             * @param trajectory Planned joint trajectory.
-             * @param positions  Output TCP positions in the planning frame.
-             * @return true if at least 2 positions were produced.
-             */
-            bool computeCartesianFkPositions(
-                const moveit_msgs::msg::RobotTrajectory& trajectory,
-                std::vector<geometry_msgs::msg::Point>& positions) const;
-
-            /**
-             * @brief Arms dense recording of the *real* TCP path. Clears any previously
-             * recorded samples and makes sampleTcpTrace() append every TF tick (unfiltered)
-             * to real_path_ until analyzeRealPath() stops it. Call right before execute().
-             */
-            void startRealPathRecording();
-
-            /**
-             * @brief Stops real-path recording and logs diagnostics on the path the robot
-             * actually executed (as reported back on /joint_states -> TF):
-             *   - [REAL_TRACE]      self-consistency metrics (straight/path/ratio/max_dev/max_step)
-             *   - [REAL_VS_PLANNED] tracking error of each real sample vs the planned FK polyline
-             *
-             * @param label   Diagnostic label (e.g. "MOVE_TO_POSE_LIN").
-             * @param planned The planned trajectory that was executed (for the FK reference).
-             */
-            void analyzeRealPath(
-                const std::string& label,
-                const moveit_msgs::msg::RobotTrajectory& planned);
-
-            /**
              * Validates a trajectory before execution.
              * Checks for degenerate trajectories (too few points, near-zero duration,
              * suspiciously short segments). Returns false and fills out_msg if the
@@ -741,14 +708,6 @@ namespace motion_control
             std::mutex trace_mtx_;                              // guards the fields below
             bool trace_enabled_{false};
             std::vector<geometry_msgs::msg::Point> trace_points_;
-
-            // Dense, unfiltered recording of the real TCP path during a single execute(),
-            // used by analyzeRealPath() to quantify how the robot actually moved. Distinct
-            // from trace_points_ (which is the down-sampled visualization marker).
-            bool recording_real_{false};
-            std::vector<geometry_msgs::msg::Point> real_path_;
-            // Hard cap on recorded real samples (safety against a runaway/very long move).
-            static constexpr size_t kRealMaxPoints = 200000;
 
             // Minimum TCP displacement (m) between two recorded points (anti-spam at rest).
             static constexpr double kTraceMinDist = 0.002;      // 2 mm (< sphere diameter so spheres overlap)
