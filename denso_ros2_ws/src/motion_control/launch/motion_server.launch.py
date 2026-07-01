@@ -51,24 +51,24 @@ def generate_launch_description():
     # 1. URDF
     # For Staubli, use MoveIt config URDFs because they contain the tool dispatcher.
     description_package = PythonExpression([
-        "'staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_descriptions')"
+        "'staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_descriptions'"
     ])
     description_folder = PythonExpression([
         "'config' if ('tx40' in '", model, "') else 'urdf'"
     ])
     description_file = PythonExpression([
-        "'staubli_tx40.urdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.urdf.xacro')"
+        "'staubli_tx40.urdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.urdf.xacro'"
     ])
 
     # 2. SRDF
     moveit_config_package = PythonExpression([
-        "'staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_moveit_config')"
+        "'staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_moveit_config'"
     ])
     srdf_folder = PythonExpression([
         "'config' if ('tx40' in '", model, "') else 'srdf'"
     ])
     moveit_config_file = PythonExpression([
-        "'staubli_tx40.srdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.srdf.xacro')"
+        "'staubli_tx40.srdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.srdf.xacro'"
     ])
 
     # 3. Planning group
