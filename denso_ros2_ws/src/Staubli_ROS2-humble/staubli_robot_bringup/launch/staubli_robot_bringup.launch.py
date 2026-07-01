@@ -11,7 +11,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             'model',
-            default_value='tx2_60l',
+            default_value='tx40',
             description='Type/series of used staubli robot.'
         )
     )

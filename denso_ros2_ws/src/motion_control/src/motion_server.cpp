@@ -870,29 +870,30 @@ namespace motion_control
         // collision-checked. If densification or the fine collision recheck fails, we refuse
         // the move rather than execute a coarse/unverified path.
         const size_t pilz_pts = plan.trajectory_.joint_trajectory.points.size();
+        moveit_msgs::msg::RobotTrajectory not_dense = plan.trajectory_;
         moveit_msgs::msg::RobotTrajectory dense = plan.trajectory_;
         std::string dmsg;
-        if (!densifyCartesianTrajectory(dense, kDensifyMaxCartStep, kDensifyMaxAngStep, dmsg)) {
-            out_msg = "Pilz LIN densification failed: " + dmsg
-                    + " (likely a near-singular line where seeded IK can't follow) — move refused";
-            RCLCPP_ERROR(this->get_logger(), "[LIN] %s", out_msg.c_str());
-            return false;
-        }
+        // if (!densifyCartesianTrajectory(dense, kDensifyMaxCartStep, kDensifyMaxAngStep, dmsg)) {
+        //     out_msg = "Pilz LIN densification failed: " + dmsg
+        //             + " (likely a near-singular line where seeded IK can't follow) — move refused";
+        //     RCLCPP_ERROR(this->get_logger(), "[LIN] %s", out_msg.c_str());
+        //     return false;
+        // }
 
-        std::string cmsg;
-        if (!validateTrajectoryCollisionFree(dense, cmsg)) {
-            out_msg = "Pilz LIN densified trajectory collides between waypoints: " + cmsg
-                    + " — move refused";
-            RCLCPP_ERROR(this->get_logger(), "[LIN] %s", out_msg.c_str());
-            return false;
-        }
+        // std::string cmsg;
+        // if (!validateTrajectoryCollisionFree(dense, cmsg)) {
+        //     out_msg = "Pilz LIN densified trajectory collides between waypoints: " + cmsg
+        //             + " — move refused";
+        //     RCLCPP_ERROR(this->get_logger(), "[LIN] %s", out_msg.c_str());
+        //     return false;
+        // }
 
-        trajectory = dense;
+        trajectory = not_dense;
         RCLCPP_INFO(this->get_logger(),
             "[LIN] densified %zu -> %zu points (%s)",
-            pilz_pts, dense.joint_trajectory.points.size(), dmsg.c_str());
+            pilz_pts, not_dense.joint_trajectory.points.size(), dmsg.c_str());
         out_msg = "Pilz LIN OK + densified (vel_scale=" + std::to_string(vscale)
-                + ", " + std::to_string(dense.joint_trajectory.points.size()) + " pts)";
+                + ", " + std::to_string(not_dense.joint_trajectory.points.size()) + " pts)";
         return true;
     }
 

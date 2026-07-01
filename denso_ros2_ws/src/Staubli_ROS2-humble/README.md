@@ -13,9 +13,9 @@ For more details about this functionality, visit the original adaptive motion mi
 Included is a moveit config and description package for the Staubli TX2-60L model. If another CS9 capable robot is used, these files can be used as a template.
 In the moveit config, there are two launch files:
 
-Fully simulated robot: staubli_tx2_60l_planning_execution_sim.launch.py
+Fully simulated robot: staubli_tx40_planning_execution_sim.launch.py
   
-Real robot: staubli_tx2_60l_planning_execution_real.launch.py
+Real robot: staubli_tx40_planning_execution_real.launch.py
 
 ## Installing the VAL3 components
 Copy the contents of the _staubli_val3_driver/val3_ folder to the CS9 controller via USB or an FTP client such as WinScp or the transfer manager found in the Staubli Robotics Suite.
@@ -44,11 +44,11 @@ Load the driver from the teach pendant home:
 There are 3 different options for using this package:
   * Using a simulated robot:
     ```
-    1) ros2 launch staubli_tx2_60l_planning_execution_sim.launch.py
+    1) ros2 launch staubli_tx40_planning_execution_sim.launch.py
     ```
   * Using a real robot with moveit only:
     ```
-    1) ros2 launch staubli_tx2_60l_moveit_config staubli_tx2_60l_planning_execution_real.launch.py
+    1) ros2 launch staubli_tx40_moveit_config staubli_tx40_planning_execution_real.launch.py
     2) ros2 launch staubli_val3_driver robot_interface_streaming.launch.py robot_ip:=<ROBOT_IP>
     ```
   * Using a real robot with moveit and the adaptive motion middleware:
@@ -62,7 +62,7 @@ There are 3 different options for using this package:
     3) ros2 launch staubli_val3_driver motion_streaming_interface.launch.py robot_ip:=127.0.0.1
     4) ros2 launch staubli_val3_driver io_interface.launch.py robot_ip:=<ROBOT_IP>
     5) ros2 launch staubli_val3_driver system_interface.launch.py robot_ip:=<ROBOT_IP>
-    6) ros2 launch staubli_tx2_60l_moveit_config staubli_tx2_60l_planning_execution_real.launch.py 
+    6) ros2 launch staubli_tx40_moveit_config staubli_tx40_planning_execution_real.launch.py 
     7) ros2 run industrial_robot_client joint_trajectory_action
     8) ros2 run moveit_interface moveit_interface planning_group:=manipulator
     ```
