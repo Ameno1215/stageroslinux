@@ -110,9 +110,7 @@ ros2 run joint_monitor trajectory_plotter_node --ros-args \
 
 
 ```bash
-ros2 run joint_monitor trajectory_plotter_node --ros-args \
-  -p joint_limits_file:=$(ros2 pkg prefix denso_robot_moveit_config)/share/denso_robot_moveit_config/robots/vs060/config/joint_limits.yaml \
-  -p output_dir:=$HOME/workspace/img
+ros2 run joint_monitor trajectory_plotter_node --ros-args   -p joint_limits_file:=$(ros2 pkg prefix denso_robot_moveit_config)/share/denso_robot_moveit_config/robots/vs060/config/joint_limits.yaml   -p output_dir:=$HOME/workspace/img   -p live:=true   -p tcp_link:=tool_link
 ```
 
 ros2 service call /trajectory_plotter/reset std_srvs/srv/Trigger
