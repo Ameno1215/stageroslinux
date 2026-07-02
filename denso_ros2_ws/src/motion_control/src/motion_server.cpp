@@ -1304,19 +1304,19 @@ namespace motion_control
         RCLCPP_INFO(
             this->get_logger(),
             "[FK_TRACE:%s] trajectory_points=%zu fk_samples=%zu time=%.6fs start=(%.6f, %.6f, %.6f) end=(%.6f, %.6f, %.6f) "
-            "straight=%.6fm path=%.6fm ratio=%.6f max_dev=%.6fm@%zu max_step=%.6fm",
+            "straight=%.6fm path=%.6fm ratio=%.6f max_dev=%.3fmm@%zu max_step=%.3fmm",
             label.c_str(),
             points.size(), positions.size(), total_time,
             start.x(), start.y(), start.z(),
             end.x(), end.y(), end.z(),
             straight_len, path_len, path_ratio,
-            max_dev, max_dev_index, max_step);
+            max_dev*1000, max_dev_index, max_step*1000);
 
         if (path_ratio > 1.02 || max_dev > 0.002) {
             RCLCPP_WARN(
                 this->get_logger(),
-                "[FK_TRACE:%s] Non-straight Cartesian trace suspected: ratio=%.6f, max_dev=%.6fm",
-                label.c_str(), path_ratio, max_dev);
+                "[FK_TRACE:%s] Non-straight Cartesian trace suspected: ratio=%.6f, max_dev=%.3fmm",
+                label.c_str(), path_ratio, max_dev*1000);
         }
     }
 
