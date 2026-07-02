@@ -645,6 +645,45 @@ namespace motion_control
              */
             void publishPlannedPathMarker(bool clear = false);
 
+            // --- Quantitative tracking-error measurement (real vs planned) --------------
+            // These are ENTIRELY SEPARATE from the visual overlay above: they never touch
+            // trace_points_ / planned_path_points_ or their markers, so enabling the
+            // measurement changes nothing that RViz shows.
+
+            /**
+             * @brief Builds a dense Cartesian TCP reference polyline from a planned joint
+             * trajectory via forward kinematics.
+             *
+             * Unlike publishPlannedPathFromTrajectory (which FKs only the raw waypoints for
+             * display), this linearly interpolates in joint space between consecutive
+             * waypoints so the reference is fine on curved (PTP) segments — independent of
+             * any controller-side densification. For straight LIN moves the extra samples
+             * are collinear, so the result is identical either way.
+             *
+             * @param trajectory Planned joint trajectory that is about to be executed.
+             * @return TCP positions (planning frame) of the planned path; empty on failure.
+             */
+            std::vector<geometry_msgs::msg::Point> buildPlannedReference(
+                const moveit_msgs::msg::RobotTrajectory& trajectory) const;
+
+            /**
+             * @brief Arms tracking capture just before execute(): stores the planned
+             * reference (buildPlannedReference) and makes sampleTcpTrace() append every TF
+             * tick (undecimated) to meas_real_ until computeTrackingError() consumes it.
+             */
+            void startTrackingCapture(const moveit_msgs::msg::RobotTrajectory& executed);
+
+            /**
+             * @brief Stops capture and reports how far the REAL executed TCP path deviated
+             * from the planned reference: for each real sample, the min distance to the
+             * planned polyline (point-to-segment). Logs [TRACK_ERR:label] with
+             * mean/rms/p95/max and returns a short summary to append to the service reply.
+             *
+             * @param label Diagnostic label (e.g. "MOVE_TO_POSE_LIN").
+             * @return " | track_err mean=…mm …" or "" when there was not enough data.
+             */
+            std::string computeTrackingError(const std::string& label);
+
             /**
              * @brief Retrieves the joint position limits of the planning group.
              *
@@ -725,6 +764,16 @@ namespace motion_control
             std::mutex planned_path_mtx_;                       // guards the fields below
             bool planned_path_enabled_{false};
             std::vector<geometry_msgs::msg::Point> planned_path_points_;
+
+            // --- Tracking-error measurement buffers (independent of the visual trace) ---
+            std::mutex meas_mtx_;                               // guards the fields below
+            bool meas_recording_{false};                       // armed around one execute()
+            std::vector<geometry_msgs::msg::Point> meas_real_;    // dense, UNdecimated real TCP
+            std::vector<geometry_msgs::msg::Point> meas_planned_; // FK reference of the plan
+            // Hard cap on recorded real samples (safety against a very long/runaway move).
+            static constexpr std::size_t kMeasMaxPoints = 200000;   // ~200 s @ 1 kHz
+            // Above this max real-vs-planned deviation we log a warning.
+            static constexpr double kTrackingErrWarnM = 0.002;      // 2 mm
 
             // Minimum TCP displacement (m) between two recorded points (anti-spam at rest).
             static constexpr double kTraceMinDist = 0.002;      // 2 mm (< sphere diameter so spheres overlap)
