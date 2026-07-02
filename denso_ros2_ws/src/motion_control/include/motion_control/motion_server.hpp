@@ -17,6 +17,8 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit_msgs/action/move_group_sequence.hpp>
+#include <moveit_msgs/msg/display_trajectory.hpp>
+#include <moveit/robot_state/conversions.h>
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -98,6 +100,10 @@ namespace motion_control
             // End-effector link, cached at init so the TCP-trace timer never has to
             // call into the (non thread-safe) MoveGroupInterface.
             std::string ee_link_;
+
+            // Robot model, cached at init so the planned-path subscriber can build a
+            // throw-away RobotState for FK without touching MoveGroupInterface.
+            moveit::core::RobotModelConstPtr robot_model_;
 
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
 
@@ -631,6 +637,48 @@ namespace motion_control
             void publishTraceMarker(bool clear = false);
 
             /**
+              * @brief Enables/disables the target (planned) TCP path overlay.
+             *
+             * When enabled, every trajectory published by move_group on
+             * /display_planned_path is converted to Cartesian TCP points via forward
+             * kinematics and drawn as a BLUE SPHERE_LIST marker — the target path the
+             * robot was asked to follow — so it can be compared side by side with the
+             * GREEN trace of what the robot actually did (onSetTcpTrace).
+             * Disabling stops updating the overlay but keeps the last one displayed.
+             *
+             * @param req data=true -> show planned path, data=false -> stop updating it.
+             * @param res Success status and message.
+             */
+            void onSetPlannedPath(
+                const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+                std::shared_ptr<std_srvs::srv::SetBool::Response> res);
+
+            /**
+             * @brief Clears the planned-path overlay and erases the marker in RViz.
+             */
+            void onClearPlannedPath(
+                const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+
+            /**
+             * @brief Subscription callback for /display_planned_path.
+             *
+             * When the planned-path overlay is enabled, runs forward kinematics on each
+             * waypoint of the received trajectory (in the same way sampleTcpTrace derives
+             * the real TCP from TF) and republishes the blue "planned_path" marker.
+             */
+            void onDisplayPlannedPath(
+                const moveit_msgs::msg::DisplayTrajectory::SharedPtr msg);
+
+            void publishPlannedPathFromTrajectory(const moveit_msgs::msg::RobotTrajectory& trajectory);
+
+            /**
+             * @brief Publishes the target path as a blue SPHERE_LIST marker (ADD), or an
+             * empty/DELETE marker to clear it. Caller must hold planned_path_mtx_.
+             */
+            void publishPlannedPathMarker(bool clear = false);
+
+            /**
              * @brief Retrieves the joint position limits of the planning group.
              *
              * Queries MoveIt's RobotModel to extract the [min, max] bounds of every
@@ -706,6 +754,10 @@ namespace motion_control
             std::mutex trace_mtx_;                              // guards the fields below
             bool trace_enabled_{false};
             std::vector<geometry_msgs::msg::Point> trace_points_;
+
+            std::mutex planned_path_mtx_;                       // guards the fields below
+            bool planned_path_enabled_{false};
+            std::vector<geometry_msgs::msg::Point> planned_path_points_;
 
             // Minimum TCP displacement (m) between two recorded points (anti-spam at rest).
             static constexpr double kTraceMinDist = 0.002;      // 2 mm (< sphere diameter so spheres overlap)

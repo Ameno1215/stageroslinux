@@ -200,6 +200,13 @@ namespace motion_control
                 ee_link_ = move_group_->getEndEffectorLink();
             }
 
+            // Cache the robot model for the planned-path subscriber (FK without touching
+            // the non thread-safe MoveGroupInterface from its callback group).
+            {
+                std::lock_guard<std::mutex> plk(planned_path_mtx_);
+                robot_model_ = move_group_->getRobotModel();
+            }
+
             // Resting pipeline = OMPL for all joint-space planning. Cartesian moves
             // temporarily switch to Pilz LIN (planCartesianLin) and restore OMPL.
             move_group_->setPlanningPipelineId("ompl");
@@ -1465,12 +1472,18 @@ namespace motion_control
         const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
         std::shared_ptr<std_srvs::srv::SetBool::Response> res)
     {
-        std::lock_guard<std::mutex> lk(trace_mtx_);
-        trace_enabled_ = req->data;
+        {
+            std::lock_guard<std::mutex> lk(trace_mtx_);
+            trace_enabled_ = req->data;
+        }
+        {
+            std::lock_guard<std::mutex> lk(planned_path_mtx_);
+            planned_path_enabled_ = req->data;   // le bleu suit le vert
+        }
         res->success = true;
-        res->message = trace_enabled_
-            ? "TCP trace ENABLED (sampling the live tool-tip path)"
-            : "TCP trace DISABLED (existing trace kept; call clear_tcp_trace to erase it)";
+        res->message = req->data
+            ? "Trace ENABLED (vert = TCP reel, bleu = TCP planifie)"
+            : "Trace DISABLED (traces conservees; clear_tcp_trace pour effacer)";
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 
@@ -1478,11 +1491,18 @@ namespace motion_control
         const std::shared_ptr<std_srvs::srv::Trigger::Request> /*req*/,
         std::shared_ptr<std_srvs::srv::Trigger::Response> res)
     {
-        std::lock_guard<std::mutex> lk(trace_mtx_);
-        trace_points_.clear();
-        publishTraceMarker(/*clear=*/true);
+        {
+            std::lock_guard<std::mutex> lk(trace_mtx_);
+            trace_points_.clear();
+            publishTraceMarker(/*clear=*/true);
+        }
+        {
+            std::lock_guard<std::mutex> lk(planned_path_mtx_);
+            planned_path_points_.clear();
+            publishPlannedPathMarker(/*clear=*/true);
+        }
         res->success = true;
-        res->message = "TCP trace cleared";
+        res->message = "Trace TCP + chemin planifie effaces";
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 
@@ -1582,6 +1602,154 @@ namespace motion_control
         visual_marker_pub_->publish(m);
     }
 
+    void MotionServer::onSetPlannedPath(
+        const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+        std::shared_ptr<std_srvs::srv::SetBool::Response> res)
+    {
+        std::lock_guard<std::mutex> lk(planned_path_mtx_);
+        planned_path_enabled_ = req->data;
+        res->success = true;
+        res->message = planned_path_enabled_
+            ? "Planned-path overlay ENABLED (blue = commanded TCP path; compare with the green real trace)"
+            : "Planned-path overlay DISABLED (existing overlay kept; call clear_planned_path to erase it)";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onClearPlannedPath(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*req*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+    {
+        std::lock_guard<std::mutex> lk(planned_path_mtx_);
+        planned_path_points_.clear();
+        publishPlannedPathMarker(/*clear=*/true);
+        res->success = true;
+        res->message = "Planned-path overlay cleared";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onDisplayPlannedPath(
+        const moveit_msgs::msg::DisplayTrajectory::SharedPtr msg)
+    {
+        // Snapshot the frames/model under the lock, then do the (thread-safe) FK unlocked.
+        std::string ee;
+        moveit::core::RobotModelConstPtr model;
+        {
+            std::lock_guard<std::mutex> lk(planned_path_mtx_);
+            if (!planned_path_enabled_) return;
+            ee = ee_link_;
+            model = robot_model_;
+        }
+        if (ee.empty() || !model) return;  // not initialized yet
+
+        // Build a throw-away state seeded from the plan's start state so joints outside the
+        // planned group keep their real values, then walk every waypoint doing FK on the TCP.
+        moveit::core::RobotState state(model);
+        state.setToDefaultValues();
+        if (!msg->trajectory_start.joint_state.name.empty()) {
+            moveit::core::robotStateMsgToRobotState(msg->trajectory_start, state);
+        }
+
+        std::vector<geometry_msgs::msg::Point> pts;
+        for (const auto& rt : msg->trajectory) {
+            const auto& jt = rt.joint_trajectory;
+            for (const auto& point : jt.points) {
+                if (point.positions.size() != jt.joint_names.size()) continue;
+                for (size_t j = 0; j < jt.joint_names.size(); ++j) {
+                    state.setVariablePosition(jt.joint_names[j], point.positions[j]);
+                }
+                state.update();
+                const Eigen::Isometry3d& tf = state.getGlobalLinkTransform(ee);
+                geometry_msgs::msg::Point p;
+                p.x = tf.translation().x();
+                p.y = tf.translation().y();
+                p.z = tf.translation().z();
+                pts.push_back(p);
+            }
+        }
+        if (pts.empty()) return;
+
+        std::lock_guard<std::mutex> lk(planned_path_mtx_);
+        if (!planned_path_enabled_) return;  // disabled between the two locks
+        planned_path_points_ = std::move(pts);
+        publishPlannedPathMarker(/*clear=*/false);
+    }
+
+    void MotionServer::publishPlannedPathMarker(bool clear)
+    {
+        // Precondition: caller holds planned_path_mtx_.
+        visualization_msgs::msg::Marker m;
+        m.header.frame_id = planning_frame_;
+        m.header.stamp = this->now();
+        m.ns = "planned_path";
+        m.id = 0;
+        m.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+
+        if (clear || planned_path_points_.empty()) {
+            m.action = visualization_msgs::msg::Marker::DELETE;
+            visual_marker_pub_->publish(m);
+            return;
+        }
+
+        m.action = visualization_msgs::msg::Marker::ADD;
+        m.pose.orientation.w = 1.0;
+        m.scale.x = 0.0015;  // sphere diameter (x/y/z) = 1 mm
+        m.scale.y = 0.0015;
+        m.scale.z = 0.0015;
+        m.color.r = 0.1f;   // blue = commanded/target path
+        m.color.g = 0.2f;
+        m.color.b = 1.0f;
+        m.color.a = 1.0f;
+        m.points = planned_path_points_;
+        visual_marker_pub_->publish(m);
+    }
+
+    void MotionServer::publishPlannedPathFromTrajectory(
+        const moveit_msgs::msg::RobotTrajectory& trajectory)
+    {
+        std::string ee;
+        moveit::core::RobotModelConstPtr model;
+        {
+            std::lock_guard<std::mutex> lk(planned_path_mtx_);
+            if (!planned_path_enabled_) return;
+            ee = ee_link_;
+            model = robot_model_;
+        }
+        if (ee.empty() || !model) return;
+
+        const auto& jt = trajectory.joint_trajectory;
+        if (jt.points.empty() || jt.joint_names.empty()) return;
+
+        moveit::core::RobotState state(model);
+        state.setToDefaultValues();
+
+        std::vector<geometry_msgs::msg::Point> pts;
+        pts.reserve(jt.points.size());
+        for (const auto& point : jt.points) {
+            if (point.positions.size() != jt.joint_names.size()) continue;
+            for (size_t j = 0; j < jt.joint_names.size(); ++j)
+                state.setVariablePosition(jt.joint_names[j], point.positions[j]);
+            state.update();
+            const Eigen::Isometry3d& tf = state.getGlobalLinkTransform(ee);
+            geometry_msgs::msg::Point p;
+            p.x = tf.translation().x();
+            p.y = tf.translation().y();
+            p.z = tf.translation().z();
+            pts.push_back(p);
+        }
+        if (pts.empty()) return;
+
+        std::lock_guard<std::mutex> lk(planned_path_mtx_);
+        // ACCUMULE au lieu de remplacer : chaque nouveau plan s'ajoute aux precedents.
+        planned_path_points_.insert(planned_path_points_.end(), pts.begin(), pts.end());
+        // Fenetre glissante (memes bornes que la trace verte) : on jette les plus vieux.
+        if (planned_path_points_.size() > kTraceMaxPoints) {
+            planned_path_points_.erase(
+                planned_path_points_.begin(),
+                planned_path_points_.begin() + (planned_path_points_.size() - kTraceMaxPoints));
+        }
+        publishPlannedPathMarker(/*clear=*/false);
+    }
+
     void MotionServer::onMoveToPose(
         const std::shared_ptr<motion_control::srv::MoveToPose::Request> req,
         std::shared_ptr<motion_control::srv::MoveToPose::Response> res)
@@ -1661,6 +1829,7 @@ namespace motion_control
             }
 
             logCartesianFkTrace("MOVE_TO_POSE_LIN", trajectory);
+            publishPlannedPathFromTrajectory(trajectory);  
 
             // Validate trajectory before sending to controller
             std::string traj_err;
@@ -2028,6 +2197,8 @@ namespace motion_control
                 return;
             }
 
+            publishPlannedPathFromTrajectory(combined_trajectory);
+
             // Re-check collisions on the FINAL (post-TOTG) trajectory: TOTG corner-rounding
             // can deviate from the per-segment paths OMPL validated. Refuse on collision.
             std::string collision_err;
@@ -2177,6 +2348,7 @@ namespace motion_control
         RCLCPP_INFO(this->get_logger(),
             "[PlanJoints] Plan OK: %zu points, planning took %.3fs",
             plan.trajectory_.joint_trajectory.points.size(), dt);
+        publishPlannedPathFromTrajectory(plan.trajectory_);
 
         if (execute) {
             std::string traj_err;
