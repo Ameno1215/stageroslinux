@@ -2232,25 +2232,6 @@ namespace motion_control
                 // velocity continuity. The controller may experience a velocity jump.
                 size_t start_index = (i == 0) ? 0 : 1;
 
-                if (i > 0 && !combined_trajectory.joint_trajectory.points.empty()
-                    && segment_plan.trajectory_.joint_trajectory.points.size() > 1) {
-                    // Log the velocity at the junction for INFOging
-                    const auto& last_pt = combined_trajectory.joint_trajectory.points.back();
-                    const auto& next_pt = segment_plan.trajectory_.joint_trajectory.points[1]; // first used point
-                    if (!last_pt.velocities.empty() && !next_pt.velocities.empty()) {
-                        double max_vel_jump = 0.0;
-                        for (size_t j = 0; j < last_pt.velocities.size() && j < next_pt.velocities.size(); ++j) {
-                            max_vel_jump = std::max(max_vel_jump,
-                                std::abs(last_pt.velocities[j] - next_pt.velocities[j]));
-                        }
-                        if (max_vel_jump > 0.1) {  // rad/s threshold
-                            RCLCPP_WARN(this->get_logger(),
-                                "[MoveWaypoints] Velocity discontinuity at segment %zu junction: "
-                                "max delta=%.4f rad/s — controller may jerk", i, max_vel_jump);
-                        }
-                    }
-                }
-
                 for (size_t j = start_index; j < segment_plan.trajectory_.joint_trajectory.points.size(); ++j) {
                     auto pt = segment_plan.trajectory_.joint_trajectory.points[j];
 

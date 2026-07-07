@@ -27,6 +27,7 @@ setup(
             'joint_monitor_node = joint_monitor.joint_monitor_node:main',
             'trajectory_plotter_node = joint_monitor.trajectory_plotter_node:main',
             'tool_pose_publisher_node = joint_monitor.tool_pose_publisher_node:main',
+            'joint_kinematics_publisher_node = joint_monitor.joint_kinematics_publisher_node:main',
         ],
     },
 )
