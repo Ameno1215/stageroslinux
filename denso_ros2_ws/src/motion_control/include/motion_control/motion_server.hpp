@@ -645,11 +645,6 @@ namespace motion_control
              */
             void publishPlannedPathMarker(bool clear = false);
 
-            // --- Quantitative tracking-error measurement (real vs planned) --------------
-            // These are ENTIRELY SEPARATE from the visual overlay above: they never touch
-            // trace_points_ / planned_path_points_ or their markers, so enabling the
-            // measurement changes nothing that RViz shows.
-
             /**
              * @brief Builds a dense Cartesian TCP reference polyline from a planned joint
              * trajectory via forward kinematics.

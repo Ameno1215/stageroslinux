@@ -10,4 +10,3 @@ log/
 build/
 *.log
 .codex
-.gitignore

@@ -910,7 +910,7 @@ namespace motion_control
             ps.header.frame_id = planning_frame_;
             ps.pose = waypoints[i];
             item.req.goal_constraints.push_back(
-                kinematic_constraints::constructGoalConstraints(eef, ps, 1e-3, 1e-2));
+                kinematic_constraints::constructGoalConstraints(eef, ps, 1e-4, 1e-3));
 
             // blend_radius applies at the END of a segment; the LAST item must be 0 (Pilz rule).
             item.blend_radius = (i + 1 < waypoints.size()) ? blend : 0.0;
@@ -1426,9 +1426,9 @@ namespace motion_control
             const double dz = p.z - last.z;
             const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
             if (dist < kTraceMinDist) return;        // not enough movement to record
-            if (dist > kTraceMaxJump) {              // discontinuity -> start a fresh line
-                trace_points_.clear();
-            }
+            // if (dist > kTraceMaxJump) {              // discontinuity -> start a fresh line
+            //     trace_points_.clear();
+            // }
         }
 
         trace_points_.push_back(p);
@@ -1557,9 +1557,9 @@ namespace motion_control
 
         m.action = visualization_msgs::msg::Marker::ADD;
         m.pose.orientation.w = 1.0;
-        m.scale.x = 0.0015;  // sphere diameter (x/y/z) = 1 mm
-        m.scale.y = 0.0015;
-        m.scale.z = 0.0015;
+        m.scale.x = 0.0007;  // sphere diameter (x/y/z) = 0.7 mm
+        m.scale.y = 0.0007;
+        m.scale.z = 0.0007;
         m.color.r = 0.1f;   // blue = commanded/target path
         m.color.g = 0.2f;
         m.color.b = 1.0f;
