@@ -1855,7 +1855,10 @@ namespace motion_control
                 auto exec_code = move_group_->execute(trajectory);
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
-                const std::string track = computeTrackingError("MOVE_TO_POSE_LIN");
+                std::string track = "";
+                if constexpr (TRACK) {
+                    track = computeTrackingError("MOVE_TO_POSE_LIN");
+                }
 
                 std::string robot_fault;
                 if (getRobotFaultMessage(robot_fault)) {
@@ -2227,7 +2230,10 @@ namespace motion_control
                 auto exec_code = move_group_->execute(combined_trajectory);
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
-                const std::string track = computeTrackingError("MOVE_WAYPOINTS");
+                std::string track = "";
+                if constexpr (TRACK) {
+                    track = computeTrackingError("MOVE_WAYPOINTS");
+                }
 
                 std::string robot_fault;
                 if (getRobotFaultMessage(robot_fault)) {
@@ -2377,7 +2383,10 @@ namespace motion_control
             auto exec = move_group_->execute(plan);
             double exec_dt = std::chrono::duration<double>(
                 std::chrono::high_resolution_clock::now() - exec_t0).count();
-            const std::string track = computeTrackingError("MOVE_JOINTS");
+                std::string track = "";
+                if constexpr (TRACK) {
+                    track = computeTrackingError("MOVE_JOINTS");
+                }
 
             std::string robot_fault;
             if (getRobotFaultMessage(robot_fault)) {

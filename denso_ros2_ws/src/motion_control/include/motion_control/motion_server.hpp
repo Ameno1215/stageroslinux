@@ -57,6 +57,8 @@
 #include <std_srvs/srv/set_bool.hpp>
 #include <geometry_msgs/msg/point.hpp>
 
+constexpr bool TRACK = false;
+
 
 
 namespace motion_control
