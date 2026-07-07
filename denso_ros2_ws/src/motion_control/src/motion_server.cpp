@@ -874,11 +874,11 @@ namespace motion_control
         return true;
     }
 
-    bool MotionServer::planAndExecuteSequence(
+    bool MotionServer::planSequenceTrajectory(
         const std::vector<geometry_msgs::msg::Pose>& waypoints,
         double vel_scaling,
         double blend_radius,
-        bool execute,
+        moveit_msgs::msg::RobotTrajectory& out_trajectory,
         std::string& out_msg)
     {
         using MGS = moveit_msgs::action::MoveGroupSequence;
@@ -920,7 +920,10 @@ namespace motion_control
 
         MGS::Goal goal;
         goal.request = seq_req;
-        goal.planning_options.plan_only = !execute;
+        // Always plan-only: the caller executes the returned trajectory via
+        // move_group_->execute(), so it can first publish the blue planned-path
+        // overlay and arm the tracking-error capture, matching the other motion paths.
+        goal.planning_options.plan_only = true;
 
         auto goal_future = seq_client_->async_send_goal(goal);
         if (rclcpp::spin_until_future_complete(seq_node_, goal_future, std::chrono::seconds(30))
@@ -969,9 +972,67 @@ namespace motion_control
             return false;
         }
 
+        // Concatenate the planned sub-trajectories onto one continuous time axis.
+        // A fully blended sequence usually yields a single trajectory, but with
+        // blend_radius=0 (or non-blendable corners) Pilz returns one trajectory per
+        // segment, each starting at t=0 and repeating the previous segment's final
+        // sample. We shift each segment by the running time offset and drop that
+        // duplicated seam point, mirroring the joint-space waypoint assembly above.
+        if (!wrapped.result) {
+            out_msg = "Pilz sequence succeeded but returned no result payload";
+            return false;
+        }
+
+        out_trajectory = moveit_msgs::msg::RobotTrajectory();
+        int32_t acc_sec = 0;
+        uint32_t acc_nanosec = 0;
+        for (const auto& seg : wrapped.result->response.planned_trajectories) {
+            const auto& sjt = seg.joint_trajectory;
+            if (sjt.points.empty()) continue;
+
+            auto& out_jt = out_trajectory.joint_trajectory;
+            if (out_jt.joint_names.empty()) {
+                out_jt.header = sjt.header;
+                out_jt.joint_names = sjt.joint_names;
+            }
+
+            // Skip the first point of every segment after the first: it repeats the
+            // previous segment's end sample (same position, t=0 locally).
+            const size_t start_index = out_jt.points.empty() ? 0 : 1;
+            int32_t seg_last_sec = 0;
+            uint32_t seg_last_nanosec = 0;
+            for (size_t k = start_index; k < sjt.points.size(); ++k) {
+                auto pt = sjt.points[k];
+                seg_last_sec = pt.time_from_start.sec;
+                seg_last_nanosec = pt.time_from_start.nanosec;
+
+                uint32_t total_nanosec = pt.time_from_start.nanosec + acc_nanosec;
+                int32_t total_sec = pt.time_from_start.sec + acc_sec
+                                  + static_cast<int32_t>(total_nanosec / 1000000000);
+                total_nanosec = total_nanosec % 1000000000;
+                pt.time_from_start.sec = total_sec;
+                pt.time_from_start.nanosec = total_nanosec;
+                out_jt.points.push_back(std::move(pt));
+            }
+
+            // Advance the running offset by this segment's local duration.
+            acc_sec += seg_last_sec;
+            acc_nanosec += seg_last_nanosec;
+            if (acc_nanosec >= 1000000000) {
+                acc_sec += static_cast<int32_t>(acc_nanosec / 1000000000);
+                acc_nanosec = acc_nanosec % 1000000000;
+            }
+        }
+
+        if (out_trajectory.joint_trajectory.points.empty()) {
+            out_msg = "Pilz sequence succeeded but returned an empty planned trajectory";
+            return false;
+        }
+
         out_msg = "Pilz Sequence OK (" + std::to_string(waypoints.size())
                 + " LIN segments, blend=" + std::to_string(blend)
-                + "m, vel_scale=" + std::to_string(vscale) + ")";
+                + "m, vel_scale=" + std::to_string(vscale) + ", "
+                + std::to_string(out_trajectory.joint_trajectory.points.size()) + " pts)";
         return true;
     }
 
@@ -2018,28 +2079,71 @@ namespace motion_control
         {
 
             // Cartesian waypoints => single blended Pilz LIN sequence (/sequence_move_group).
-            // blend_radius rounds the corners (0 = stop at each corner). The action plans and,
-            // when execute=true, executes the whole blended trajectory natively.
-            // Linear speed = dedicated Cartesian scaling (cartesian_vel_scale_)
+            // blend_radius rounds the corners (0 = stop at each corner). We PLAN via the
+            // sequence action, then run the same post-planning pipeline as the other motion
+            // paths: publish the blue planned-path overlay, validate, capture the planned
+            // reference, execute via move_group_->execute(), and report the tracking error.
+            // Linear speed = dedicated Cartesian scaling (cartesian_vel_scale_).
             const double vscale = cartesian_vel_scale_;
 
-            auto seq_t0 = std::chrono::high_resolution_clock::now();
+            moveit_msgs::msg::RobotTrajectory trajectory;
             std::string seq_msg;
-            bool ok = planAndExecuteSequence(absolute_waypoints, vscale,
-                                             req->blend_radius, req->execute, seq_msg);
+            auto seq_t0 = std::chrono::high_resolution_clock::now();
+            bool planned = planSequenceTrajectory(absolute_waypoints, vscale,
+                                                  req->blend_radius, trajectory, seq_msg);
             double seq_dt = std::chrono::duration<double>(
                 std::chrono::high_resolution_clock::now() - seq_t0).count();
 
             RCLCPP_INFO(this->get_logger(), "[MoveWaypoints] Pilz Sequence: %s (%.2fs)",
                         seq_msg.c_str(), seq_dt);
 
-            std::string robot_fault;
-            if (ok && req->execute && getRobotFaultMessage(robot_fault)) {
+            if (!planned) {
                 res->success = false;
-                res->message = robot_fault;
-            } else {
-                res->success = ok;
                 res->message = seq_msg + " (" + std::to_string(seq_dt) + "s)";
+                return;
+            }
+
+            // Blue planned-path overlay (FK on the blended trajectory), same as every
+            // other mode — this is what was missing for Cartesian waypoints.
+            publishPlannedPathFromTrajectory(trajectory);
+
+            std::string traj_err;
+            if (!validateTrajectory(trajectory, traj_err)) {
+                res->success = false;
+                res->message = traj_err;
+                return;
+            }
+
+            if (req->execute) {
+                const auto& pts = trajectory.joint_trajectory.points;
+                double traj_duration = pts.back().time_from_start.sec
+                                     + pts.back().time_from_start.nanosec * 1e-9;
+
+                startTrackingCapture(trajectory);
+                auto exec_t0 = std::chrono::high_resolution_clock::now();
+                auto exec_code = move_group_->execute(trajectory);
+                double exec_dt = std::chrono::duration<double>(
+                    std::chrono::high_resolution_clock::now() - exec_t0).count();
+                const std::string track = computeTrackingError("MOVE_WAYPOINTS_LIN");
+
+                std::string robot_fault;
+                if (getRobotFaultMessage(robot_fault)) {
+                    res->success = false;
+                    res->message = robot_fault;
+                } else if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                    res->success = false;
+                    res->message = diagnoseExecutionFailure(exec_code);
+                } else {
+                    res->success = true;
+                    res->message = "Cartesian waypoints (Pilz Sequence) executed. " + seq_msg
+                                 + " (plan=" + std::to_string(seq_dt)
+                                 + "s, trajectory=" + std::to_string(traj_duration)
+                                 + "s, real=" + std::to_string(exec_dt) + "s)" + track;
+                }
+            } else {
+                res->success = true;
+                res->message = "Cartesian waypoints (Pilz Sequence) planned (execute=false). "
+                             + seq_msg;
             }
         }
         else {

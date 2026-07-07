@@ -359,26 +359,34 @@ namespace motion_control
 
 
             /**
-             * @brief Plans (and optionally executes) a Cartesian waypoint sequence as a
-             * single blended Pilz LIN sequence via the /sequence_move_group action.
+             * @brief Plans a Cartesian waypoint sequence as a single blended Pilz LIN
+             * sequence via the /sequence_move_group action and returns the resulting
+             * blended joint trajectory (plan-only; the caller drives execution).
              *
              * Each waypoint becomes a LIN MotionSequenceItem; blend_radius rounds the
              * corner between consecutive segments (0 = stop at each corner). The last
-             * item's blend is forced to 0 (Pilz requirement). When execute is true the
-             * action plans and executes; otherwise it only plans.
+             * item's blend is forced to 0 (Pilz requirement). The action is always
+             * called with plan_only=true so the caller obtains the trajectory and can,
+             * exactly like the other motion paths, publish the blue planned-path
+             * overlay, capture the planned reference for tracking-error metrics, and
+             * execute it via move_group_->execute().
              *
-             * @param waypoints     Ordered absolute target poses (planning frame).
-             * @param vel_scaling   Velocity scaling factor [0..1].
-             * @param blend_radius  Corner blend radius in meters (0 = stop at corners).
-             * @param execute       If true, plan and execute; if false, plan only.
-             * @param out_msg        Status or failure reason.
+             * The Pilz sequence response may contain several sub-trajectories (one per
+             * un-blended segment); they are concatenated onto a single continuous time
+             * axis, dropping the duplicated seam sample between consecutive segments.
+             *
+             * @param waypoints        Ordered absolute target poses (planning frame).
+             * @param vel_scaling      Velocity scaling factor [0..1].
+             * @param blend_radius     Corner blend radius in meters (0 = stop at corners).
+             * @param out_trajectory   Concatenated blended trajectory (output).
+             * @param out_msg          Status or failure reason.
              * @return true on success, false otherwise.
              */
-            bool planAndExecuteSequence(
+            bool planSequenceTrajectory(
                 const std::vector<geometry_msgs::msg::Pose>& waypoints,
                 double vel_scaling,
                 double blend_radius,
-                bool execute,
+                moveit_msgs::msg::RobotTrajectory& out_trajectory,
                 std::string& out_msg);
 
             /**
