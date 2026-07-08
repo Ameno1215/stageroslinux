@@ -1,5 +1,5 @@
 # Request
-bool enable          # True to activate the cage, False to remove it
+bool enable          # True to activate the fence, False to remove it
 float64 front        # Maximum distance forward (+X)
 float64 back         # Maximum distance backward (-X)
 float64 left         # Maximum distance left (+Y)

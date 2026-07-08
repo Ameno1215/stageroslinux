@@ -12,7 +12,7 @@ from rclpy.node import Node
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetScaling, GetJointState, GetCurrentPose, SetVirtualCage, ManageBox, ManageMesh
+from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetScaling, GetJointState, GetCurrentPose, SetVirtualFence, ManageBox, ManageMesh
 from denso_robot_core_interfaces.srv import SetServoOn
 from industrial_msgs.msg import ServiceReturnCode
 from industrial_msgs.srv import SetDrivePower
@@ -240,7 +240,7 @@ class ComputeApproachReq(BaseModel):
     reference_frame: SupportedReferenceFrame = "WORLD"
     z_offset: float = 0.1
 
-class VirtualCageReq(BaseModel):
+class VirtualFenceReq(BaseModel):
     enable: bool = False
     front: float = 1.0
     back: float = 1.0
@@ -318,7 +318,7 @@ class MotionRosClient(Node):
         self.move_pose_cli = self.create_client(MoveToPose, "/move_to_pose")
         self.move_joints_cli = self.create_client(MoveJoints, "/move_joints")
         self.move_waypoints_cli = self.create_client(MoveWaypoints, "/move_waypoints")
-        self.cage_cli = self.create_client(SetVirtualCage, "/set_virtual_cage")
+        self.fence_cli = self.create_client(SetVirtualFence, "/set_virtual_fence")
         self.param_client = self.create_client(GetParameters, "/motion_server/get_parameters")
         self.manage_box_cli = self.create_client(ManageBox, "/manage_box")
         self.manage_mesh_cli = self.create_client(ManageMesh, "/manage_mesh")
@@ -346,7 +346,7 @@ class MotionRosClient(Node):
             (self.move_pose_cli, "/move_to_pose"),
             (self.move_joints_cli, "/move_joints"),
             (self.move_waypoints_cli, "/move_waypoints"),
-            (self.cage_cli, "/set_virtual_cage"),
+            (self.fence_cli, "/set_virtual_fence"),
             (self.param_client, "/motion_server/get_parameters"),
             (self.manage_box_cli, "/manage_box"),
             (self.manage_mesh_cli, "/manage_mesh"),
@@ -807,9 +807,9 @@ class MotionRosClient(Node):
             }
         }
 
-    def call_set_virtual_cage(self, req: VirtualCageReq) -> Dict[str, Any]:
-        logger.info(f"Virtual cage modification requested (Enable={req.enable})")
-        ros_req = SetVirtualCage.Request()
+    def call_set_virtual_fence(self, req: VirtualFenceReq) -> Dict[str, Any]:
+        logger.info(f"Virtual fence modification requested (Enable={req.enable})")
+        ros_req = SetVirtualFence.Request()
         ros_req.enable = bool(req.enable)
         ros_req.front = float(req.front)
         ros_req.back = float(req.back)
@@ -822,18 +822,18 @@ class MotionRosClient(Node):
         ros_req.b = float(req.b)
         ros_req.a = float(req.a)
 
-        fut = self.cage_cli.call_async(ros_req)
+        fut = self.fence_cli.call_async(ros_req)
         try:
             res = self._wait_for_future(fut, timeout=5.0)
             if res.success:
-                logger.info(f"Virtual cage modification successful: {res.message}")
+                logger.info(f"Virtual fence modification successful: {res.message}")
             else:
-                logger.error(f"Virtual cage modification failed: {res.message}")
+                logger.error(f"Virtual fence modification failed: {res.message}")
             return {"success": bool(res.success), "message": str(res.message)}
         except Exception as e:
-            logger.error(f"Critical error during SetVirtualCage call: {e}")
+            logger.error(f"Critical error during SetVirtualFence call: {e}")
             logger.debug(traceback.format_exc())
-            raise RuntimeError(f"SetVirtualCage failed: {e}")
+            raise RuntimeError(f"SetVirtualFence failed: {e}")
 
     def call_get_solver(self) -> Dict[str, Any]:
         logger.info("Requesting IK solver info from C++ node...")
@@ -1428,10 +1428,10 @@ def state_joints():
 def state_pose(frame_id: str = "", child_frame_id: str = ""):
     return _ros_client.call_get_pose(frame_id, child_frame_id)
 
-@app.post("/set_virtual_cage")
-def set_virtual_cage(req: VirtualCageReq):
+@app.post("/set_virtual_fence")
+def set_virtual_fence(req: VirtualFenceReq):
     try:
-        return _ros_client.call_set_virtual_cage(req)
+        return _ros_client.call_set_virtual_fence(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

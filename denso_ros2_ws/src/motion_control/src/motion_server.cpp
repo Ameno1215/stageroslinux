@@ -82,9 +82,9 @@ namespace motion_control
             "get_current_pose",
             std::bind(&MotionServer::onGetCurrentPose, this, std::placeholders::_1, std::placeholders::_2));
 
-        srv_virtual_cage_ = this->create_service<srv::SetVirtualCage>(
-            "set_virtual_cage",
-            std::bind(&MotionServer::onSetVirtualCage, this, std::placeholders::_1, std::placeholders::_2));
+        srv_virtual_fence_ = this->create_service<srv::SetVirtualFence>(
+            "set_virtual_fence",
+            std::bind(&MotionServer::onSetVirtualFence, this, std::placeholders::_1, std::placeholders::_2));
 
         srv_manage_box_ = this->create_service<srv::ManageBox>(
             "manage_box",
@@ -2685,19 +2685,19 @@ namespace motion_control
         }
     }
 
-    void MotionServer::onSetVirtualCage(
-        const std::shared_ptr<srv::SetVirtualCage::Request> req,
-        std::shared_ptr<srv::SetVirtualCage::Response> res)
+    void MotionServer::onSetVirtualFence(
+        const std::shared_ptr<srv::SetVirtualFence::Request> req,
+        std::shared_ptr<srv::SetVirtualFence::Response> res)
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
         if (!ensureMoveGroupInitialized(why)) { res->success = false; res->message = why; return; }
 
         std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
-        std::vector<std::string> wall_names = {"cage_front", "cage_back", "cage_left", "cage_right", "cage_top", "cage_bottom"};
+        std::vector<std::string> wall_names = {"fence_front", "fence_back", "fence_left", "fence_right", "fence_top", "fence_bottom"};
 
         if (!req->enable) {
-            // // Destroy the cage (MoveIt to REMOVE these objects)
+            // // Destroy the fence (MoveIt to REMOVE these objects)
             for (const auto& name : wall_names) {
                 moveit_msgs::msg::CollisionObject obj;
                 obj.id = name;
@@ -2705,11 +2705,11 @@ namespace motion_control
                 collision_objects.push_back(obj);
             }
             planning_scene_->applyCollisionObjects(collision_objects);
-            res->success = true; res->message = "Virtual cage removed";
+            res->success = true; res->message = "Virtual fence removed";
             return;
         }
 
-        // Cage construction
+        // Fence construction
         const double thickness = 0.01; // Walls tickness of 1cm
 
         // Utility function to generate a wall as a CollisionObject
@@ -2732,52 +2732,52 @@ namespace motion_control
             return obj;
         };
 
-        // Calculation of the cage's internal dimensions
+        // Calculation of the fence's internal dimensions
         double dim_x = req->front + req->back;
         double dim_y = req->left + req->right;
         double dim_z = req->top + req->bottom;
 
-        // Calculation of the overall center of the cage
+        // Calculation of the overall center of the fence
         double cx = (req->front - req->back) / 2.0;
         double cy = (req->left - req->right) / 2.0;
         double cz = (req->top - req->bottom) / 2.0;
 
         // Front Wall (+X)
-        collision_objects.push_back(make_wall("cage_front", req->front + thickness/2, cy, cz, thickness, dim_y, dim_z));
+        collision_objects.push_back(make_wall("fence_front", req->front + thickness/2, cy, cz, thickness, dim_y, dim_z));
         // Back Wall (-X)
-        collision_objects.push_back(make_wall("cage_back", -req->back - thickness/2, cy, cz, thickness, dim_y, dim_z));
+        collision_objects.push_back(make_wall("fence_back", -req->back - thickness/2, cy, cz, thickness, dim_y, dim_z));
         // Left Wall (+Y)
-        collision_objects.push_back(make_wall("cage_left", cx, req->left + thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
+        collision_objects.push_back(make_wall("fence_left", cx, req->left + thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
         // Right Wall (-Y)
-        collision_objects.push_back(make_wall("cage_right", cx, -req->right - thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
+        collision_objects.push_back(make_wall("fence_right", cx, -req->right - thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
         // Ceiling (+Z)
-        collision_objects.push_back(make_wall("cage_top", cx, cy, req->top + thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
+        collision_objects.push_back(make_wall("fence_top", cx, cy, req->top + thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
         //  Floor (-Z)
-        collision_objects.push_back(make_wall("cage_bottom", cx, cy, -req->bottom - thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
+        collision_objects.push_back(make_wall("fence_bottom", cx, cy, -req->bottom - thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
 
 
         moveit_msgs::msg::PlanningScene planning_scene_msg;
         planning_scene_msg.is_diff = true;
 
-        std_msgs::msg::ColorRGBA cage_color;
-        cage_color.r = req->r;
-        cage_color.g = req->g;
-        cage_color.b = req->b;
-        cage_color.a = req->a;
+        std_msgs::msg::ColorRGBA fence_color;
+        fence_color.r = req->r;
+        fence_color.g = req->g;
+        fence_color.b = req->b;
+        fence_color.a = req->a;
 
         for (const auto& obj : collision_objects) {
             moveit_msgs::msg::ObjectColor oc;
             oc.id = obj.id;
-            oc.color = cage_color;
+            oc.color = fence_color;
             planning_scene_msg.object_colors.push_back(oc);
         }
 
-        // Apply the cage to the planning scene
+        // Apply the fence to the planning scene
         planning_scene_msg.world.collision_objects = collision_objects;
         planning_scene_->applyPlanningScene(planning_scene_msg);
 
         res->success = true;
-        res->message = "Virtual cage successfully activated";
+        res->message = "Virtual fence successfully activated";
     }
 
     void MotionServer::onManageBox(

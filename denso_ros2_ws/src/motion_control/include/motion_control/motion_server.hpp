@@ -50,7 +50,7 @@
 #include "motion_control/srv/move_to_pose.hpp"
 #include "motion_control/srv/move_joints.hpp"
 #include "motion_control/srv/move_waypoints.hpp"
-#include "motion_control/srv/set_virtual_cage.hpp"
+#include "motion_control/srv/set_virtual_fence.hpp"
 #include "motion_control/srv/manage_box.hpp"
 #include "motion_control/srv/manage_mesh.hpp"
 #include <std_srvs/srv/trigger.hpp>
@@ -256,7 +256,7 @@ namespace motion_control
                 std::shared_ptr<motion_control::srv::GetCurrentPose::Response> res);
 
             /**
-             * @brief Service callback to dynamically generate a virtual collision cage around the robot.
+             * @brief Service callback to dynamically generate a virtual collision fence around the robot.
              * * Creates 6 walls (CollisionObjects) in the MoveIt planning scene to strictly
              * restrict the robot's workspace and prevent any part of the arm from exceeding the limits.
              * The dimensions provided define the exact internal free space originating from the
@@ -265,11 +265,11 @@ namespace motion_control
              * of the specified boundaries. Therefore, the given parameters exactly represent the
              * permitted internal workspace without any loss of volume due to wall thickness.
              * * @param req Contains the enable flag and the 6 maximum distances (front, back, left, right, top, bottom).
-             * @param res Returns the success status of the cage generation or removal.
+             * @param res Returns the success status of the fence generation or removal.
              */
-            void onSetVirtualCage(
-                const std::shared_ptr<srv::SetVirtualCage::Request> req,
-                std::shared_ptr<srv::SetVirtualCage::Response> res);
+            void onSetVirtualFence(
+                const std::shared_ptr<srv::SetVirtualFence::Request> req,
+                std::shared_ptr<srv::SetVirtualFence::Response> res);
 
             /**
              * @brief Service callback to add, update, or remove a box in the planning scene.
@@ -747,7 +747,7 @@ namespace motion_control
             rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_;
             rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_via_joint_;
             rclcpp::Service<srv::MoveWaypoints>::SharedPtr srv_move_waypoints_;
-            rclcpp::Service<srv::SetVirtualCage>::SharedPtr srv_virtual_cage_;
+            rclcpp::Service<srv::SetVirtualFence>::SharedPtr srv_virtual_fence_;
             rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;
             rclcpp::Service<motion_control::srv::ManageMesh>::SharedPtr srv_manage_mesh_;
             rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_env_;
