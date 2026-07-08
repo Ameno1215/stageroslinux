@@ -29,7 +29,7 @@ def generate_launch_description():
         DeclareLaunchArgument("velocity_scale", default_value="0.1", description="Max velocity scaling factor [0..1]."),
         DeclareLaunchArgument("accel_scale", default_value="0.1", description="Max acceleration scaling factor [0..1]."),
         DeclareLaunchArgument("tool", default_value="none", description="End-effector tool to attach (e.g., none, effecteur_v1)"),
-        DeclareLaunchArgument("ik_solver", default_value="pick_ik", choices=['kdl', 'pick_ik']),
+        DeclareLaunchArgument("ik_solver", default_value="kdl", choices=['kdl', 'pick_ik']),
         DeclareLaunchArgument("robot_status_topic", default_value="/robot_status", description="RobotStatus topic used by the health monitor."),
     ]
 

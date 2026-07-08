@@ -1,6 +1,9 @@
 #include "motion_control/motion_server.hpp"
 
 #include <cmath>
+#include <limits>
+#include <algorithm>
+#include <cstdio>
 
 
 namespace motion_control
@@ -31,7 +34,7 @@ namespace motion_control
             "kdl_kinematics_plugin/KDLKinematicsPlugin");
         // this->set_parameter(rclcpp::Parameter("use_sim_time", true));
 
-        // Initialisation du système d'écoute TF
+        // Initialization of the TF listening system
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
         rclcpp::QoS qos(10);
@@ -79,9 +82,9 @@ namespace motion_control
             "get_current_pose",
             std::bind(&MotionServer::onGetCurrentPose, this, std::placeholders::_1, std::placeholders::_2));
 
-        srv_virtual_cage_ = this->create_service<srv::SetVirtualCage>(
-            "set_virtual_cage",
-            std::bind(&MotionServer::onSetVirtualCage, this, std::placeholders::_1, std::placeholders::_2));
+        srv_virtual_fence_ = this->create_service<srv::SetVirtualFence>(
+            "set_virtual_fence",
+            std::bind(&MotionServer::onSetVirtualFence, this, std::placeholders::_1, std::placeholders::_2));
 
         srv_manage_box_ = this->create_service<srv::ManageBox>(
             "manage_box",
@@ -118,7 +121,7 @@ namespace motion_control
             std::bind(&MotionServer::onSetDrivesExpected, this, std::placeholders::_1, std::placeholders::_2),
             rmw_qos_profile_services_default, trace_cb_group_);
 
-        // 30 Hz sampler; it early-returns when tracing is disabled, so it is cheap when idle.
+        // 1000 Hz sampler; it early-returns when tracing is disabled, so it is cheap when idle.
         trace_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(1),
             std::bind(&MotionServer::sampleTcpTrace, this),
@@ -198,6 +201,13 @@ namespace motion_control
             {
                 std::lock_guard<std::mutex> tlk(trace_mtx_);
                 ee_link_ = move_group_->getEndEffectorLink();
+            }
+
+            // Cache the robot model for the planned-path subscriber (FK without touching
+            // the non thread-safe MoveGroupInterface from its callback group).
+            {
+                std::lock_guard<std::mutex> plk(planned_path_mtx_);
+                robot_model_ = move_group_->getRobotModel();
             }
 
             // Resting pipeline = OMPL for all joint-space planning. Cartesian moves
@@ -567,7 +577,7 @@ namespace motion_control
     #if 0  // DEMO MODE: visit each distinct branch sequentially
         // Set to `#if 1` to re-enable
 
-        // Reference de retour = état courant au moment de l'appel
+        // Return reference = current state at the time of the call
         const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
         std::vector<double> initial_joints;
         current_state->copyJointGroupPositions(jmg, initial_joints);
@@ -858,174 +868,17 @@ namespace motion_control
             return false;
         }
 
-        // Pilz emits one joint waypoint every sampling_time (0.1s, hardcoded in MoveIt).
-        // Between them the controller interpolates in JOINT space, which cuts the corner of
-        // the true Cartesian line — the faster the move, the larger that chordal deviation.
-        // We densify the path along the (already validated) line: re-sample it finely, solve
-        // seeded IK on each sub-point, and inherit Pilz's timing so the requested Cartesian
-        // speed is preserved.
-        //
-        // Densification is MANDATORY (no fallback): the raw Pilz trajectory is not precise
-        // enough, and its joint-interpolated path between the sparse nodes is not finely
-        // collision-checked. If densification or the fine collision recheck fails, we refuse
-        // the move rather than execute a coarse/unverified path.
-        const size_t pilz_pts = plan.trajectory_.joint_trajectory.points.size();
-        moveit_msgs::msg::RobotTrajectory dense = plan.trajectory_;
-        std::string dmsg;
-        if (!densifyCartesianTrajectory(dense, kDensifyMaxCartStep, kDensifyMaxAngStep, dmsg)) {
-            out_msg = "Pilz LIN densification failed: " + dmsg
-                    + " (likely a near-singular line where seeded IK can't follow) — move refused";
-            RCLCPP_ERROR(this->get_logger(), "[LIN] %s", out_msg.c_str());
-            return false;
-        }
-
-        std::string cmsg;
-        if (!validateTrajectoryCollisionFree(dense, cmsg)) {
-            out_msg = "Pilz LIN densified trajectory collides between waypoints: " + cmsg
-                    + " — move refused";
-            RCLCPP_ERROR(this->get_logger(), "[LIN] %s", out_msg.c_str());
-            return false;
-        }
-
-        trajectory = dense;
-        RCLCPP_INFO(this->get_logger(),
-            "[LIN] densified %zu -> %zu points (%s)",
-            pilz_pts, dense.joint_trajectory.points.size(), dmsg.c_str());
-        out_msg = "Pilz LIN OK + densified (vel_scale=" + std::to_string(vscale)
-                + ", " + std::to_string(dense.joint_trajectory.points.size()) + " pts)";
+        trajectory = plan.trajectory_;
+        out_msg = "Pilz LIN OK (vel_scale=" + std::to_string(vscale)
+                + ", " + std::to_string(trajectory.joint_trajectory.points.size()) + " pts)";
         return true;
     }
 
-    bool MotionServer::densifyCartesianTrajectory(
-        moveit_msgs::msg::RobotTrajectory& trajectory,
-        double max_cart_step,
-        double max_ang_step,
-        std::string& out_msg)
-    {
-        const auto& jt = trajectory.joint_trajectory;
-        const auto& pts = jt.points;
-        if (pts.size() < 2) { out_msg = "fewer than 2 points to densify"; return false; }
-
-        const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
-        if (!jmg) { out_msg = "unknown planning group"; return false; }
-        const std::string ee = move_group_->getEndEffectorLink();
-        const auto& names = jt.joint_names;
-        const size_t ndof = names.size();
-        if (ndof == 0 || pts.front().positions.size() != ndof) {
-            out_msg = "joint name / position size mismatch"; return false;
-        }
-
-        moveit::core::RobotState state(move_group_->getRobotModel());
-        state.setToDefaultValues();
-
-        auto set_state = [&](const std::vector<double>& j) {
-            for (size_t k = 0; k < ndof; ++k) state.setVariablePosition(names[k], j[k]);
-            state.update();
-        };
-        auto fk = [&](const std::vector<double>& j) -> Eigen::Isometry3d {
-            set_state(j);
-            return state.getGlobalLinkTransform(ee);
-        };
-        auto t_of = [](const trajectory_msgs::msg::JointTrajectoryPoint& p) {
-            return p.time_from_start.sec + p.time_from_start.nanosec * 1e-9;
-        };
-
-        std::vector<std::vector<double>> dpos;
-        std::vector<double> dtime;
-        dpos.reserve(pts.size() * 16);
-        dtime.reserve(pts.size() * 16);
-
-        dpos.push_back(pts.front().positions);
-        dtime.push_back(t_of(pts.front()));
-        std::vector<double> seed = pts.front().positions;
-
-        for (size_t i = 1; i < pts.size(); ++i) {
-            const auto& ja = pts[i - 1].positions;
-            const auto& jb = pts[i].positions;
-            const Eigen::Isometry3d Ta = fk(ja);
-            const Eigen::Isometry3d Tb = fk(jb);
-            const Eigen::Vector3d pa = Ta.translation();
-            const Eigen::Vector3d pb = Tb.translation();
-            const Eigen::Quaterniond qa(Ta.rotation());
-            const Eigen::Quaterniond qb(Tb.rotation());
-            const double dpos_m = (pb - pa).norm();
-            const double dang = std::abs(qa.angularDistance(qb));
-            const double ta = t_of(pts[i - 1]);
-            const double tb = t_of(pts[i]);
-
-            size_t K = static_cast<size_t>(std::ceil(std::max(
-                dpos_m / std::max(max_cart_step, 1e-6),
-                dang   / std::max(max_ang_step, 1e-6))));
-            K = std::min<size_t>(std::max<size_t>(K, 1), kDensifyMaxSubSteps);
-
-            for (size_t k = 1; k < K; ++k) {
-                const double a = static_cast<double>(k) / static_cast<double>(K);
-                Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
-                T.translation() = pa + a * (pb - pa);
-                T.linear() = qa.slerp(a, qb).toRotationMatrix();
-
-                set_state(seed);  // seed IK from the previous solution -> stays on the branch
-                if (!state.setFromIK(jmg, T, kDensifyIkTimeout)) {
-                    out_msg = "IK failed at segment " + std::to_string(i)
-                            + " substep " + std::to_string(k);
-                    return false;
-                }
-                std::vector<double> jk;
-                state.copyJointGroupPositions(jmg, jk);
-
-                double md = 0.0;
-                for (size_t d = 0; d < ndof; ++d) md = std::max(md, std::abs(jk[d] - seed[d]));
-                if (md > kDensifyMaxJointJump) {
-                    out_msg = "IK branch jump (" + std::to_string(md)
-                            + " rad) at segment " + std::to_string(i);
-                    return false;
-                }
-
-                dpos.push_back(jk);
-                dtime.push_back(ta + a * (tb - ta));
-                seed = jk;
-            }
-            // Pin the node exactly to Pilz's own on-line solution (exact endpoint + anchor).
-            dpos.push_back(jb);
-            dtime.push_back(tb);
-            seed = jb;
-        }
-
-        // Keep timestamps strictly increasing (defensive against equal Pilz samples).
-        for (size_t m = 1; m < dtime.size(); ++m)
-            if (dtime[m] <= dtime[m - 1]) dtime[m] = dtime[m - 1] + 1e-4;
-
-        // Rebuild the message with finite-difference velocities; endpoints stay at rest
-        // (Pilz LIN starts and ends with zero Cartesian velocity).
-        trajectory_msgs::msg::JointTrajectory out;
-        out.joint_names = names;
-        out.points.resize(dpos.size());
-        for (size_t m = 0; m < dpos.size(); ++m) {
-            auto& p = out.points[m];
-            p.positions = dpos[m];
-            p.velocities.assign(ndof, 0.0);
-            p.time_from_start.sec = static_cast<int32_t>(dtime[m]);
-            p.time_from_start.nanosec = static_cast<uint32_t>(
-                (dtime[m] - static_cast<int64_t>(dtime[m])) * 1e9);
-        }
-        for (size_t m = 1; m + 1 < dpos.size(); ++m) {
-            const double dt = dtime[m + 1] - dtime[m - 1];
-            if (dt <= 0.0) continue;
-            for (size_t d = 0; d < ndof; ++d)
-                out.points[m].velocities[d] = (dpos[m + 1][d] - dpos[m - 1][d]) / dt;
-        }
-
-        trajectory.joint_trajectory = out;
-        out_msg = "densified " + std::to_string(pts.size())
-                + " -> " + std::to_string(dpos.size()) + " points";
-        return true;
-    }
-
-    bool MotionServer::planAndExecuteSequence(
+    bool MotionServer::planSequenceTrajectory(
         const std::vector<geometry_msgs::msg::Pose>& waypoints,
         double vel_scaling,
         double blend_radius,
-        bool execute,
+        moveit_msgs::msg::RobotTrajectory& out_trajectory,
         std::string& out_msg)
     {
         using MGS = moveit_msgs::action::MoveGroupSequence;
@@ -1057,7 +910,7 @@ namespace motion_control
             ps.header.frame_id = planning_frame_;
             ps.pose = waypoints[i];
             item.req.goal_constraints.push_back(
-                kinematic_constraints::constructGoalConstraints(eef, ps, 1e-3, 1e-2));
+                kinematic_constraints::constructGoalConstraints(eef, ps, 1e-4, 1e-3));
 
             // blend_radius applies at the END of a segment; the LAST item must be 0 (Pilz rule).
             item.blend_radius = (i + 1 < waypoints.size()) ? blend : 0.0;
@@ -1067,7 +920,10 @@ namespace motion_control
 
         MGS::Goal goal;
         goal.request = seq_req;
-        goal.planning_options.plan_only = !execute;
+        // Always plan-only: the caller executes the returned trajectory via
+        // move_group_->execute(), so it can first publish the blue planned-path
+        // overlay and arm the tracking-error capture, matching the other motion paths.
+        goal.planning_options.plan_only = true;
 
         auto goal_future = seq_client_->async_send_goal(goal);
         if (rclcpp::spin_until_future_complete(seq_node_, goal_future, std::chrono::seconds(30))
@@ -1116,9 +972,67 @@ namespace motion_control
             return false;
         }
 
+        // Concatenate the planned sub-trajectories onto one continuous time axis.
+        // A fully blended sequence usually yields a single trajectory, but with
+        // blend_radius=0 (or non-blendable corners) Pilz returns one trajectory per
+        // segment, each starting at t=0 and repeating the previous segment's final
+        // sample. We shift each segment by the running time offset and drop that
+        // duplicated seam point, mirroring the joint-space waypoint assembly above.
+        if (!wrapped.result) {
+            out_msg = "Pilz sequence succeeded but returned no result payload";
+            return false;
+        }
+
+        out_trajectory = moveit_msgs::msg::RobotTrajectory();
+        int32_t acc_sec = 0;
+        uint32_t acc_nanosec = 0;
+        for (const auto& seg : wrapped.result->response.planned_trajectories) {
+            const auto& sjt = seg.joint_trajectory;
+            if (sjt.points.empty()) continue;
+
+            auto& out_jt = out_trajectory.joint_trajectory;
+            if (out_jt.joint_names.empty()) {
+                out_jt.header = sjt.header;
+                out_jt.joint_names = sjt.joint_names;
+            }
+
+            // Skip the first point of every segment after the first: it repeats the
+            // previous segment's end sample (same position, t=0 locally).
+            const size_t start_index = out_jt.points.empty() ? 0 : 1;
+            int32_t seg_last_sec = 0;
+            uint32_t seg_last_nanosec = 0;
+            for (size_t k = start_index; k < sjt.points.size(); ++k) {
+                auto pt = sjt.points[k];
+                seg_last_sec = pt.time_from_start.sec;
+                seg_last_nanosec = pt.time_from_start.nanosec;
+
+                uint32_t total_nanosec = pt.time_from_start.nanosec + acc_nanosec;
+                int32_t total_sec = pt.time_from_start.sec + acc_sec
+                                  + static_cast<int32_t>(total_nanosec / 1000000000);
+                total_nanosec = total_nanosec % 1000000000;
+                pt.time_from_start.sec = total_sec;
+                pt.time_from_start.nanosec = total_nanosec;
+                out_jt.points.push_back(std::move(pt));
+            }
+
+            // Advance the running offset by this segment's local duration.
+            acc_sec += seg_last_sec;
+            acc_nanosec += seg_last_nanosec;
+            if (acc_nanosec >= 1000000000) {
+                acc_sec += static_cast<int32_t>(acc_nanosec / 1000000000);
+                acc_nanosec = acc_nanosec % 1000000000;
+            }
+        }
+
+        if (out_trajectory.joint_trajectory.points.empty()) {
+            out_msg = "Pilz sequence succeeded but returned an empty planned trajectory";
+            return false;
+        }
+
         out_msg = "Pilz Sequence OK (" + std::to_string(waypoints.size())
                 + " LIN segments, blend=" + std::to_string(blend)
-                + "m, vel_scale=" + std::to_string(vscale) + ")";
+                + "m, vel_scale=" + std::to_string(vscale) + ", "
+                + std::to_string(out_trajectory.joint_trajectory.points.size()) + " pts)";
         return true;
     }
 
@@ -1128,7 +1042,6 @@ namespace motion_control
     {
         // Re-time the (concatenated joint-space waypoint) trajectory with TOTG so it honors
         // vel_scale_/accel_scale_ and has continuous velocities at segment junctions.
-        // (Cartesian moves no longer pass here: Pilz LIN/Sequence time their own trajectories.)
         robot_trajectory::RobotTrajectory rt(
             move_group_->getRobotModel(), planning_group_);
 
@@ -1303,19 +1216,19 @@ namespace motion_control
         RCLCPP_INFO(
             this->get_logger(),
             "[FK_TRACE:%s] trajectory_points=%zu fk_samples=%zu time=%.6fs start=(%.6f, %.6f, %.6f) end=(%.6f, %.6f, %.6f) "
-            "straight=%.6fm path=%.6fm ratio=%.6f max_dev=%.6fm@%zu max_step=%.6fm",
+            "straight=%.6fm path=%.6fm ratio=%.6f max_dev=%.3fmm@%zu max_step=%.3fmm",
             label.c_str(),
             points.size(), positions.size(), total_time,
             start.x(), start.y(), start.z(),
             end.x(), end.y(), end.z(),
             straight_len, path_len, path_ratio,
-            max_dev, max_dev_index, max_step);
+            max_dev*1000, max_dev_index, max_step*1000);
 
         if (path_ratio > 1.02 || max_dev > 0.002) {
             RCLCPP_WARN(
                 this->get_logger(),
-                "[FK_TRACE:%s] Non-straight Cartesian trace suspected: ratio=%.6f, max_dev=%.6fm",
-                label.c_str(), path_ratio, max_dev);
+                "[FK_TRACE:%s] Non-straight Cartesian trace suspected: ratio=%.6f, max_dev=%.3fmm",
+                label.c_str(), path_ratio, max_dev*1000);
         }
     }
 
@@ -1464,12 +1377,18 @@ namespace motion_control
         const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
         std::shared_ptr<std_srvs::srv::SetBool::Response> res)
     {
-        std::lock_guard<std::mutex> lk(trace_mtx_);
-        trace_enabled_ = req->data;
+        {
+            std::lock_guard<std::mutex> lk(trace_mtx_);
+            trace_enabled_ = req->data;
+        }
+        {
+            std::lock_guard<std::mutex> lk(planned_path_mtx_);
+            planned_path_enabled_ = req->data;
+        }
         res->success = true;
-        res->message = trace_enabled_
-            ? "TCP trace ENABLED (sampling the live tool-tip path)"
-            : "TCP trace DISABLED (existing trace kept; call clear_tcp_trace to erase it)";
+        res->message = req->data
+            ? "Trace ENABLED (green = actual TCP, blue = planned TCP)"
+            : "Trace DISABLED (traces retained; clear_tcp_trace to clear)";
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 
@@ -1477,11 +1396,18 @@ namespace motion_control
         const std::shared_ptr<std_srvs::srv::Trigger::Request> /*req*/,
         std::shared_ptr<std_srvs::srv::Trigger::Response> res)
     {
-        std::lock_guard<std::mutex> lk(trace_mtx_);
-        trace_points_.clear();
-        publishTraceMarker(/*clear=*/true);
+        {
+            std::lock_guard<std::mutex> lk(trace_mtx_);
+            trace_points_.clear();
+            publishTraceMarker(/*clear=*/true);
+        }
+        {
+            std::lock_guard<std::mutex> lk(planned_path_mtx_);
+            planned_path_points_.clear();
+            publishPlannedPathMarker(/*clear=*/true);
+        }
         res->success = true;
-        res->message = "TCP trace cleared";
+        res->message = "TCP trace + scheduled path cleared";
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 
@@ -1510,11 +1436,19 @@ namespace motion_control
 
     void MotionServer::sampleTcpTrace()
     {
+        // The tracking-error measurement may need this tick even when the visual trace is
+        // off, so check it first and keep the sampler alive if either is active.
+        bool measuring;
+        {
+            std::lock_guard<std::mutex> lk(meas_mtx_);
+            measuring = meas_recording_;
+        }
+
         // Snapshot the frames under the lock, then do the (thread-safe) TF lookup unlocked.
         std::string frame, ee;
         {
             std::lock_guard<std::mutex> lk(trace_mtx_);
-            if (!trace_enabled_) return;
+            if (!trace_enabled_ && !measuring) return;  // nothing to sample this tick
             frame = planning_frame_;
             ee = ee_link_;
         }
@@ -1530,8 +1464,20 @@ namespace motion_control
             return;  // TF not available yet — skip this tick silently
         }
 
+        // Dense, UNdecimated capture for the tracking-error metric. Completely separate
+        // from the visual green trace below, which is left byte-for-byte unchanged.
+        if (measuring) {
+            std::lock_guard<std::mutex> lk(meas_mtx_);
+            if (meas_recording_) {
+                meas_real_.push_back(p);
+                if (meas_real_.size() > kMeasMaxPoints) {
+                    meas_real_.erase(meas_real_.begin());  // moving-window safety cap
+                }
+            }
+        }
+
         std::lock_guard<std::mutex> lk(trace_mtx_);
-        if (!trace_enabled_) return;  // could have been disabled between the two locks
+        if (!trace_enabled_) return;  // visual trace disabled — measurement (if any) done above
 
         if (!trace_points_.empty()) {
             const auto& last = trace_points_.back();
@@ -1540,9 +1486,6 @@ namespace motion_control
             const double dz = p.z - last.z;
             const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
             if (dist < kTraceMinDist) return;        // not enough movement to record
-            if (dist > kTraceMaxJump) {              // discontinuity -> start a fresh line
-                trace_points_.clear();
-            }
         }
 
         trace_points_.push_back(p);
@@ -1579,6 +1522,294 @@ namespace motion_control
         m.color.a = 1.0f;
         m.points = trace_points_;
         visual_marker_pub_->publish(m);
+    }
+
+    void MotionServer::onSetPlannedPath(
+        const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+        std::shared_ptr<std_srvs::srv::SetBool::Response> res)
+    {
+        std::lock_guard<std::mutex> lk(planned_path_mtx_);
+        planned_path_enabled_ = req->data;
+        res->success = true;
+        res->message = planned_path_enabled_
+            ? "Planned-path overlay ENABLED (blue = commanded TCP path; compare with the green real trace)"
+            : "Planned-path overlay DISABLED (existing overlay kept; call clear_planned_path to erase it)";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onClearPlannedPath(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> /*req*/,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+    {
+        std::lock_guard<std::mutex> lk(planned_path_mtx_);
+        planned_path_points_.clear();
+        publishPlannedPathMarker(/*clear=*/true);
+        res->success = true;
+        res->message = "Planned-path overlay cleared";
+        RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+    }
+
+    void MotionServer::onDisplayPlannedPath(
+        const moveit_msgs::msg::DisplayTrajectory::SharedPtr msg)
+    {
+        // Snapshot the frames/model under the lock, then do the (thread-safe) FK unlocked.
+        std::string ee;
+        moveit::core::RobotModelConstPtr model;
+        {
+            std::lock_guard<std::mutex> lk(planned_path_mtx_);
+            if (!planned_path_enabled_) return;
+            ee = ee_link_;
+            model = robot_model_;
+        }
+        if (ee.empty() || !model) return;  // not initialized yet
+
+        // Build a throw-away state seeded from the plan's start state so joints outside the
+        // planned group keep their real values, then walk every waypoint doing FK on the TCP.
+        moveit::core::RobotState state(model);
+        state.setToDefaultValues();
+        if (!msg->trajectory_start.joint_state.name.empty()) {
+            moveit::core::robotStateMsgToRobotState(msg->trajectory_start, state);
+        }
+
+        std::vector<geometry_msgs::msg::Point> pts;
+        for (const auto& rt : msg->trajectory) {
+            const auto& jt = rt.joint_trajectory;
+            for (const auto& point : jt.points) {
+                if (point.positions.size() != jt.joint_names.size()) continue;
+                for (size_t j = 0; j < jt.joint_names.size(); ++j) {
+                    state.setVariablePosition(jt.joint_names[j], point.positions[j]);
+                }
+                state.update();
+                const Eigen::Isometry3d& tf = state.getGlobalLinkTransform(ee);
+                geometry_msgs::msg::Point p;
+                p.x = tf.translation().x();
+                p.y = tf.translation().y();
+                p.z = tf.translation().z();
+                pts.push_back(p);
+            }
+        }
+        if (pts.empty()) return;
+
+        std::lock_guard<std::mutex> lk(planned_path_mtx_);
+        if (!planned_path_enabled_) return;  // disabled between the two locks
+        planned_path_points_ = std::move(pts);
+        publishPlannedPathMarker(/*clear=*/false);
+    }
+
+    void MotionServer::publishPlannedPathMarker(bool clear)
+    {
+        // Precondition: caller holds planned_path_mtx_.
+        visualization_msgs::msg::Marker m;
+        m.header.frame_id = planning_frame_;
+        m.header.stamp = this->now();
+        m.ns = "planned_path";
+        m.id = 0;
+        m.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+
+        if (clear || planned_path_points_.empty()) {
+            m.action = visualization_msgs::msg::Marker::DELETE;
+            visual_marker_pub_->publish(m);
+            return;
+        }
+
+        m.action = visualization_msgs::msg::Marker::ADD;
+        m.pose.orientation.w = 1.0;
+        m.scale.x = 0.0007;  // sphere diameter (x/y/z) = 0.7 mm
+        m.scale.y = 0.0007;
+        m.scale.z = 0.0007;
+        m.color.r = 0.1f;   // blue = commanded/target path
+        m.color.g = 0.2f;
+        m.color.b = 1.0f;
+        m.color.a = 1.0f;
+        m.points = planned_path_points_;
+        visual_marker_pub_->publish(m);
+    }
+
+    void MotionServer::publishPlannedPathFromTrajectory(
+        const moveit_msgs::msg::RobotTrajectory& trajectory)
+    {
+        std::string ee;
+        moveit::core::RobotModelConstPtr model;
+        {
+            std::lock_guard<std::mutex> lk(planned_path_mtx_);
+            if (!planned_path_enabled_) return;
+            ee = ee_link_;
+            model = robot_model_;
+        }
+        if (ee.empty() || !model) return;
+
+        const auto& jt = trajectory.joint_trajectory;
+        if (jt.points.empty() || jt.joint_names.empty()) return;
+
+        moveit::core::RobotState state(model);
+        state.setToDefaultValues();
+
+        std::vector<geometry_msgs::msg::Point> pts;
+        pts.reserve(jt.points.size());
+        for (const auto& point : jt.points) {
+            if (point.positions.size() != jt.joint_names.size()) continue;
+            for (size_t j = 0; j < jt.joint_names.size(); ++j)
+                state.setVariablePosition(jt.joint_names[j], point.positions[j]);
+            state.update();
+            const Eigen::Isometry3d& tf = state.getGlobalLinkTransform(ee);
+            geometry_msgs::msg::Point p;
+            p.x = tf.translation().x();
+            p.y = tf.translation().y();
+            p.z = tf.translation().z();
+            pts.push_back(p);
+        }
+        if (pts.empty()) return;
+
+        std::lock_guard<std::mutex> lk(planned_path_mtx_);
+        planned_path_points_.insert(planned_path_points_.end(), pts.begin(), pts.end());
+        // Sliding window (same bounds as the green trace): discard the oldest ones.
+        if (planned_path_points_.size() > kTraceMaxPoints) {
+            planned_path_points_.erase(
+                planned_path_points_.begin(),
+                planned_path_points_.begin() + (planned_path_points_.size() - kTraceMaxPoints));
+        }
+        publishPlannedPathMarker(/*clear=*/false);
+    }
+
+    std::vector<geometry_msgs::msg::Point> MotionServer::buildPlannedReference(
+        const moveit_msgs::msg::RobotTrajectory& trajectory) const
+    {
+        std::vector<geometry_msgs::msg::Point> out;
+        if (!robot_model_ || ee_link_.empty()) return out;
+
+        const auto& jt = trajectory.joint_trajectory;
+        if (jt.points.empty() || jt.joint_names.empty()) return out;
+
+        moveit::core::RobotState state(robot_model_);
+        state.setToDefaultValues();
+
+        auto fk = [&](const std::vector<double>& q) {
+            for (size_t j = 0; j < jt.joint_names.size(); ++j) {
+                state.setVariablePosition(jt.joint_names[j], q[j]);
+            }
+            state.update();
+            const Eigen::Isometry3d& tf = state.getGlobalLinkTransform(ee_link_);
+            geometry_msgs::msg::Point p;
+            p.x = tf.translation().x();
+            p.y = tf.translation().y();
+            p.z = tf.translation().z();
+            out.push_back(p);
+        };
+
+        for (size_t i = 0; i < jt.points.size(); ++i) {
+            const auto& pt = jt.points[i];
+            if (pt.positions.size() != jt.joint_names.size()) continue;
+            if (i == 0) { fk(pt.positions); continue; }
+
+            const auto& prev = jt.points[i - 1];
+            if (prev.positions.size() != jt.joint_names.size()) { fk(pt.positions); continue; }
+
+            // In-memory joint-space densification so the FK reference is fine on curved
+            // (PTP) segments; ~1 sample per 0.01 rad of the largest joint motion, capped.
+            double max_delta = 0.0;
+            for (size_t j = 0; j < pt.positions.size(); ++j) {
+                max_delta = std::max(max_delta, std::abs(pt.positions[j] - prev.positions[j]));
+            }
+            const size_t sub = std::max<size_t>(
+                1, std::min<size_t>(100, static_cast<size_t>(std::ceil(max_delta / 0.01))));
+            std::vector<double> q(pt.positions.size(), 0.0);
+            for (size_t s = 1; s <= sub; ++s) {
+                const double a = static_cast<double>(s) / static_cast<double>(sub);
+                for (size_t j = 0; j < pt.positions.size(); ++j) {
+                    q[j] = prev.positions[j] + a * (pt.positions[j] - prev.positions[j]);
+                }
+                fk(q);
+            }
+        }
+        return out;
+    }
+
+    void MotionServer::startTrackingCapture(
+        const moveit_msgs::msg::RobotTrajectory& executed)
+    {
+        // FK the planned reference OUTSIDE the measurement lock (it can be expensive).
+        std::vector<geometry_msgs::msg::Point> ref = buildPlannedReference(executed);
+
+        std::lock_guard<std::mutex> lk(meas_mtx_);
+        meas_real_.clear();
+        meas_planned_ = std::move(ref);
+        meas_recording_ = true;
+    }
+
+    std::string MotionServer::computeTrackingError(const std::string& label)
+    {
+        std::vector<geometry_msgs::msg::Point> real, planned;
+        {
+            std::lock_guard<std::mutex> lk(meas_mtx_);
+            meas_recording_ = false;          // stop the sampler from appending further
+            real.swap(meas_real_);
+            planned.swap(meas_planned_);
+        }
+
+        if (real.empty() || planned.size() < 2) {
+            RCLCPP_WARN(this->get_logger(),
+                "[TRACK_ERR:%s] not enough data (real=%zu, planned=%zu) — skipped "
+                "(move too short, or /joint_states -> TF not flowing)",
+                label.c_str(), real.size(), planned.size());
+            return "";
+        }
+
+        auto to_e = [](const geometry_msgs::msg::Point& p) {
+            return Eigen::Vector3d(p.x, p.y, p.z);
+        };
+        // Distance from point p to segment [a, b].
+        auto point_to_segment = [](const Eigen::Vector3d& p,
+                                   const Eigen::Vector3d& a,
+                                   const Eigen::Vector3d& b) {
+            const Eigen::Vector3d ab = b - a;
+            const double len2 = ab.squaredNorm();
+            if (len2 < 1e-18) return (p - a).norm();
+            double t = (p - a).dot(ab) / len2;
+            t = std::max(0.0, std::min(1.0, t));
+            return (p - (a + t * ab)).norm();
+        };
+
+        std::vector<double> errs;
+        errs.reserve(real.size());
+        double sum = 0.0, sumsq = 0.0, max_err = 0.0;
+        size_t max_idx = 0;
+        for (size_t i = 0; i < real.size(); ++i) {
+            const Eigen::Vector3d rp = to_e(real[i]);
+            double best = std::numeric_limits<double>::max();
+            for (size_t k = 1; k < planned.size(); ++k) {
+                best = std::min(best, point_to_segment(rp, to_e(planned[k - 1]), to_e(planned[k])));
+            }
+            errs.push_back(best);
+            sum += best;
+            sumsq += best * best;
+            if (best > max_err) { max_err = best; max_idx = i; }
+        }
+
+        const double n = static_cast<double>(errs.size());
+        const double mean = sum / n;
+        const double rms = std::sqrt(sumsq / n);
+        std::sort(errs.begin(), errs.end());
+        const size_t p95_i = std::min(errs.size() - 1,
+            static_cast<size_t>(std::ceil(0.95 * static_cast<double>(errs.size()))) - 1);
+        const double p95 = errs[p95_i];
+
+        RCLCPP_INFO(this->get_logger(),
+            "[TRACK_ERR:%s] real=%zu planned=%zu mean=%.3fmm rms=%.3fmm p95=%.3fmm max=%.3fmm@%zu",
+            label.c_str(), real.size(), planned.size(),
+            mean * 1000, rms * 1000, p95 * 1000, max_err * 1000, max_idx);
+
+        if (max_err > kTrackingErrWarnM) {
+            RCLCPP_WARN(this->get_logger(),
+                "[TRACK_ERR:%s] real path deviates from the plan by up to %.3fmm (>%.1fmm) "
+                "— execution precision suspect",
+                label.c_str(), max_err * 1000, kTrackingErrWarnM * 1000);
+        }
+
+        char buf[192];
+        std::snprintf(buf, sizeof(buf),
+            " | track_err mean=%.3fmm rms=%.3fmm p95=%.3fmm max=%.3fmm@%zu (n=%zu)",
+            mean * 1000, rms * 1000, p95 * 1000, max_err * 1000, max_idx, real.size());
+        return std::string(buf);
     }
 
     void MotionServer::onMoveToPose(
@@ -1660,6 +1891,7 @@ namespace motion_control
             }
 
             logCartesianFkTrace("MOVE_TO_POSE_LIN", trajectory);
+            publishPlannedPathFromTrajectory(trajectory);  
 
             // Validate trajectory before sending to controller
             std::string traj_err;
@@ -1674,10 +1906,15 @@ namespace motion_control
                 double traj_duration = pts.back().time_from_start.sec
                                     + pts.back().time_from_start.nanosec * 1e-9;
 
+                startTrackingCapture(trajectory);
                 auto exec_t0 = std::chrono::high_resolution_clock::now();
                 auto exec_code = move_group_->execute(trajectory);
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
+                std::string track = "";
+                if constexpr (TRACK) {
+                    track = computeTrackingError("MOVE_TO_POSE_LIN");
+                }
 
                 std::string robot_fault;
                 if (getRobotFaultMessage(robot_fault)) {
@@ -1691,7 +1928,7 @@ namespace motion_control
                     res->message = "Cartesian (LIN) executed. " + lin_msg
                                 + " (plan=" + std::to_string(planning_duration)
                                 + "s, trajectory=" + std::to_string(traj_duration)
-                                + "s, real=" + std::to_string(exec_dt) + "s)";
+                                + "s, real=" + std::to_string(exec_dt) + "s)" + track;
                 }
             } else {
                 res->success = true;
@@ -1837,28 +2074,70 @@ namespace motion_control
         {
 
             // Cartesian waypoints => single blended Pilz LIN sequence (/sequence_move_group).
-            // blend_radius rounds the corners (0 = stop at each corner). The action plans and,
-            // when execute=true, executes the whole blended trajectory natively.
-            // Linear speed = dedicated Cartesian scaling (cartesian_vel_scale_)
+            // blend_radius rounds the corners (0 = stop at each corner). We PLAN via the
+            // sequence action, then run the same post-planning pipeline as the other motion
+            // paths: publish the blue planned-path overlay, validate, capture the planned
+            // reference, execute via move_group_->execute(), and report the tracking error.
+            // Linear speed = dedicated Cartesian scaling (cartesian_vel_scale_).
             const double vscale = cartesian_vel_scale_;
 
-            auto seq_t0 = std::chrono::high_resolution_clock::now();
+            moveit_msgs::msg::RobotTrajectory trajectory;
             std::string seq_msg;
-            bool ok = planAndExecuteSequence(absolute_waypoints, vscale,
-                                             req->blend_radius, req->execute, seq_msg);
+            auto seq_t0 = std::chrono::high_resolution_clock::now();
+            bool planned = planSequenceTrajectory(absolute_waypoints, vscale,
+                                                  req->blend_radius, trajectory, seq_msg);
             double seq_dt = std::chrono::duration<double>(
                 std::chrono::high_resolution_clock::now() - seq_t0).count();
 
             RCLCPP_INFO(this->get_logger(), "[MoveWaypoints] Pilz Sequence: %s (%.2fs)",
                         seq_msg.c_str(), seq_dt);
 
-            std::string robot_fault;
-            if (ok && req->execute && getRobotFaultMessage(robot_fault)) {
+            if (!planned) {
                 res->success = false;
-                res->message = robot_fault;
-            } else {
-                res->success = ok;
                 res->message = seq_msg + " (" + std::to_string(seq_dt) + "s)";
+                return;
+            }
+
+            // Blue planned-path overlay (FK on the blended trajectory)
+            publishPlannedPathFromTrajectory(trajectory);
+
+            std::string traj_err;
+            if (!validateTrajectory(trajectory, traj_err)) {
+                res->success = false;
+                res->message = traj_err;
+                return;
+            }
+
+            if (req->execute) {
+                const auto& pts = trajectory.joint_trajectory.points;
+                double traj_duration = pts.back().time_from_start.sec
+                                     + pts.back().time_from_start.nanosec * 1e-9;
+
+                startTrackingCapture(trajectory);
+                auto exec_t0 = std::chrono::high_resolution_clock::now();
+                auto exec_code = move_group_->execute(trajectory);
+                double exec_dt = std::chrono::duration<double>(
+                    std::chrono::high_resolution_clock::now() - exec_t0).count();
+                const std::string track = computeTrackingError("MOVE_WAYPOINTS_LIN");
+
+                std::string robot_fault;
+                if (getRobotFaultMessage(robot_fault)) {
+                    res->success = false;
+                    res->message = robot_fault;
+                } else if (exec_code != moveit::core::MoveItErrorCode::SUCCESS) {
+                    res->success = false;
+                    res->message = diagnoseExecutionFailure(exec_code);
+                } else {
+                    res->success = true;
+                    res->message = "Cartesian waypoints (Pilz Sequence) executed. " + seq_msg
+                                 + " (plan=" + std::to_string(seq_dt)
+                                 + "s, trajectory=" + std::to_string(traj_duration)
+                                 + "s, real=" + std::to_string(exec_dt) + "s)" + track;
+                }
+            } else {
+                res->success = true;
+                res->message = "Cartesian waypoints (Pilz Sequence) planned (execute=false). "
+                             + seq_msg;
             }
         }
         else {
@@ -1941,30 +2220,7 @@ namespace motion_control
                 int32_t segment_duration_sec = 0;
                 uint32_t segment_duration_nanosec = 0;
 
-                // Warn about velocity discontinuity at segment junctions.
-                // MoveIt plans each segment with zero-velocity endpoints. Skipping
-                // points[0] avoids duplicate positions but does NOT guarantee
-                // velocity continuity. The controller may experience a velocity jump.
                 size_t start_index = (i == 0) ? 0 : 1;
-
-                if (i > 0 && !combined_trajectory.joint_trajectory.points.empty()
-                    && segment_plan.trajectory_.joint_trajectory.points.size() > 1) {
-                    // Log the velocity at the junction for INFOging
-                    const auto& last_pt = combined_trajectory.joint_trajectory.points.back();
-                    const auto& next_pt = segment_plan.trajectory_.joint_trajectory.points[1]; // first used point
-                    if (!last_pt.velocities.empty() && !next_pt.velocities.empty()) {
-                        double max_vel_jump = 0.0;
-                        for (size_t j = 0; j < last_pt.velocities.size() && j < next_pt.velocities.size(); ++j) {
-                            max_vel_jump = std::max(max_vel_jump,
-                                std::abs(last_pt.velocities[j] - next_pt.velocities[j]));
-                        }
-                        if (max_vel_jump > 0.1) {  // rad/s threshold
-                            RCLCPP_WARN(this->get_logger(),
-                                "[MoveWaypoints] Velocity discontinuity at segment %zu junction: "
-                                "max delta=%.4f rad/s — controller may jerk", i, max_vel_jump);
-                        }
-                    }
-                }
 
                 for (size_t j = start_index; j < segment_plan.trajectory_.joint_trajectory.points.size(); ++j) {
                     auto pt = segment_plan.trajectory_.joint_trajectory.points[j];
@@ -2027,6 +2283,8 @@ namespace motion_control
                 return;
             }
 
+            publishPlannedPathFromTrajectory(combined_trajectory);
+
             // Re-check collisions on the FINAL (post-TOTG) trajectory: TOTG corner-rounding
             // can deviate from the per-segment paths OMPL validated. Refuse on collision.
             std::string collision_err;
@@ -2042,10 +2300,15 @@ namespace motion_control
                 double traj_duration = pts.back().time_from_start.sec
                                     + pts.back().time_from_start.nanosec * 1e-9;
 
+                startTrackingCapture(combined_trajectory);
                 auto exec_t0 = std::chrono::high_resolution_clock::now();
                 auto exec_code = move_group_->execute(combined_trajectory);
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
+                std::string track = "";
+                if constexpr (TRACK) {
+                    track = computeTrackingError("MOVE_WAYPOINTS");
+                }
 
                 std::string robot_fault;
                 if (getRobotFaultMessage(robot_fault)) {
@@ -2059,7 +2322,7 @@ namespace motion_control
                     res->message = "Waypoint sequence executed successfully (plan="
                                 + std::to_string(planning_duration)
                                 + "s, trajectory=" + std::to_string(traj_duration)
-                                + "s, real=" + std::to_string(exec_dt) + "s)";
+                                + "s, real=" + std::to_string(exec_dt) + "s)" + track;
                 }
             }
         }
@@ -2176,6 +2439,7 @@ namespace motion_control
         RCLCPP_INFO(this->get_logger(),
             "[PlanJoints] Plan OK: %zu points, planning took %.3fs",
             plan.trajectory_.joint_trajectory.points.size(), dt);
+        publishPlannedPathFromTrajectory(plan.trajectory_);
 
         if (execute) {
             std::string traj_err;
@@ -2189,10 +2453,15 @@ namespace motion_control
             double traj_duration = pts.back().time_from_start.sec
                                 + pts.back().time_from_start.nanosec * 1e-9;
 
+            startTrackingCapture(plan.trajectory_);
             auto exec_t0 = std::chrono::high_resolution_clock::now();
             auto exec = move_group_->execute(plan);
             double exec_dt = std::chrono::duration<double>(
                 std::chrono::high_resolution_clock::now() - exec_t0).count();
+                std::string track = "";
+                if constexpr (TRACK) {
+                    track = computeTrackingError("MOVE_JOINTS");
+                }
 
             std::string robot_fault;
             if (getRobotFaultMessage(robot_fault)) {
@@ -2205,7 +2474,7 @@ namespace motion_control
             }
             out_msg = "Joint trajectory executed (" + ik_prefix + "plan=" + std::to_string(dt)
                     + "s, trajectory=" + std::to_string(traj_duration)
-                    + "s, real=" + std::to_string(exec_dt) + "s)";
+                    + "s, real=" + std::to_string(exec_dt) + "s)" + track;
         } else {
             out_msg = "Joint trajectory planned (execute=false) (" + ik_prefix + "took " + std::to_string(dt) + "s)";
         }
@@ -2406,19 +2675,19 @@ namespace motion_control
         }
     }
 
-    void MotionServer::onSetVirtualCage(
-        const std::shared_ptr<srv::SetVirtualCage::Request> req,
-        std::shared_ptr<srv::SetVirtualCage::Response> res)
+    void MotionServer::onSetVirtualFence(
+        const std::shared_ptr<srv::SetVirtualFence::Request> req,
+        std::shared_ptr<srv::SetVirtualFence::Response> res)
     {
         std::lock_guard<std::mutex> lock(mtx_);
         std::string why;
         if (!ensureMoveGroupInitialized(why)) { res->success = false; res->message = why; return; }
 
         std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
-        std::vector<std::string> wall_names = {"cage_front", "cage_back", "cage_left", "cage_right", "cage_top", "cage_bottom"};
+        std::vector<std::string> wall_names = {"fence_front", "fence_back", "fence_left", "fence_right", "fence_top", "fence_bottom"};
 
         if (!req->enable) {
-            // // Destroy the cage (MoveIt to REMOVE these objects)
+            // // Destroy the fence (MoveIt to REMOVE these objects)
             for (const auto& name : wall_names) {
                 moveit_msgs::msg::CollisionObject obj;
                 obj.id = name;
@@ -2426,11 +2695,11 @@ namespace motion_control
                 collision_objects.push_back(obj);
             }
             planning_scene_->applyCollisionObjects(collision_objects);
-            res->success = true; res->message = "Virtual cage removed";
+            res->success = true; res->message = "Virtual fence removed";
             return;
         }
 
-        // Cage construction
+        // Fence construction
         const double thickness = 0.01; // Walls tickness of 1cm
 
         // Utility function to generate a wall as a CollisionObject
@@ -2453,52 +2722,52 @@ namespace motion_control
             return obj;
         };
 
-        // Calculation of the cage's internal dimensions
+        // Calculation of the fence's internal dimensions
         double dim_x = req->front + req->back;
         double dim_y = req->left + req->right;
         double dim_z = req->top + req->bottom;
 
-        // Calculation of the overall center of the cage
+        // Calculation of the overall center of the fence
         double cx = (req->front - req->back) / 2.0;
         double cy = (req->left - req->right) / 2.0;
         double cz = (req->top - req->bottom) / 2.0;
 
         // Front Wall (+X)
-        collision_objects.push_back(make_wall("cage_front", req->front + thickness/2, cy, cz, thickness, dim_y, dim_z));
+        collision_objects.push_back(make_wall("fence_front", req->front + thickness/2, cy, cz, thickness, dim_y, dim_z));
         // Back Wall (-X)
-        collision_objects.push_back(make_wall("cage_back", -req->back - thickness/2, cy, cz, thickness, dim_y, dim_z));
+        collision_objects.push_back(make_wall("fence_back", -req->back - thickness/2, cy, cz, thickness, dim_y, dim_z));
         // Left Wall (+Y)
-        collision_objects.push_back(make_wall("cage_left", cx, req->left + thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
+        collision_objects.push_back(make_wall("fence_left", cx, req->left + thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
         // Right Wall (-Y)
-        collision_objects.push_back(make_wall("cage_right", cx, -req->right - thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
+        collision_objects.push_back(make_wall("fence_right", cx, -req->right - thickness/2, cz, dim_x + thickness*2, thickness, dim_z));
         // Ceiling (+Z)
-        collision_objects.push_back(make_wall("cage_top", cx, cy, req->top + thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
+        collision_objects.push_back(make_wall("fence_top", cx, cy, req->top + thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
         //  Floor (-Z)
-        collision_objects.push_back(make_wall("cage_bottom", cx, cy, -req->bottom - thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
+        collision_objects.push_back(make_wall("fence_bottom", cx, cy, -req->bottom - thickness/2, dim_x + thickness*2, dim_y + thickness*2, thickness));
 
 
         moveit_msgs::msg::PlanningScene planning_scene_msg;
         planning_scene_msg.is_diff = true;
 
-        std_msgs::msg::ColorRGBA cage_color;
-        cage_color.r = req->r;
-        cage_color.g = req->g;
-        cage_color.b = req->b;
-        cage_color.a = req->a;
+        std_msgs::msg::ColorRGBA fence_color;
+        fence_color.r = req->r;
+        fence_color.g = req->g;
+        fence_color.b = req->b;
+        fence_color.a = req->a;
 
         for (const auto& obj : collision_objects) {
             moveit_msgs::msg::ObjectColor oc;
             oc.id = obj.id;
-            oc.color = cage_color;
+            oc.color = fence_color;
             planning_scene_msg.object_colors.push_back(oc);
         }
 
-        // Apply the cage to the planning scene
+        // Apply the fence to the planning scene
         planning_scene_msg.world.collision_objects = collision_objects;
         planning_scene_->applyPlanningScene(planning_scene_msg);
 
         res->success = true;
-        res->message = "Virtual cage successfully activated";
+        res->message = "Virtual fence successfully activated";
     }
 
     void MotionServer::onManageBox(

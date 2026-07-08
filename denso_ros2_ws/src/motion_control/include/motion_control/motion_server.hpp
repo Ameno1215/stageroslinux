@@ -17,6 +17,8 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit_msgs/action/move_group_sequence.hpp>
+#include <moveit_msgs/msg/display_trajectory.hpp>
+#include <moveit/robot_state/conversions.h>
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -48,12 +50,14 @@
 #include "motion_control/srv/move_to_pose.hpp"
 #include "motion_control/srv/move_joints.hpp"
 #include "motion_control/srv/move_waypoints.hpp"
-#include "motion_control/srv/set_virtual_cage.hpp"
+#include "motion_control/srv/set_virtual_fence.hpp"
 #include "motion_control/srv/manage_box.hpp"
 #include "motion_control/srv/manage_mesh.hpp"
 #include <std_srvs/srv/trigger.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <geometry_msgs/msg/point.hpp>
+
+constexpr bool TRACK = true;
 
 
 
@@ -70,13 +74,6 @@ namespace motion_control
         public:
 
         static constexpr double kCartesianAcceptThreshold = 0.99;
-
-        // --- Pilz LIN trajectory densification (see densifyCartesianTrajectory) ---
-        static constexpr double kDensifyMaxCartStep   = 0.005;  // 30 mm between sampled points
-        static constexpr double kDensifyMaxAngStep    = 0.02;   // ~1.1 deg between sampled points
-        static constexpr double kDensifyIkTimeout     = 0.01;   // s, per seeded IK solve (close seed)
-        static constexpr double kDensifyMaxJointJump  = 0.25;   // rad; above this = IK branch jump
-        static constexpr std::size_t kDensifyMaxSubSteps = 50;  // cap per original segment
 
         // Default TOTG path tolerance (rad) for joint-space waypoint re-timing — how much TOTG
         // may round segment-junction corners. Overridable per-request via MoveWaypoints.path_tolerance.
@@ -98,6 +95,10 @@ namespace motion_control
             // End-effector link, cached at init so the TCP-trace timer never has to
             // call into the (non thread-safe) MoveGroupInterface.
             std::string ee_link_;
+
+            // Robot model, cached at init so the planned-path subscriber can build a
+            // throw-away RobotState for FK without touching MoveGroupInterface.
+            moveit::core::RobotModelConstPtr robot_model_;
 
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_marker_pub_;
 
@@ -255,7 +256,7 @@ namespace motion_control
                 std::shared_ptr<motion_control::srv::GetCurrentPose::Response> res);
 
             /**
-             * @brief Service callback to dynamically generate a virtual collision cage around the robot.
+             * @brief Service callback to dynamically generate a virtual collision fence around the robot.
              * * Creates 6 walls (CollisionObjects) in the MoveIt planning scene to strictly
              * restrict the robot's workspace and prevent any part of the arm from exceeding the limits.
              * The dimensions provided define the exact internal free space originating from the
@@ -264,11 +265,11 @@ namespace motion_control
              * of the specified boundaries. Therefore, the given parameters exactly represent the
              * permitted internal workspace without any loss of volume due to wall thickness.
              * * @param req Contains the enable flag and the 6 maximum distances (front, back, left, right, top, bottom).
-             * @param res Returns the success status of the cage generation or removal.
+             * @param res Returns the success status of the fence generation or removal.
              */
-            void onSetVirtualCage(
-                const std::shared_ptr<srv::SetVirtualCage::Request> req,
-                std::shared_ptr<srv::SetVirtualCage::Response> res);
+            void onSetVirtualFence(
+                const std::shared_ptr<srv::SetVirtualFence::Request> req,
+                std::shared_ptr<srv::SetVirtualFence::Response> res);
 
             /**
              * @brief Service callback to add, update, or remove a box in the planning scene.
@@ -319,8 +320,6 @@ namespace motion_control
              *
              * Used by the joint-space waypoint path (onMoveWaypoints, non-Cartesian) to
              * smooth velocity discontinuities at the junctions of concatenated segments.
-             * NOTE: Cartesian moves no longer use this — Pilz LIN/Sequence produce trajectories
-             * that are already time-parameterized and honor the scaling factors directly.
              *
              * @param trajectory     The robot trajectory to retime (modified in place).
              * @param path_tolerance TOTG path tolerance (rad): how much TOTG may round the
@@ -334,10 +333,6 @@ namespace motion_control
 
             /**
              * @brief Plans a straight-line Cartesian motion to a single pose using Pilz LIN.
-             *
-             * Replaces the old computeCartesianPath pipeline (whose adaptive interpolator
-             * returned too few points, producing a joint-interpolated zigzag). Pilz LIN
-             * natively yields a dense, already time-parameterized straight-line trajectory.
              *
              * Selects the "pilz_industrial_motion_planner" pipeline + "LIN" planner, applies
              * the given velocity scaling (and the current accel scaling), plans from the
@@ -356,54 +351,36 @@ namespace motion_control
                 moveit_msgs::msg::RobotTrajectory& trajectory,
                 std::string& out_msg);
 
-            /**
-             * @brief Densifies a Pilz LIN trajectory along its (validated) Cartesian line.
-             *
-             * Pilz outputs one joint waypoint every sampling_time (0.1s, hardcoded in MoveIt
-             * Humble). Between them the controller interpolates in joint space, which deviates
-             * from the true straight line — the deviation grows ~quadratically with speed. This
-             * re-samples the line finely (linear position + SLERP orientation), solves seeded
-             * IK on each sub-point (anchoring every original node to Pilz's own on-line
-             * solution), and inherits Pilz's timestamps so the requested Cartesian speed is
-             * preserved. Velocities are recomputed by finite difference; endpoints stay at rest.
-             *
-             * Returns false (leaving @p trajectory untouched) if IK fails or an IK branch jump
-             * is detected. The caller treats this as fatal and refuses the move — there is no
-             * fallback to the raw (coarse, not finely collision-checked) Pilz trajectory.
-             *
-             * @param trajectory   In/out: Pilz LIN trajectory, replaced by the dense one on success.
-             * @param max_cart_step Max TCP translation (m) between two sampled points.
-             * @param max_ang_step  Max TCP rotation (rad) between two sampled points.
-             * @param out_msg       Status or failure reason.
-             * @return true if densification succeeded, false to keep the original trajectory.
-             */
-            bool densifyCartesianTrajectory(
-                moveit_msgs::msg::RobotTrajectory& trajectory,
-                double max_cart_step,
-                double max_ang_step,
-                std::string& out_msg);
 
             /**
-             * @brief Plans (and optionally executes) a Cartesian waypoint sequence as a
-             * single blended Pilz LIN sequence via the /sequence_move_group action.
+             * @brief Plans a Cartesian waypoint sequence as a single blended Pilz LIN
+             * sequence via the /sequence_move_group action and returns the resulting
+             * blended joint trajectory (plan-only; the caller drives execution).
              *
              * Each waypoint becomes a LIN MotionSequenceItem; blend_radius rounds the
              * corner between consecutive segments (0 = stop at each corner). The last
-             * item's blend is forced to 0 (Pilz requirement). When execute is true the
-             * action plans and executes; otherwise it only plans.
+             * item's blend is forced to 0 (Pilz requirement). The action is always
+             * called with plan_only=true so the caller obtains the trajectory and can,
+             * exactly like the other motion paths, publish the blue planned-path
+             * overlay, capture the planned reference for tracking-error metrics, and
+             * execute it via move_group_->execute().
              *
-             * @param waypoints     Ordered absolute target poses (planning frame).
-             * @param vel_scaling   Velocity scaling factor [0..1].
-             * @param blend_radius  Corner blend radius in meters (0 = stop at corners).
-             * @param execute       If true, plan and execute; if false, plan only.
-             * @param out_msg        Status or failure reason.
+             * The Pilz sequence response may contain several sub-trajectories (one per
+             * un-blended segment); they are concatenated onto a single continuous time
+             * axis, dropping the duplicated seam sample between consecutive segments.
+             *
+             * @param waypoints        Ordered absolute target poses (planning frame).
+             * @param vel_scaling      Velocity scaling factor [0..1].
+             * @param blend_radius     Corner blend radius in meters (0 = stop at corners).
+             * @param out_trajectory   Concatenated blended trajectory (output).
+             * @param out_msg          Status or failure reason.
              * @return true on success, false otherwise.
              */
-            bool planAndExecuteSequence(
+            bool planSequenceTrajectory(
                 const std::vector<geometry_msgs::msg::Pose>& waypoints,
                 double vel_scaling,
                 double blend_radius,
-                bool execute,
+                moveit_msgs::msg::RobotTrajectory& out_trajectory,
                 std::string& out_msg);
 
             /**
@@ -631,6 +608,82 @@ namespace motion_control
             void publishTraceMarker(bool clear = false);
 
             /**
+              * @brief Enables/disables the target (planned) TCP path overlay.
+             *
+             * When enabled, every trajectory published by move_group on
+             * /display_planned_path is converted to Cartesian TCP points via forward
+             * kinematics and drawn as a BLUE SPHERE_LIST marker — the target path the
+             * robot was asked to follow — so it can be compared side by side with the
+             * GREEN trace of what the robot actually did (onSetTcpTrace).
+             * Disabling stops updating the overlay but keeps the last one displayed.
+             *
+             * @param req data=true -> show planned path, data=false -> stop updating it.
+             * @param res Success status and message.
+             */
+            void onSetPlannedPath(
+                const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+                std::shared_ptr<std_srvs::srv::SetBool::Response> res);
+
+            /**
+             * @brief Clears the planned-path overlay and erases the marker in RViz.
+             */
+            void onClearPlannedPath(
+                const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+
+            /**
+             * @brief Subscription callback for /display_planned_path.
+             *
+             * When the planned-path overlay is enabled, runs forward kinematics on each
+             * waypoint of the received trajectory (in the same way sampleTcpTrace derives
+             * the real TCP from TF) and republishes the blue "planned_path" marker.
+             */
+            void onDisplayPlannedPath(
+                const moveit_msgs::msg::DisplayTrajectory::SharedPtr msg);
+
+            void publishPlannedPathFromTrajectory(const moveit_msgs::msg::RobotTrajectory& trajectory);
+
+            /**
+             * @brief Publishes the target path as a blue SPHERE_LIST marker (ADD), or an
+             * empty/DELETE marker to clear it. Caller must hold planned_path_mtx_.
+             */
+            void publishPlannedPathMarker(bool clear = false);
+
+            /**
+             * @brief Builds a dense Cartesian TCP reference polyline from a planned joint
+             * trajectory via forward kinematics.
+             *
+             * Unlike publishPlannedPathFromTrajectory (which FKs only the raw waypoints for
+             * display), this linearly interpolates in joint space between consecutive
+             * waypoints so the reference is fine on curved (PTP) segments — independent of
+             * any controller-side densification. For straight LIN moves the extra samples
+             * are collinear, so the result is identical either way.
+             *
+             * @param trajectory Planned joint trajectory that is about to be executed.
+             * @return TCP positions (planning frame) of the planned path; empty on failure.
+             */
+            std::vector<geometry_msgs::msg::Point> buildPlannedReference(
+                const moveit_msgs::msg::RobotTrajectory& trajectory) const;
+
+            /**
+             * @brief Arms tracking capture just before execute(): stores the planned
+             * reference (buildPlannedReference) and makes sampleTcpTrace() append every TF
+             * tick (undecimated) to meas_real_ until computeTrackingError() consumes it.
+             */
+            void startTrackingCapture(const moveit_msgs::msg::RobotTrajectory& executed);
+
+            /**
+             * @brief Stops capture and reports how far the REAL executed TCP path deviated
+             * from the planned reference: for each real sample, the min distance to the
+             * planned polyline (point-to-segment). Logs [TRACK_ERR:label] with
+             * mean/rms/p95/max and returns a short summary to append to the service reply.
+             *
+             * @param label Diagnostic label (e.g. "MOVE_TO_POSE_LIN").
+             * @return " | track_err mean=…mm …" or "" when there was not enough data.
+             */
+            std::string computeTrackingError(const std::string& label);
+
+            /**
              * @brief Retrieves the joint position limits of the planning group.
              *
              * Queries MoveIt's RobotModel to extract the [min, max] bounds of every
@@ -688,7 +741,7 @@ namespace motion_control
             rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_;
             rclcpp::Service<srv::MoveToPose>::SharedPtr srv_move_pose_via_joint_;
             rclcpp::Service<srv::MoveWaypoints>::SharedPtr srv_move_waypoints_;
-            rclcpp::Service<srv::SetVirtualCage>::SharedPtr srv_virtual_cage_;
+            rclcpp::Service<srv::SetVirtualFence>::SharedPtr srv_virtual_fence_;
             rclcpp::Service<srv::ManageBox>::SharedPtr srv_manage_box_;
             rclcpp::Service<motion_control::srv::ManageMesh>::SharedPtr srv_manage_mesh_;
             rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_env_;
@@ -707,11 +760,22 @@ namespace motion_control
             bool trace_enabled_{false};
             std::vector<geometry_msgs::msg::Point> trace_points_;
 
+            std::mutex planned_path_mtx_;                       // guards the fields below
+            bool planned_path_enabled_{false};
+            std::vector<geometry_msgs::msg::Point> planned_path_points_;
+
+            // --- Tracking-error measurement buffers (independent of the visual trace) ---
+            std::mutex meas_mtx_;                               // guards the fields below
+            bool meas_recording_{false};                       // armed around one execute()
+            std::vector<geometry_msgs::msg::Point> meas_real_;    // dense, UNdecimated real TCP
+            std::vector<geometry_msgs::msg::Point> meas_planned_; // FK reference of the plan
+            // Hard cap on recorded real samples (safety against a very long/runaway move).
+            static constexpr std::size_t kMeasMaxPoints = 200000;   // ~200 s @ 1 kHz
+            // Above this max real-vs-planned deviation we log a warning.
+            static constexpr double kTrackingErrWarnM = 0.002;      // 2 mm
+
             // Minimum TCP displacement (m) between two recorded points (anti-spam at rest).
             static constexpr double kTraceMinDist = 0.002;      // 2 mm (< sphere diameter so spheres overlap)
-            // Beyond this single-step displacement (m) we assume a discontinuity/teleport
-            // and start a fresh trace rather than drawing a straight line across space.
-            static constexpr double kTraceMaxJump = 0.25;       // 25 cm
             // Hard cap on stored points; oldest are dropped (moving window).
             static constexpr size_t kTraceMaxPoints = 20000;
     };

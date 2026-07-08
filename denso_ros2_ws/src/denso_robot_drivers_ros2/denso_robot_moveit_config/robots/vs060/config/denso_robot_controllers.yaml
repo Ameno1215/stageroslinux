@@ -28,5 +28,13 @@ denso_joint_trajectory_controller:
     allow_partial_joints_goal: false
     open_loop_control: true
     constraints:
-      stopped_velocity_tolerance: 0.0
-      goal_time: 0.0
+      # stopped_velocity_tolerance: 0.0
+      # goal_time: 0.0
+      stopped_velocity_tolerance: 0.0001
+      goal_time: 0.5
+      joint_1: { goal: 0.005 }
+      joint_2: { goal: 0.005 }
+      joint_3: { goal: 0.005 }
+      joint_4: { goal: 0.005 }
+      joint_5: { goal: 0.005 }
+      joint_6: { goal: 0.005 }
