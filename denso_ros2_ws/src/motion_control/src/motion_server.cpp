@@ -34,7 +34,7 @@ namespace motion_control
             "kdl_kinematics_plugin/KDLKinematicsPlugin");
         // this->set_parameter(rclcpp::Parameter("use_sim_time", true));
 
-        // Initialisation du système d'écoute TF
+        // Initialization of the TF listening system
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
         rclcpp::QoS qos(10);
@@ -121,7 +121,7 @@ namespace motion_control
             std::bind(&MotionServer::onSetDrivesExpected, this, std::placeholders::_1, std::placeholders::_2),
             rmw_qos_profile_services_default, trace_cb_group_);
 
-        // 30 Hz sampler; it early-returns when tracing is disabled, so it is cheap when idle.
+        // 1000 Hz sampler; it early-returns when tracing is disabled, so it is cheap when idle.
         trace_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(1),
             std::bind(&MotionServer::sampleTcpTrace, this),
@@ -577,7 +577,7 @@ namespace motion_control
     #if 0  // DEMO MODE: visit each distinct branch sequentially
         // Set to `#if 1` to re-enable
 
-        // Reference de retour = état courant au moment de l'appel
+        // Return reference = current state at the time of the call
         const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
         std::vector<double> initial_joints;
         current_state->copyJointGroupPositions(jmg, initial_joints);
@@ -1042,7 +1042,6 @@ namespace motion_control
     {
         // Re-time the (concatenated joint-space waypoint) trajectory with TOTG so it honors
         // vel_scale_/accel_scale_ and has continuous velocities at segment junctions.
-        // (Cartesian moves no longer pass here: Pilz LIN/Sequence time their own trajectories.)
         robot_trajectory::RobotTrajectory rt(
             move_group_->getRobotModel(), planning_group_);
 
@@ -1384,12 +1383,12 @@ namespace motion_control
         }
         {
             std::lock_guard<std::mutex> lk(planned_path_mtx_);
-            planned_path_enabled_ = req->data;   // le bleu suit le vert
+            planned_path_enabled_ = req->data;
         }
         res->success = true;
         res->message = req->data
-            ? "Trace ENABLED (vert = TCP reel, bleu = TCP planifie)"
-            : "Trace DISABLED (traces conservees; clear_tcp_trace pour effacer)";
+            ? "Trace ENABLED (green = actual TCP, blue = planned TCP)"
+            : "Trace DISABLED (traces retained; clear_tcp_trace to clear)";
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 
@@ -1408,7 +1407,7 @@ namespace motion_control
             publishPlannedPathMarker(/*clear=*/true);
         }
         res->success = true;
-        res->message = "Trace TCP + chemin planifie effaces";
+        res->message = "TCP trace + scheduled path cleared";
         RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
     }
 
@@ -1487,9 +1486,6 @@ namespace motion_control
             const double dz = p.z - last.z;
             const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
             if (dist < kTraceMinDist) return;        // not enough movement to record
-            // if (dist > kTraceMaxJump) {              // discontinuity -> start a fresh line
-            //     trace_points_.clear();
-            // }
         }
 
         trace_points_.push_back(p);
@@ -1665,9 +1661,8 @@ namespace motion_control
         if (pts.empty()) return;
 
         std::lock_guard<std::mutex> lk(planned_path_mtx_);
-        // ACCUMULE au lieu de remplacer : chaque nouveau plan s'ajoute aux precedents.
         planned_path_points_.insert(planned_path_points_.end(), pts.begin(), pts.end());
-        // Fenetre glissante (memes bornes que la trace verte) : on jette les plus vieux.
+        // Sliding window (same bounds as the green trace): discard the oldest ones.
         if (planned_path_points_.size() > kTraceMaxPoints) {
             planned_path_points_.erase(
                 planned_path_points_.begin(),
@@ -2103,8 +2098,7 @@ namespace motion_control
                 return;
             }
 
-            // Blue planned-path overlay (FK on the blended trajectory), same as every
-            // other mode — this is what was missing for Cartesian waypoints.
+            // Blue planned-path overlay (FK on the blended trajectory)
             publishPlannedPathFromTrajectory(trajectory);
 
             std::string traj_err;
@@ -2226,10 +2220,6 @@ namespace motion_control
                 int32_t segment_duration_sec = 0;
                 uint32_t segment_duration_nanosec = 0;
 
-                // Warn about velocity discontinuity at segment junctions.
-                // MoveIt plans each segment with zero-velocity endpoints. Skipping
-                // points[0] avoids duplicate positions but does NOT guarantee
-                // velocity continuity. The controller may experience a velocity jump.
                 size_t start_index = (i == 0) ? 0 : 1;
 
                 for (size_t j = start_index; j < segment_plan.trajectory_.joint_trajectory.points.size(); ++j) {

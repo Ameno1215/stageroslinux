@@ -320,8 +320,6 @@ namespace motion_control
              *
              * Used by the joint-space waypoint path (onMoveWaypoints, non-Cartesian) to
              * smooth velocity discontinuities at the junctions of concatenated segments.
-             * NOTE: Cartesian moves no longer use this — Pilz LIN/Sequence produce trajectories
-             * that are already time-parameterized and honor the scaling factors directly.
              *
              * @param trajectory     The robot trajectory to retime (modified in place).
              * @param path_tolerance TOTG path tolerance (rad): how much TOTG may round the
@@ -335,10 +333,6 @@ namespace motion_control
 
             /**
              * @brief Plans a straight-line Cartesian motion to a single pose using Pilz LIN.
-             *
-             * Replaces the old computeCartesianPath pipeline (whose adaptive interpolator
-             * returned too few points, producing a joint-interpolated zigzag). Pilz LIN
-             * natively yields a dense, already time-parameterized straight-line trajectory.
              *
              * Selects the "pilz_industrial_motion_planner" pipeline + "LIN" planner, applies
              * the given velocity scaling (and the current accel scaling), plans from the
@@ -782,9 +776,6 @@ namespace motion_control
 
             // Minimum TCP displacement (m) between two recorded points (anti-spam at rest).
             static constexpr double kTraceMinDist = 0.002;      // 2 mm (< sphere diameter so spheres overlap)
-            // Beyond this single-step displacement (m) we assume a discontinuity/teleport
-            // and start a fresh trace rather than drawing a straight line across space.
-            static constexpr double kTraceMaxJump = 0.25;       // 25 cm
             // Hard cap on stored points; oldest are dropped (moving window).
             static constexpr size_t kTraceMaxPoints = 20000;
     };

@@ -1337,10 +1337,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     
     full_error_string = " | ".join(error_details)
     
-    # ÉCRITURE DANS TON LOGGER ICI
     logger.error(f"Validation Error on {request.method} {request.url.path} - {full_error_string}")
     
-    # Renvoie la réponse au client
     return JSONResponse(
         status_code=422,
         content={

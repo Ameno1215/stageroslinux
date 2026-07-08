@@ -57,7 +57,7 @@ RobotHealthMonitor::RobotHealthMonitor(
     [this](const std_msgs::msg::String::SharedPtr msg) {
         if (!active_.load()) return;
         if (!msg->data.empty()) {
-            // Enrichir le message d'erreur existant avec la description complète
+            // Enrich the existing error message with the full description
             std::lock_guard<std::mutex> lk(error_msg_mtx_);
             error_msg_ += " | " + msg->data;
             RCLCPP_ERROR(node_->get_logger(),
