@@ -29,69 +29,10 @@ import textwrap
 from rcl_interfaces.msg import Log
 from std_srvs.srv import SetBool, Trigger
 
+import logging 
+from logger_manager import setup_logger, get_logger, _ROS_TO_PY_LEVEL
 
-
-# ----------------------------
-# Logger Configuration
-# ----------------------------
-
-# ROS 2 log level mapping to Python logging levels
-_ROS_TO_PY_LEVEL = {
-    10: logging.DEBUG,
-    20: logging.DEBUG,
-    30: logging.WARNING,
-    40: logging.ERROR,
-    50: logging.CRITICAL, 
-}
-
-class WrappingFormatter(logging.Formatter):
-    """Wraps long log lines, indenting continuation lines to align with the message start."""
-
-    def __init__(self, fmt, datefmt=None, width=200):
-        super().__init__(fmt, datefmt)
-        self.width = width
-
-    def format(self, record):
-        full = super().format(record)
-
-        if len(full) <= self.width:
-            return full
-
-        msg_start = full.find(record.message)
-        if msg_start == -1:
-            return full
-
-        prefix = full[:msg_start]
-        indent = " " * len(prefix)
-        max_msg_width = self.width - len(prefix)
-
-        # Process each existing line separately to preserve original \n
-        result_lines = []
-        for i, line in enumerate(record.message.split("\n")):
-            wrapped = textwrap.fill(
-                line,
-                width=max_msg_width,
-                initial_indent="" if i == 0 else indent,
-                subsequent_indent=indent,
-            )
-            result_lines.append(wrapped)
-
-        return prefix + "\n".join(result_lines)
-
-
-logger = logging.getLogger("MotionBridge")
-logger.setLevel(logging.DEBUG)
-formatter = WrappingFormatter('%(asctime)s - %(levelname)s - %(message)s', width=200)
-
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-
-# log file with rotation (5 MB per file, keep 3 backups)
-file_handler = RotatingFileHandler("robot_system.log", maxBytes=5*1024*1024, backupCount=3)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-
+logger = get_logger()
 
 # ----------------------------
 # Utility functions
@@ -363,8 +304,6 @@ class MotionRosClient(Node):
         # Only forward messages from the C++ motion_server node
         if msg.name != "motion_server":
             return
-        
-        print(f"[ROSOUT-DBG] level={msg.level} type={type(msg.level)} repr={repr(msg.level)}")
     
         py_level = _ROS_TO_PY_LEVEL.get(msg.level, logging.DEBUG)
         logger.log(py_level, f"[C++:{msg.name}] {msg.msg}")
@@ -1354,6 +1293,8 @@ _ros_client: Optional[MotionRosClient] = None
 @app.on_event("startup")
 def on_startup():
     global _ros_client
+    if not logger.handlers:
+        setup_logger()  # defaults
     rclpy.init(args=None)
     _ros_client = MotionRosClient()
 
@@ -1528,3 +1469,35 @@ def pump_is_grabbed():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+if __name__ == "__main__":
+    import argparse
+    import uvicorn
+
+    parser = argparse.ArgumentParser(description="Motion HTTP Bridge server")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--log-path", default=None,
+                        help="Directory for the log file (default: script directory)")
+    parser.add_argument("--log-name", default=None,
+                        help="Log file name (default: log_robot_YYYY-MM-DD.log)")
+    parser.add_argument("--log-level", default="DEBUG",
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
+    parser.add_argument("--no-console", action="store_true",
+                        help="Disable console output, log to file only")
+    parser.add_argument("--add-date", action="store_true",
+                        help="Append the date to --log-name (default name always has it)")
+    parser.add_argument("--date-fmt", default="%Y-%m-%d",
+                        help="Timestamp format, e.g. %%Y-%%m-%%d_%%H-%%M-%%S for one file per run")
+    args = parser.parse_args()
+
+    setup_logger(
+        log_path=args.log_path,
+        log_name=args.log_name,
+        level=args.log_level,
+        console=not args.no_console,
+        add_date=args.add_date,
+        date_fmt=args.date_fmt,
+    )
+
+    uvicorn.run(app, host=args.host, port=args.port)
