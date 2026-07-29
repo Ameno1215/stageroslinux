@@ -16,6 +16,7 @@ _ROS_TO_PY_LEVEL = {
 }
 
 LOGGER_NAME = "MotionBridge"
+DEFAULT_LOG_DIR = Path(__file__).resolve().parent / "log"
 
 
 class WrappingFormatter(logging.Formatter):
@@ -61,10 +62,9 @@ def _resolve_path(log_path: Optional[str]) -> Path:
     if log_path:
         directory = Path(log_path).expanduser()
     else:
-        directory = Path(__file__).resolve().parent
+        directory = DEFAULT_LOG_DIR
     directory.mkdir(parents=True, exist_ok=True)
     return directory
-
 
 def _resolve_name(log_name: Optional[str], add_date: bool = False,
                   date_fmt: str = "%Y-%m-%d") -> str:

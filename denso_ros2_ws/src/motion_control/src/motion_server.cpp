@@ -1817,6 +1817,13 @@ namespace motion_control
         std::shared_ptr<motion_control::srv::MoveToPose::Response> res)
     {
         std::lock_guard<std::mutex> lock(mtx_);
+
+        // A service callback MUST always populate a response. If any exception escaped this
+        // callback, the MultiThreadedExecutor thread would unwind without sending a reply and
+        // the caller (HTTP bridge) would wait forever with no error surfaced. Convert any such
+        // exception into a clean failure response so the error always propagates back.
+        try {
+
         std::string error_msg;
         if (!ensureInitialized(error_msg)) { res->success = false; res->message = error_msg; return; }
 
@@ -1953,6 +1960,18 @@ namespace motion_control
             std::string msg;
             res->success = planAndMaybeExecutePose(target_pose, req->execute, msg);
             res->message = msg;
+        }
+
+        }  // end try
+        catch (const std::exception& e) {
+            res->success = false;
+            res->message = std::string("Unhandled exception in MoveToPose: ") + e.what();
+            RCLCPP_ERROR(this->get_logger(), "%s", res->message.c_str());
+        }
+        catch (...) {
+            res->success = false;
+            res->message = "Unhandled unknown exception in MoveToPose";
+            RCLCPP_ERROR(this->get_logger(), "%s", res->message.c_str());
         }
     }
 
@@ -2528,6 +2547,10 @@ namespace motion_control
         std::shared_ptr<motion_control::srv::MoveToPose::Response> res)
     {
         std::lock_guard<std::mutex> lock(mtx_);
+
+        // Always populate a response; never let an exception escape the service callback
+        try {
+
         std::string error_msg;
         if (!ensureInitialized(error_msg)) { res->success = false; res->message = error_msg; return; }
 
@@ -2583,6 +2606,18 @@ namespace motion_control
 
         res->success = solveIKAndPlanJoints(target_pose.pose, req->execute, msg);
         res->message = "[IK OK] " + msg;
+
+        }  // end try
+        catch (const std::exception& e) {
+            res->success = false;
+            res->message = std::string("Unhandled exception in MoveToPoseViaJoint: ") + e.what();
+            RCLCPP_ERROR(this->get_logger(), "%s", res->message.c_str());
+        }
+        catch (...) {
+            res->success = false;
+            res->message = "Unhandled unknown exception in MoveToPoseViaJoint";
+            RCLCPP_ERROR(this->get_logger(), "%s", res->message.c_str());
+        }
     }
 
     void MotionServer::onGetJointState(

@@ -261,6 +261,14 @@ namespace motion_control
         RCLCPP_WARN(logger, "[DIAG] MoveIt error code: %d (%s)",
             error_code.val, moveitErrorCodeToString(error_code).c_str());
 
+        // The whole analysis below is BEST-EFFORT enrichment of an already-known failure.
+        // It calls into MoveIt/FCL/Eigen (IK, collision, Jacobian SVD) which can throw on
+        // pathological inputs. If any of that escaped this function it would propagate out
+        // of the (uncaught) service callback and, under the MultiThreadedExecutor, prevent
+        // the response from ever being sent — so the caller (HTTP bridge) would hang with
+        // no error at all. Guard the analysis so we ALWAYS return a report with a summary.
+        try {
+
         // Trust planner error codes as primary source of truth
         if (error_code.val == moveit_msgs::msg::MoveItErrorCodes::GOAL_IN_COLLISION) {
             report.goal_in_collision = true;
@@ -271,14 +279,26 @@ namespace motion_control
         if (!jmg) {
             report.primary_cause = DiagnosticReport::Cause::UNKNOWN;
             report.summary = "[DIAG] Cannot diagnose: joint model group '" + group_name + "' not found.";
+            RCLCPP_WARN(logger, "%s", report.summary.c_str());
             return report;
         }
 
         // Get current state for IK seeding
         moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
 
-        // Construct a goal state and check it
+        // Construct a goal state and check it.
+        // IMPORTANT: seed it from a VALID state (current state, or model defaults) before
+        // running IK. A freshly-constructed RobotState leaves its joint values
+        // uninitialized; feeding that garbage/NaN seed to setFromIK — and, on a spurious
+        // success, to the collision/Jacobian checks below — is undefined behaviour and can
+        // throw inside FCL/Eigen depending on the target pose.
         moveit::core::RobotState goal_state(move_group.getRobotModel());
+        if (current_state) {
+            goal_state = *current_state;
+        } else {
+            goal_state.setToDefaultValues();
+        }
+        goal_state.update();
         bool goal_state_valid = false;
 
         if (goal_joints && !goal_joints->empty()) {
@@ -294,6 +314,8 @@ namespace motion_control
                 moveit::core::RobotState ik_probe(move_group.getRobotModel());
                 if (current_state) {
                     ik_probe = *current_state;
+                } else {
+                    ik_probe.setToDefaultValues();
                 }
 
                 bool ik_no_collision = ik_probe.setFromIK(
@@ -389,6 +411,25 @@ namespace motion_control
         report.buildSummary();
         RCLCPP_WARN(logger, "%s", report.summary.c_str());
         return report;
+
+        }  // end try
+        catch (const std::exception& e) {
+            // Diagnosis is best-effort: never let it swallow the failure. Return a report
+            // whose summary still reflects the primary cause found so far, plus the reason
+            // the deep analysis was aborted.
+            report.buildSummary();
+            report.summary += "  - Diagnostic analysis aborted (" + std::string(e.what()) + ")\n";
+            RCLCPP_WARN(logger, "[DIAG] Analysis threw and was aborted: %s", e.what());
+            RCLCPP_WARN(logger, "%s", report.summary.c_str());
+            return report;
+        }
+        catch (...) {
+            report.buildSummary();
+            report.summary += "  - Diagnostic analysis aborted (unknown exception)\n";
+            RCLCPP_WARN(logger, "[DIAG] Analysis threw an unknown exception and was aborted");
+            RCLCPP_WARN(logger, "%s", report.summary.c_str());
+            return report;
+        }
     }
 
     std::string diagnoseExecutionFailure(
