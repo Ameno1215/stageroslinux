@@ -14,6 +14,7 @@ namespace motion_control
     {
         // Declare parameters for convenient launch-time configuration
         this->declare_parameter<std::string>("model", "vs060");
+        this->declare_parameter<bool>("accuracy", false);
         this->declare_parameter<std::string>("planning_group", "arm");
         this->declare_parameter<double>("velocity_scale", 1.0);
         this->declare_parameter<double>("accel_scale", 1.0);
@@ -170,6 +171,7 @@ namespace motion_control
         auto group = this->get_parameter("planning_group").as_string();
         auto ik_solver = this->get_parameter("ik_solver").as_string();
         auto ik_solver_plugin = this->get_parameter("ik_solver_plugin").as_string();
+        track_enabled_ = this->get_parameter("accuracy").as_bool();
         // Compatibility with clients that still use legacy "solver*" parameter names.
         if (ik_solver.empty()) {
             ik_solver = this->get_parameter("solver").as_string();
@@ -1919,7 +1921,7 @@ namespace motion_control
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
                 std::string track = "";
-                if constexpr (TRACK) {
+                if (track_enabled_) {
                     track = computeTrackingError("MOVE_TO_POSE_LIN");
                 }
 
@@ -2325,7 +2327,7 @@ namespace motion_control
                 double exec_dt = std::chrono::duration<double>(
                     std::chrono::high_resolution_clock::now() - exec_t0).count();
                 std::string track = "";
-                if constexpr (TRACK) {
+                if (track_enabled_) {
                     track = computeTrackingError("MOVE_WAYPOINTS");
                 }
 
@@ -2478,7 +2480,7 @@ namespace motion_control
             double exec_dt = std::chrono::duration<double>(
                 std::chrono::high_resolution_clock::now() - exec_t0).count();
                 std::string track = "";
-                if constexpr (TRACK) {
+                if (track_enabled_) {
                     track = computeTrackingError("MOVE_JOINTS");
                 }
 

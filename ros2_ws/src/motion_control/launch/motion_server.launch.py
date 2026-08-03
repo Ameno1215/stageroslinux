@@ -25,6 +25,7 @@ def generate_launch_description():
     declared_arguments = [
         DeclareLaunchArgument("model", description="Robot model (e.g. vs060, cobotta, hsr065, tx40)."),
         DeclareLaunchArgument("sim", default_value="true", description="Use simulated/fake hardware."),
+        DeclareLaunchArgument("accuracy", default_value="false", description="log movement accuracy in debug mode."),
         DeclareLaunchArgument("planning_group", default_value="", description="MoveIt planning group name."),
         DeclareLaunchArgument("velocity_scale", default_value="0.1", description="Max velocity scaling factor [0..1]."),
         DeclareLaunchArgument("accel_scale", default_value="0.1", description="Max acceleration scaling factor [0..1]."),
@@ -120,6 +121,8 @@ def generate_launch_description():
         value_type=bool,
     )
 
+    accuracy = ParameterValue(LaunchConfiguration("accuracy"), value_type=bool)
+
     motion_server_node = Node(
         package="motion_control",
         executable="motion_server",
@@ -134,6 +137,7 @@ def generate_launch_description():
             {
                 "model": model,
                 "planning_group": planning_group,
+                "accuracy": accuracy,
                 "velocity_scale": velocity_scale,
                 "accel_scale": accel_scale,
                 "robot_status_topic": robot_status_topic,
