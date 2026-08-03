@@ -2895,7 +2895,7 @@ namespace motion_control
                 marker.color.g = req->g;
                 marker.color.b = req->b;
                 marker.color.a = req->a;
-                visual_only_boxes_.erase(req->box_id);
+                visual_only_boxes_.insert(req->box_id);
             }
         }
 
