@@ -23,7 +23,7 @@ def load_yaml(package_name, file_path):
 def generate_launch_description():
     # --- Arguments ---
     declared_arguments = [
-        DeclareLaunchArgument("model", description="Robot model (e.g. vs060, cobotta, hsr065, tx40)."),
+        DeclareLaunchArgument("model", description="Robot model (e.g. vs060, cobotta, hsr065, tx40, m280)."),
         DeclareLaunchArgument("sim", default_value="true", description="Use simulated/fake hardware."),
         DeclareLaunchArgument("accuracy", default_value="false", description="log movement accuracy in debug mode."),
         DeclareLaunchArgument("planning_group", default_value="", description="MoveIt planning group name."),
@@ -51,41 +51,51 @@ def generate_launch_description():
     # --- Dynamic Package & Folder Resolution ---
     # 1. URDF
     # For Staubli, use MoveIt config URDFs because they contain the tool dispatcher.
+    # For myCobot 280 (m280), use the mycobot_280_moveit2 "firefighter" description.
     description_package = PythonExpression([
-        "'staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_descriptions'"
+        "'mycobot_280_moveit2' if ('m280' in '", model, "') else ('staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_descriptions')"
     ])
     description_folder = PythonExpression([
-        "'config' if ('tx40' in '", model, "') else 'urdf'"
+        "'config' if ('m280' in '", model, "' or 'tx40' in '", model, "') else 'urdf'"
     ])
     description_file = PythonExpression([
-        "'staubli_tx40.urdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.urdf.xacro'"
+        "'firefighter.urdf.xacro' if ('m280' in '", model, "') else ('staubli_tx40.urdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.urdf.xacro')"
     ])
 
     # 2. SRDF
     moveit_config_package = PythonExpression([
-        "'staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_moveit_config'"
+        "'mycobot_280_moveit2' if ('m280' in '", model, "') else ('staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_moveit_config')"
     ])
     srdf_folder = PythonExpression([
-        "'config' if ('tx40' in '", model, "') else 'srdf'"
+        "'config' if ('m280' in '", model, "' or 'tx40' in '", model, "') else 'srdf'"
     ])
     moveit_config_file = PythonExpression([
-        "'staubli_tx40.srdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.srdf.xacro'"
+        "'firefighter.srdf' if ('m280' in '", model, "') else ('staubli_tx40.srdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.srdf.xacro')"
     ])
 
     # 3. Planning group
     planning_group = PythonExpression([
         "'", planning_group_arg, "' if '", planning_group_arg,
-        "' != '' else ('manipulator' if ('tx40' in '", model, "') else 'arm')"
+        "' != '' else ('arm_group' if ('m280' in '", model, "') else ('manipulator' if ('tx40' in '", model, "') else 'arm'))"
+    ])
+
+    # --- xacro args ---
+    # DENSO/Staubli xacros expect model/sim/namespace/tool.
+    # firefighter.urdf.xacro (m280) declares none of these -> pass an empty token
+    urdf_xacro_args = PythonExpression([
+        "'' if ('m280' in '", model, "') else ",
+        "\"model:=", model, " sim:=", sim, " namespace:='' tool:=", tool, "\""
+    ])
+    srdf_xacro_args = PythonExpression([
+        "'' if ('m280' in '", model, "') else ",
+        "\"model:=", model, " namespace:='' tool:=", tool, "\""
     ])
 
     # --- Robot description (URDF) ---
     robot_description_content = ParameterValue(Command([
         PathJoinSubstitution([FindExecutable(name="xacro")]), " ",
         PathJoinSubstitution([FindPackageShare(description_package), description_folder, description_file]), " ",
-        "model:=", model, " ",
-        "sim:=", sim, " ",
-        "namespace:=''", " ",
-        "tool:=", tool, " ",
+        urdf_xacro_args,
     ]), value_type=str)
     robot_description = {"robot_description": robot_description_content}
 
@@ -93,20 +103,21 @@ def generate_launch_description():
     robot_description_semantic_content = ParameterValue(Command([
         PathJoinSubstitution([FindExecutable(name="xacro")]), " ",
         PathJoinSubstitution([FindPackageShare(moveit_config_package), srdf_folder, moveit_config_file]), " ",
-        "model:=", model, " ",
-        "namespace:=''", " ",
-        "tool:=", tool, " ",
+        srdf_xacro_args,
     ]), value_type=str)
     robot_description_semantic = {"robot_description_semantic": robot_description_semantic_content}
 
     # --- Kinematics (IK plugins config) ---
     denso_kinematics = load_yaml("denso_robot_moveit_config", "config/kinematics.yaml") or {}
     staubli_tx40_kinematics = load_yaml("staubli_tx40_moveit_config", "config/kinematics.yaml") or {}
-    # Merge both kinematics maps so each planning group keeps its full solver settings.
-    # Keys are distinct in this workspace ("arm" for DENSO, "manipulator" for Staubli).
+    mycobot_kinematics = load_yaml("mycobot_280_moveit2", "config/kinematics.yaml") or {}
+    # Merge all kinematics maps so each planning group keeps its full solver settings.
+    # Keys are distinct in this workspace ("arm" for DENSO, "manipulator" for Staubli,
+    # "arm_group" for myCobot 280).
     merged_kinematics = {}
     merged_kinematics.update(denso_kinematics)
     merged_kinematics.update(staubli_tx40_kinematics)
+    merged_kinematics.update(mycobot_kinematics)
 
     use_sim_time = True
 
@@ -149,6 +160,7 @@ def generate_launch_description():
                 "kinematics_solver": kinematics_plugin_name,
                 'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name,
                 'robot_description_kinematics.manipulator.kinematics_solver': kinematics_plugin_name,
+                'robot_description_kinematics.arm_group.kinematics_solver': kinematics_plugin_name,
             }
         ],
     )

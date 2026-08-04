@@ -27,6 +27,7 @@
         <joint name="joint5_to_joint4" value="0"/>
         <joint name="joint6_to_joint5" value="0"/>
         <joint name="joint6output_to_joint6" value="0"/>
+        <joint name="flange_to_tool" value="0"/>
     </group_state>
     <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->
     <virtual_joint name="virtual_joints" type="fixed" parent_frame="world" child_link="g_base"/>

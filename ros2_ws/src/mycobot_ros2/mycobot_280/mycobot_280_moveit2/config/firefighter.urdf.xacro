@@ -11,4 +11,10 @@
 
     <xacro:firefighter_ros2_control name="FakeSystem" initial_positions_file="$(arg initial_positions_file)"/>
 
+    <link name="tool_tip"/>
+    <joint name="flange_to_tool" type="fixed">
+        <parent link="joint6_flange"/>
+        <child link="tool_tip"/>
+        <origin xyz="0 0 0.10" rpy="0 0 0"/>
+    </joint>
 </robot>
