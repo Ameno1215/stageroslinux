@@ -1,0 +1,39 @@
+# Velocity and acceleration limits for the Lite 6.
+# Values taken from xarm_moveit_config/config/lite6/joint_limits.yaml — do not
+# copy another robot's limits here, the arm will jump or violate its limits.
+
+# Conservative defaults; motion_control overrides them per request via set_scaling.
+default_velocity_scaling_factor: 0.1
+default_acceleration_scaling_factor: 0.1
+
+joint_limits:
+  joint1:
+    has_velocity_limits: true
+    max_velocity: 2.14
+    has_acceleration_limits: true
+    max_acceleration: 10.0
+  joint2:
+    has_velocity_limits: true
+    max_velocity: 2.14
+    has_acceleration_limits: true
+    max_acceleration: 10.0
+  joint3:
+    has_velocity_limits: true
+    max_velocity: 2.14
+    has_acceleration_limits: true
+    max_acceleration: 10.0
+  joint4:
+    has_velocity_limits: true
+    max_velocity: 2.14
+    has_acceleration_limits: true
+    max_acceleration: 10.0
+  joint5:
+    has_velocity_limits: true
+    max_velocity: 2.14
+    has_acceleration_limits: true
+    max_acceleration: 10.0
+  joint6:
+    has_velocity_limits: true
+    max_velocity: 2.14
+    has_acceleration_limits: true
+    max_acceleration: 10.0
