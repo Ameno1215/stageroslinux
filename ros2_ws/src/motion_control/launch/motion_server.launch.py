@@ -32,6 +32,13 @@ def generate_launch_description():
         DeclareLaunchArgument("tool", default_value="none", description="End-effector tool to attach (e.g., none, effecteur_v1)"),
         DeclareLaunchArgument("ik_solver", default_value="kdl", choices=['kdl', 'pick_ik']),
         DeclareLaunchArgument("robot_status_topic", default_value="/robot_status", description="RobotStatus topic used by the health monitor."),
+        # Follows "sim" by default, like move_group and robot_state_publisher in the bringup.
+        # Only declared separately so it can be forced (e.g. a real robot driven from a
+        # bag/replay that does publish /clock).
+        DeclareLaunchArgument(
+            "use_sim_time",
+            default_value=LaunchConfiguration("sim"),
+            description="Take time from /clock. Defaults to the value of 'sim': nothing publishes /clock on the real robot."),
     ]
 
     # --- Launch configs (defined BEFORE any PythonExpression that uses them) ---
@@ -108,7 +115,11 @@ def generate_launch_description():
     merged_kinematics.update(denso_kinematics)
     merged_kinematics.update(staubli_tx40_kinematics)
 
-    use_sim_time = True
+    # Was hardcoded to True: on the real robot nothing publishes /clock, so the node's
+    # clock would stay frozen and every timestamped wait becomes meaningless. Defaults to
+    # "sim" (see the argument above), which keeps motion_server on the same time source as
+    # move_group and robot_state_publisher.
+    use_sim_time = ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool)
 
     use_health_monitor = ParameterValue(
         PythonExpression([

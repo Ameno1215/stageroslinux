@@ -78,6 +78,12 @@ namespace motion_control
         // may round segment-junction corners. Overridable per-request via MoveWaypoints.path_tolerance.
         static constexpr double kDefaultTotgPathTolerance = 0.05;
 
+        // How long (s) to wait for a joint state at least as recent as now() before giving
+        // up on the current robot state. MoveGroupInterface's own default is 1.0s, which is
+        // too tight when the executor is busy: getCurrentJointValues() then silently returns
+        // an EMPTY vector and getCurrentState() a null pointer.
+        static constexpr double kCurrentStateWaitSeconds = 3.0;
+
         /**
          * @brief Constructs the MotionServer.
          * * Initializes the node, declares parameters, and creates the service servers.
@@ -746,10 +752,15 @@ namespace motion_control
             rclcpp::Service<motion_control::srv::ManageMesh>::SharedPtr srv_manage_mesh_;
             rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_env_;
 
+            // All request-handling services live here instead of the node's default
+            // callback group, which must stay free to deliver MoveIt's /joint_states
+            // (shared CurrentStateMonitor) and /clock while a motion callback is running.
+            rclcpp::CallbackGroup::SharedPtr services_cb_group_;
+
             // --- Continuous TCP path tracing ---
             // The timer and the trace services live in a dedicated callback group so the
             // MultiThreadedExecutor can run them on a separate thread, i.e. keep sampling
-            // the TCP while a (blocking) motion service callback holds the default group.
+            // the TCP while a (blocking) motion service callback runs.
             rclcpp::CallbackGroup::SharedPtr trace_cb_group_;
             rclcpp::TimerBase::SharedPtr trace_timer_;
             rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr srv_set_trace_;

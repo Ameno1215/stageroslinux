@@ -47,57 +47,80 @@ namespace motion_control
         seq_client_ = rclcpp_action::create_client<moveit_msgs::action::MoveGroupSequence>(
             seq_node_, "/sequence_move_group");
 
+        // All request-handling services run on their OWN mutually-exclusive group.
+        // They must NOT stay in the node's default callback group: MoveIt's shared
+        // CurrentStateMonitor subscribes to /joint_states in that default group, so a
+        // long service callback (IK, planning, execution) would block the delivery of
+        // the very joint states it is about to ask for. getCurrentState()/
+        // getCurrentJointValues() would then time out after 1s ("Failed to fetch current
+        // robot state") even though the robot is publishing normally.
+        // Mutually-exclusive keeps the previous behaviour of serializing service calls.
+        services_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
         srv_init_ = this->create_service<srv::InitRobot>(
             "init_robot",
-            std::bind(&MotionServer::onInitRobot, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onInitRobot, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_move_joints_ = this->create_service<srv::MoveJoints>(
             "move_joints",
-            std::bind(&MotionServer::onMoveJoints, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onMoveJoints, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_move_pose_ = this->create_service<srv::MoveToPose>(
             "move_to_pose",
-            std::bind(&MotionServer::onMoveToPose, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onMoveToPose, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_move_pose_via_joint_ = this->create_service<srv::MoveToPose>(
             "move_to_pose_via_joint",
-            std::bind(&MotionServer::onMoveToPoseViaJoint, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onMoveToPoseViaJoint, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_move_waypoints_ = this->create_service<srv::MoveWaypoints>(
             "move_waypoints",
-            std::bind(&MotionServer::onMoveWaypoints, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onMoveWaypoints, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_scaling_ = this->create_service<srv::SetScaling>(
             "set_scaling",
-            std::bind(&MotionServer::onSetScaling, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onSetScaling, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_get_scaling_ = this->create_service<srv::GetScaling>(
             "get_scaling",
-            std::bind(&MotionServer::onGetScaling, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onGetScaling, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_get_joints_ = this->create_service<srv::GetJointState>(
             "get_joint_state",
-            std::bind(&MotionServer::onGetJointState, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onGetJointState, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_get_pose_ = this->create_service<srv::GetCurrentPose>(
             "get_current_pose",
-            std::bind(&MotionServer::onGetCurrentPose, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onGetCurrentPose, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_virtual_fence_ = this->create_service<srv::SetVirtualFence>(
             "set_virtual_fence",
-            std::bind(&MotionServer::onSetVirtualFence, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onSetVirtualFence, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_manage_box_ = this->create_service<srv::ManageBox>(
             "manage_box",
-            std::bind(&MotionServer::onManageBox, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onManageBox, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_manage_mesh_ = this->create_service<srv::ManageMesh>(
             "manage_mesh",
-            std::bind(&MotionServer::onManageMesh, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onManageMesh, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         srv_clear_env_ = this->create_service<std_srvs::srv::Trigger>(
             "clear_environment",
-            std::bind(&MotionServer::onClearEnvironment, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&MotionServer::onClearEnvironment, this, std::placeholders::_1, std::placeholders::_2),
+            rmw_qos_profile_services_default, services_cb_group_);
 
         // --- Continuous TCP path tracing ---
         // Dedicated callback group: on the MultiThreadedExecutor this lets the sampling
@@ -539,7 +562,7 @@ namespace motion_control
         std::string& out_msg)
     {
         move_group_->setStartStateToCurrentState();
-        moveit::core::RobotStatePtr current_state = move_group_->getCurrentState(2.0);
+        moveit::core::RobotStatePtr current_state = move_group_->getCurrentState(kCurrentStateWaitSeconds);
         if (!current_state) {
             out_msg = "Failed to obtain current robot state";
             return false;
@@ -1047,7 +1070,15 @@ namespace motion_control
         robot_trajectory::RobotTrajectory rt(
             move_group_->getRobotModel(), planning_group_);
 
-        rt.setRobotTrajectoryMsg(*move_group_->getCurrentState(), trajectory);
+        // getCurrentState() returns nullptr when the state wait times out — never deref it blindly.
+        moveit::core::RobotStatePtr reference_state = move_group_->getCurrentState(kCurrentStateWaitSeconds);
+        if (!reference_state) {
+            RCLCPP_WARN(this->get_logger(),
+                "[TRAJ] Current robot state unavailable — TOTG re-timing skipped, "
+                "trajectory kept as planned");
+            return;
+        }
+        rt.setRobotTrajectoryMsg(*reference_state, trajectory);
 
         // <= 0 means "use default"; otherwise clamp to a sane range so a bad request can't
         // ask for a wildly large corner-cut (the final trajectory is collision-checked anyway).
@@ -1111,7 +1142,7 @@ namespace motion_control
             return;
         }
 
-        auto state = move_group_->getCurrentState(1.0);
+        auto state = move_group_->getCurrentState(kCurrentStateWaitSeconds);
         if (!state) {
             RCLCPP_WARN(this->get_logger(), "[FK_TRACE:%s] Cannot get current robot state", label.c_str());
             return;
@@ -2173,7 +2204,16 @@ namespace motion_control
             }
             const auto& names = jmg->getVariableNames();
 
-            moveit::core::RobotStatePtr current_start_state = move_group_->getCurrentState();
+            moveit::core::RobotStatePtr current_start_state =
+                move_group_->getCurrentState(kCurrentStateWaitSeconds);
+            if (!current_start_state) {
+                res->success = false;
+                res->message = "Failed to obtain current robot state "
+                               "(no /joint_states newer than now() within "
+                               + std::to_string(static_cast<int>(kCurrentStateWaitSeconds)) + "s)";
+                RCLCPP_ERROR(this->get_logger(), "[MoveWaypoints] %s", res->message.c_str());
+                return;
+            }
 
             int32_t acc_sec = 0;
             uint32_t acc_nanosec = 0;
@@ -2365,7 +2405,26 @@ namespace motion_control
         }
 
         std::map<std::string, double> target;
+        // MoveGroupInterface::getCurrentJointValues() waits only 1s internally and returns an
+        // EMPTY vector when that wait times out — indexing it below would dereference nullptr.
+        // Retry once with a longer wait, then fail cleanly instead of crashing the node.
         std::vector<double> current = move_group_->getCurrentJointValues();
+        if (current.size() != names.size()) {
+            RCLCPP_WARN(this->get_logger(),
+                "[PlanJoints] Current joint values unavailable (got %zu, expected %zu) — "
+                "retrying with a %.1fs wait",
+                current.size(), names.size(), kCurrentStateWaitSeconds);
+            moveit::core::RobotStatePtr state = move_group_->getCurrentState(kCurrentStateWaitSeconds);
+            if (state) {
+                state->copyJointGroupPositions(jmg, current);
+            }
+            if (current.size() != names.size()) {
+                out_msg = ik_prefix + "Failed to obtain current robot state "
+                          "(no /joint_states newer than now() within "
+                          + std::to_string(static_cast<int>(kCurrentStateWaitSeconds)) + "s)";
+                return false;
+            }
+        }
 
         for (size_t i = 0; i < names.size(); ++i) {
             target[names[i]] = is_relative ? current[i] + joints[i] : joints[i];
@@ -2637,8 +2696,24 @@ namespace motion_control
             return;
         }
 
-        // Get current joint values from MoveIt
+        // Get current joint values from MoveIt. An empty vector means the internal state
+        // wait timed out — report it instead of answering "OK" with no joints.
         auto joints = move_group_->getCurrentJointValues();
+        if (joints.empty()) {
+            moveit::core::RobotStatePtr state = move_group_->getCurrentState(kCurrentStateWaitSeconds);
+            const auto* jmg = move_group_->getRobotModel()->getJointModelGroup(planning_group_);
+            if (state && jmg) {
+                state->copyJointGroupPositions(jmg, joints);
+            }
+        }
+        if (joints.empty()) {
+            res->success = false;
+            res->message = "Failed to obtain current robot state "
+                           "(no /joint_states newer than now() within "
+                           + std::to_string(static_cast<int>(kCurrentStateWaitSeconds)) + "s)";
+            RCLCPP_ERROR(this->get_logger(), "[GetJointState] %s", res->message.c_str());
+            return;
+        }
         res->joints = joints;
         res->success = true;
         res->message = "OK";
