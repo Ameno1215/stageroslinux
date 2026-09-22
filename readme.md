@@ -41,9 +41,9 @@ The communication flow between the Windows host and the WSL simulation is as fol
 
 On the real Stäubli robot, a fifth tab (`Staubli_Connection`) runs `staubli_val3_driver`.
 
-The UFACTORY Lite 6 is integrated bare for now — no tool and no pump — so it runs
-with only three tabs: the `Pump Control` tab is skipped, and the stack is always
-launched with `tool:=none`.
+The UFACTORY Lite 6 has no pump package yet, so it runs with only three tabs:
+the `Pump Control` tab is skipped. The tool is attached as on the other robots
+(`--tool`, default `effecteur_v3`); pass `--tool none` to run the arm bare.
 
 ---
 

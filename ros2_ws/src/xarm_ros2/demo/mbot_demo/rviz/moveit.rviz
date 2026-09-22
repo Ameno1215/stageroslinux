@@ -117,7 +117,7 @@ Visualization Manager:
         Robot Alpha: 0.5
         Robot Color: 150; 50; 150
         Show Robot Collision: false
-        Show Robot Visual: true
+        Show Robot Visual: false
         Show Trail: false
         State Display Time: 0.05 s
         Trail Step Size: 1
@@ -198,7 +198,7 @@ Visualization Manager:
             Show Trail: false
         Robot Alpha: 1
         Show Robot Collision: false
-        Show Robot Visual: true
+        Show Robot Visual: false
       Value: true
       Velocity_Scaling_Factor: 0.1
     - Alpha: 1
@@ -316,7 +316,7 @@ Visualization Manager:
       Robot Color: 150; 50; 150
       Robot Description: robot_description
       Show Robot Collision: false
-      Show Robot Visual: true
+      Show Robot Visual: false
       Show Trail: false
       State Display Time: 0.05 s
       Trail Step Size: 1
