@@ -42,6 +42,28 @@ On the real Stäubli robot, a fifth tab (`Staubli_Connection`) runs `staubli_val
 
 ---
 
+## 1.1 Run on docker
+
+### 1. Install Docker (once)
+sudo apt install docker.io
+sudo usermod -aG docker $USER      # then log out and back in
+
+### 2. Clone
+git clone https://github.com/Ameno1215/stageroslinux.git
+cd stageroslinux
+git checkout docker                # the Docker files are on this branch
+
+### 3. Start (builds the image the first time, then opens a terminal in the container)
+./docker_run.sh
+
+### 4. Inside the container: build the workspace (once, and again after code changes)
+cd ~/stageroslinux/ros2_ws
+colcon build
+source install/setup.bash
+
+ALL IS SET to be used
+
+
 ## 2. Prerequisites
 
 ### WSL Side
