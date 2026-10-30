@@ -23,7 +23,7 @@ def load_yaml(package_name, file_path):
 def generate_launch_description():
     # --- Arguments ---
     declared_arguments = [
-        DeclareLaunchArgument("model", description="Robot model (e.g. vs060, cobotta, hsr065, tx40)."),
+        DeclareLaunchArgument("model", description="Robot model (e.g. vs060, cobotta, hsr065, tx40, ufactory_lite6)."),
         DeclareLaunchArgument("sim", default_value="true", description="Use simulated/fake hardware."),
         DeclareLaunchArgument("accuracy", default_value="false", description="log movement accuracy in debug mode."),
         DeclareLaunchArgument("planning_group", default_value="", description="MoveIt planning group name."),
@@ -59,30 +59,35 @@ def generate_launch_description():
     # 1. URDF
     # For Staubli, use MoveIt config URDFs because they contain the tool dispatcher.
     description_package = PythonExpression([
-        "'staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_descriptions'"
+        "'ufactory_lite6_moveit_config' if 'lite6' in '", model,
+        "' else ('staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_descriptions')"
     ])
     description_folder = PythonExpression([
-        "'config' if ('tx40' in '", model, "') else 'urdf'"
+        "'config' if ('tx40' in '", model, "' or 'lite6' in '", model, "') else 'urdf'"
     ])
     description_file = PythonExpression([
-        "'staubli_tx40.urdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.urdf.xacro'"
+        "'ufactory_lite6.urdf.xacro' if 'lite6' in '", model,
+        "' else ('staubli_tx40.urdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.urdf.xacro')"
     ])
 
     # 2. SRDF
     moveit_config_package = PythonExpression([
-        "'staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_moveit_config'"
+        "'ufactory_lite6_moveit_config' if 'lite6' in '", model,
+        "' else ('staubli_tx40_moveit_config' if 'tx40' in '", model, "' else 'denso_robot_moveit_config')"
     ])
     srdf_folder = PythonExpression([
-        "'config' if ('tx40' in '", model, "') else 'srdf'"
+        "'config' if ('tx40' in '", model, "' or 'lite6' in '", model, "') else 'srdf'"
     ])
     moveit_config_file = PythonExpression([
-        "'staubli_tx40.srdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.srdf.xacro'"
+        "'ufactory_lite6.srdf.xacro' if 'lite6' in '", model,
+        "' else ('staubli_tx40.srdf.xacro' if 'tx40' in '", model, "' else 'denso_robot.srdf.xacro')"
     ])
 
     # 3. Planning group
     planning_group = PythonExpression([
         "'", planning_group_arg, "' if '", planning_group_arg,
-        "' != '' else ('manipulator' if ('tx40' in '", model, "') else 'arm')"
+        "' != '' else ('lite6' if ('lite6' in '", model,
+        "') else ('manipulator' if ('tx40' in '", model, "') else 'arm'))"
     ])
 
     # --- Robot description (URDF) ---
@@ -109,11 +114,14 @@ def generate_launch_description():
     # --- Kinematics (IK plugins config) ---
     denso_kinematics = load_yaml("denso_robot_moveit_config", "config/kinematics.yaml") or {}
     staubli_tx40_kinematics = load_yaml("staubli_tx40_moveit_config", "config/kinematics.yaml") or {}
-    # Merge both kinematics maps so each planning group keeps its full solver settings.
-    # Keys are distinct in this workspace ("arm" for DENSO, "manipulator" for Staubli).
+    ufactory_lite6_kinematics = load_yaml("ufactory_lite6_moveit_config", "config/kinematics.yaml") or {}
+    # Merge every vendor kinematics map so each planning group keeps its full solver
+    # settings. Keys must stay distinct across the workspace: "arm" for DENSO,
+    # "manipulator" for Staubli, "lite6" for the UFACTORY Lite 6.
     merged_kinematics = {}
     merged_kinematics.update(denso_kinematics)
     merged_kinematics.update(staubli_tx40_kinematics)
+    merged_kinematics.update(ufactory_lite6_kinematics)
 
     # Was hardcoded to True: on the real robot nothing publishes /clock, so the node's
     # clock would stay frozen and every timestamped wait becomes meaningless. Defaults to
@@ -160,6 +168,7 @@ def generate_launch_description():
                 "kinematics_solver": kinematics_plugin_name,
                 'robot_description_kinematics.arm.kinematics_solver': kinematics_plugin_name,
                 'robot_description_kinematics.manipulator.kinematics_solver': kinematics_plugin_name,
+                'robot_description_kinematics.lite6.kinematics_solver': kinematics_plugin_name,
             }
         ],
     )

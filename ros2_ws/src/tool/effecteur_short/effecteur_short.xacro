@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro">
+
+  <xacro:property name="tool_length" value="0.1"/>
+  <xacro:property name="tool_radius" value="0.02"/>
+
+  <xacro:macro name="effecteur_short" params="namespace parent_link">
+
+    <link name="${namespace}tool_link">
+      <visual>
+        <origin xyz="0 0 ${-tool_length/2}" rpy="0 0 0" />
+        <geometry>
+          <cylinder radius="${tool_radius}" length="${tool_length}"/>
+        </geometry>
+        <material name="grey">
+          <color rgba="0.5 0.5 0.5 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${-tool_length/2}" rpy="0 0 0" />
+        <geometry>
+          <cylinder radius="${tool_radius}" length="${tool_length}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="0.5" />
+        <!-- Centre of mass at mid-cylinder, and the inertia of a solid cylinder
+             about that centre: Ixx = Iyy = m(3r^2 + h^2)/12, Izz = m r^2 / 2. -->
+        <origin xyz="0 0 ${-tool_length/2}" rpy="0 0 0" />
+        <inertia
+          ixx="${0.5 * (3 * tool_radius * tool_radius + tool_length * tool_length) / 12}"
+          ixy="0.0" ixz="0.0"
+          iyy="${0.5 * (3 * tool_radius * tool_radius + tool_length * tool_length) / 12}"
+          iyz="0.0"
+          izz="${0.5 * tool_radius * tool_radius / 2}" />
+      </inertial>
+    </link>
+
+    <joint name="${namespace}tool_joint" type="fixed">
+      <parent link="${parent_link}" />
+      <child link="${namespace}tool_link" />
+      <origin xyz="0 0 ${tool_length}" rpy="0 0 0" />
+    </joint>
+
+  </xacro:macro>
+
+</robot>

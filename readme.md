@@ -14,6 +14,7 @@ Supported models (`--model`):
 | `vs060` *(default)* | DENSO | `denso_robot_bringup`, `denso_robot_moveit_config` |
 | `vp5243` | DENSO | idem |
 | `tx40` | Stäubli | `staubli_tx40_moveit_config`, `staubli_val3_driver` |
+| `lite6` | UFACTORY | `ufactory_lite6_moveit_config`, `xarm_description`, `xarm_controller` |
 
 To integrate a **new** robot brand/model, see [adding_a_new_robot.md](adding_a_new_robot.md).
 
@@ -39,6 +40,10 @@ The communication flow between the Windows host and the WSL simulation is as fol
 | `WSL_Bridge` | `wsl_ros_bridge.py` | FastAPI server exposing the motion services over HTTP |
 
 On the real Stäubli robot, a fifth tab (`Staubli_Connection`) runs `staubli_val3_driver`.
+
+The UFACTORY Lite 6 has no pump package yet, so it runs with only three tabs:
+the `Pump Control` tab is skipped. The tool is attached as on the other robots
+(`--tool`, default `effecteur_v3`); pass `--tool none` to run the arm bare.
 
 ---
 

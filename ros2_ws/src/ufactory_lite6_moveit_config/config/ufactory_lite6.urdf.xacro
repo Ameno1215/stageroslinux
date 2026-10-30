@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!--
+  Top-level URDF for the UFACTORY Lite 6.
+
+  Contract C1/C4 of adding_a_new_robot.md: accepts model/sim/namespace/tool and
+  dispatches the end-effector. All the geometry, the inertial/kinematic
+  parameters and the ros2_control block come from the vendor macro
+  xarm_description/urdf/xarm_device_macro.xacro, which is also what creates the
+  flange link "link_eef" (lite6.urdf.xacro has it commented out, so the vendor
+  device macro is the only correct entry point for the Lite 6).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ufactory_lite6">
+
+  <xacro:arg name="model"      default="ufactory_lite6"/>
+  <xacro:arg name="namespace"  default=""/>
+  <xacro:arg name="sim"        default="true"/>
+  <xacro:arg name="tool"       default="none"/>
+  <xacro:arg name="ip_address" default="192.168.1.161"/>
+
+  <xacro:include filename="$(find xarm_description)/urdf/xarm_device_macro.xacro"/>
+
+  <!--
+    Simulation uses the vendor's own fake hardware rather than
+    mock_components/GenericSystem: the ros2_control block emitted for the Lite 6
+    declares both a position and a velocity command interface per joint, and
+    UFRobotFakeSystemHardware is what the vendor validates that block against
+    (xarm_moveit_config/launch/_robot_moveit_fake.launch.py). It takes no
+    parameters, and it lets sim and real share one controller configuration.
+  -->
+
+  <!--
+    robot_type "lite" + dof 6 is the Lite 6. hw_ns "ufactory" matches the
+    namespace the vendor driver uses for this arm (the xArm series uses "xarm"),
+    so on the real robot the services land under /ufactory/...
+  -->
+  <xacro:xarm_device
+    prefix="$(arg namespace)"
+    dof="6"
+    robot_type="lite"
+    hw_ns="ufactory"
+    add_gripper="false"
+    add_vacuum_gripper="false"
+    add_bio_gripper="false"
+    add_other_geometry="false"
+    ros2_control_plugin="${'uf_robot_hardware/UFRobotFakeSystemHardware' if '$(arg sim)' == 'true' else 'uf_robot_hardware/UFRobotSystemHardware'}"
+    robot_ip="$(arg ip_address)"
+    report_type="normal"/>
+
+  <!--
+    Tool dispatcher (contract C4). Tool package folders and macros share the
+    same name, exactly as in staubli_tx40.urdf.xacro. Not used yet: the stack
+    is launched with tool:=none for now.
+  -->
+  <xacro:unless value="${'$(arg tool)' == 'none'}">
+    <xacro:include filename="$(find tool)/$(arg tool)/$(arg tool).xacro"/>
+    <xacro:call macro="$(arg tool)"
+                namespace="$(arg namespace)"
+                parent_link="$(arg namespace)link_eef"/>
+  </xacro:unless>
+
+</robot>
