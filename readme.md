@@ -66,6 +66,13 @@ cd ~/stageroslinux/ros2_ws
 colcon build
 source install/setup.bash
 
+The UFACTORY Lite 6 (`--model lite6`) is supported in the container too: its driver
+(`xarm_ros2`) is vendored in `ros2_ws/src` and its dependencies are installed by
+rosdep when the image is built. If your image was built before the Lite 6 was
+added, rebuild it once on the host (`./docker_run.sh stop && ./docker_run.sh build`)
+before running `colcon build`. On the real arm the container reaches the
+controller directly through the host network (`--ip <lite6 ip>`).
+
 ALL IS SET to be used
 
 
