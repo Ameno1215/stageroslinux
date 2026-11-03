@@ -33,6 +33,9 @@ namespace motion_control
         this->declare_parameter<std::string>(
             "robot_description_kinematics.manipulator.kinematics_solver",
             "kdl_kinematics_plugin/KDLKinematicsPlugin");
+        this->declare_parameter<std::string>(
+            "robot_description_kinematics.lite6.kinematics_solver",
+            "kdl_kinematics_plugin/KDLKinematicsPlugin");
         // this->set_parameter(rclcpp::Parameter("use_sim_time", true));
 
         // Initialization of the TF listening system

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Top-level SRDF for the UFACTORY Lite 6 (contracts C2, C3, C5).
+
+  The planning group is named "lite6": "arm" (DENSO) and "manipulator" (Staubli)
+  are already taken, and motion_server.launch.py merges every vendor kinematics
+  map into a single dictionary, so group names must stay unique per robot.
+
+  The disable_collisions pairs are the vendor's, taken from
+  xarm_moveit_config/srdf/_lite6_macro.srdf.xacro.
+-->
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="ufactory_lite6">
+  <xacro:arg name="model"     default="ufactory_lite6"/>
+  <xacro:arg name="namespace" default=""/>
+  <xacro:arg name="tool"      default="none"/>
+
+  <!-- Tip-link switch (C5): the flange when bare, the tool TCP when a tool is attached. -->
+  <group name="lite6">
+    <xacro:if value="${'$(arg tool)' == 'none'}">
+      <chain base_link="$(arg namespace)link_base" tip_link="$(arg namespace)link_eef"/>
+    </xacro:if>
+    <xacro:if value="${'$(arg tool)' != 'none'}">
+      <chain base_link="$(arg namespace)link_base" tip_link="$(arg namespace)tool_link"/>
+    </xacro:if>
+  </group>
+
+  <!--
+    Ready pose. Joint 3 of the Lite 6 is asymmetric (lower limit -0.061 rad), so
+    an all-zeros pose sits right on that limit; "home" keeps it well inside.
+  -->
+  <group_state name="home" group="lite6">
+    <joint name="$(arg namespace)joint1" value="0"/>
+    <joint name="$(arg namespace)joint2" value="0"/>
+    <joint name="$(arg namespace)joint3" value="1.57"/>
+    <joint name="$(arg namespace)joint4" value="0"/>
+    <joint name="$(arg namespace)joint5" value="1.57"/>
+    <joint name="$(arg namespace)joint6" value="0"/>
+  </group_state>
+
+  <disable_collisions link1="$(arg namespace)link1" link2="$(arg namespace)link2" reason="Adjacent"/>
+  <disable_collisions link1="$(arg namespace)link1" link2="$(arg namespace)link3" reason="Never"/>
+  <disable_collisions link1="$(arg namespace)link1" link2="$(arg namespace)link_base" reason="Adjacent"/>
+  <disable_collisions link1="$(arg namespace)link2" link2="$(arg namespace)link3" reason="Adjacent"/>
+  <disable_collisions link1="$(arg namespace)link2" link2="$(arg namespace)link4" reason="Never"/>
+  <disable_collisions link1="$(arg namespace)link2" link2="$(arg namespace)link_base" reason="Never"/>
+  <disable_collisions link1="$(arg namespace)link3" link2="$(arg namespace)link4" reason="Adjacent"/>
+  <disable_collisions link1="$(arg namespace)link3" link2="$(arg namespace)link5" reason="Never"/>
+  <disable_collisions link1="$(arg namespace)link3" link2="$(arg namespace)link6" reason="Never"/>
+  <disable_collisions link1="$(arg namespace)link4" link2="$(arg namespace)link5" reason="Adjacent"/>
+  <disable_collisions link1="$(arg namespace)link4" link2="$(arg namespace)link6" reason="Never"/>
+  <disable_collisions link1="$(arg namespace)link5" link2="$(arg namespace)link6" reason="Adjacent"/>
+  <disable_collisions link1="$(arg namespace)link3" link2="$(arg namespace)link_eef" reason="Never"/>
+  <disable_collisions link1="$(arg namespace)link5" link2="$(arg namespace)link_eef" reason="Never"/>
+  <disable_collisions link1="$(arg namespace)link6" link2="$(arg namespace)link_eef" reason="Adjacent"/>
+
+  <xacro:if value="${'$(arg tool)' != 'none'}">
+    <disable_collisions link1="$(arg namespace)link6" link2="$(arg namespace)tool_link" reason="Attached by fixed joint"/>
+    <disable_collisions link1="$(arg namespace)link_eef" link2="$(arg namespace)tool_link" reason="Attached by fixed joint"/>
+  </xacro:if>
+</robot>

@@ -14,6 +14,7 @@ Supported models (`--model`):
 | `vs060` *(default)* | DENSO | `denso_robot_bringup`, `denso_robot_moveit_config` |
 | `vp5243` | DENSO | idem |
 | `tx40` | Stäubli | `staubli_tx40_moveit_config`, `staubli_val3_driver` |
+| `lite6` | UFACTORY | `ufactory_lite6_moveit_config`, `xarm_description`, `xarm_controller` |
 
 To integrate a **new** robot brand/model, see [adding_a_new_robot.md](adding_a_new_robot.md).
 
@@ -40,6 +41,10 @@ The communication flow between the Windows host and the WSL simulation is as fol
 
 On the real Stäubli robot, a fifth tab (`Staubli_Connection`) runs `staubli_val3_driver`.
 
+The UFACTORY Lite 6 has no pump package yet, so it runs with only three tabs:
+the `Pump Control` tab is skipped. The tool is attached as on the other robots
+(`--tool`, default `effecteur_v3`); pass `--tool none` to run the arm bare.
+
 ---
 
 ## 1.1 Run on docker
@@ -60,6 +65,13 @@ git checkout docker                # the Docker files are on this branch
 cd ~/stageroslinux/ros2_ws
 colcon build
 source install/setup.bash
+
+The UFACTORY Lite 6 (`--model lite6`) is supported in the container too: its driver
+(`xarm_ros2`) is vendored in `ros2_ws/src` and its dependencies are installed by
+rosdep when the image is built. If your image was built before the Lite 6 was
+added, rebuild it once on the host (`./docker_run.sh stop && ./docker_run.sh build`)
+before running `colcon build`. On the real arm the container reaches the
+controller directly through the host network (`--ip <lite6 ip>`).
 
 ALL IS SET to be used
 

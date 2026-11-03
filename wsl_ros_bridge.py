@@ -14,6 +14,14 @@ from pydantic import BaseModel, Field
 
 from motion_control.srv import InitRobot, MoveJoints, MoveToPose, MoveWaypoints, SetScaling, GetScaling, GetJointState, GetCurrentPose, SetVirtualFence, ManageBox, ManageMesh
 from denso_robot_core_interfaces.srv import SetServoOn
+
+try:
+    # UFACTORY (Lite 6). Guarded so the bridge still starts in a workspace built
+    # without xarm_ros2 — the clients are only ever created for a ufactory_ model.
+    from xarm_msgs.srv import SetInt16 as UFSetInt16, SetInt16ById as UFSetInt16ById
+except ImportError:  # pragma: no cover - depends on the built workspace
+    UFSetInt16 = None
+    UFSetInt16ById = None
 from industrial_msgs.msg import ServiceReturnCode
 from industrial_msgs.srv import SetDrivePower
 from geometry_msgs.msg import PoseStamped, Pose
@@ -33,6 +41,17 @@ import logging
 from logger_manager import setup_logger, get_logger, _ROS_TO_PY_LEVEL
 
 logger = get_logger()
+
+# UFACTORY driver namespace ("hw_ns"). The Lite 6 and the UFACTORY 850 publish
+# their services under /ufactory; the xArm series uses /xarm. Keep in sync with
+# the hw_ns passed in ufactory_lite6_moveit_config/config/ufactory_lite6.urdf.xacro.
+UF_HW_NS = "ufactory"
+UF_MOTION_ENABLE_SRV = f"/{UF_HW_NS}/motion_enable"
+UF_SET_MODE_SRV = f"/{UF_HW_NS}/set_mode"
+UF_SET_STATE_SRV = f"/{UF_HW_NS}/set_state"
+UF_ALL_SERVOS_ID = 8       # id 8 addresses every joint at once
+UF_MODE_SERVO = 1          # servo motion mode, the one ros2_control drives
+UF_STATE_START = 0         # ready to receive motion commands
 
 # ----------------------------
 # Utility functions
@@ -270,6 +289,9 @@ class MotionRosClient(Node):
         self.set_drives_expected_cli = self.create_client(SetBool, "/set_drives_expected")
         self.servo_on_cli = None
         self.drive_power_cli = None
+        self.uf_motion_enable_cli = None
+        self.uf_set_mode_cli = None
+        self.uf_set_state_cli = None
         self.pump_grab_cli = None
         self.pump_release_cli = None
         self.pump_is_grabbed_cli = None
@@ -368,6 +390,7 @@ class MotionRosClient(Node):
         logger.info(f"Resolved model from motion_server parameters: {model}")
 
         is_staubli = model.startswith("staubli_")
+        is_ufactory = model.startswith("ufactory_")
 
         # Create hardware-dependent clients (only on real robot)
         if not self.sim and is_staubli and self.drive_power_cli is None:
@@ -375,12 +398,37 @@ class MotionRosClient(Node):
             if not self.drive_power_cli.wait_for_service(timeout_sec=10.0):
                 logger.warning("Staubli set_drive_power service not available")
 
-        if not self.sim and not is_staubli and self.servo_on_cli is None:
+        if not self.sim and is_ufactory and self.uf_motion_enable_cli is None:
+            if UFSetInt16 is None or UFSetInt16ById is None:
+                logger.error("xarm_msgs is not available: build xarm_ros2 to drive a UFACTORY arm")
+            else:
+                # The UFACTORY services live under the driver namespace, which is
+                # "ufactory" for the Lite 6 and the 850 ("xarm" for the xArm series).
+                self.uf_motion_enable_cli = self.create_client(UFSetInt16ById, UF_MOTION_ENABLE_SRV)
+                self.uf_set_mode_cli = self.create_client(UFSetInt16, UF_SET_MODE_SRV)
+                self.uf_set_state_cli = self.create_client(UFSetInt16, UF_SET_STATE_SRV)
+                for cli, name in [
+                    (self.uf_motion_enable_cli, UF_MOTION_ENABLE_SRV),
+                    (self.uf_set_mode_cli, UF_SET_MODE_SRV),
+                    (self.uf_set_state_cli, UF_SET_STATE_SRV),
+                ]:
+                    if not cli.wait_for_service(timeout_sec=10.0):
+                        logger.warning(f"UFACTORY service {name} not available for {model}")
+
+        # DENSO path. Must exclude the other vendors explicitly, otherwise every
+        # init_robot blocks 10 s waiting for a /<model>/SetServoOn that will
+        # never appear.
+        if not self.sim and not is_staubli and not is_ufactory and self.servo_on_cli is None:
             self.servo_on_cli = self.create_client(SetServoOn, f"/{model}/SetServoOn")
             if not self.servo_on_cli.wait_for_service(timeout_sec=10.0):
                 logger.warning(f"SetServoOn service not available for {model}")
 
-        if not self.sim:
+        # No pump package for the UFACTORY arms yet, so do not wait on services
+        # that are not launched.
+        if not self.sim and is_ufactory:
+            logger.info(f"No pump control configured for {model}; skipping pump services.")
+
+        if not self.sim and not is_ufactory:
             pump_service_prefix = f"/{model}/pump"
             self.pump_grab_cli = self.create_client(SetBool, f"{pump_service_prefix}/grab")
             self.pump_release_cli = self.create_client(SetBool, f"{pump_service_prefix}/release")
@@ -489,6 +537,9 @@ class MotionRosClient(Node):
         if not enable:
             self._notify_drives_expected(False)
 
+        if self.model.startswith("ufactory_"):
+            return self._set_ufactory_motors(enable)
+
         if self.model.startswith("staubli_"):
             if self.drive_power_cli is None:
                 self.drive_power_cli = self.create_client(SetDrivePower, "/system_interface/set_drive_power")
@@ -538,6 +589,66 @@ class MotionRosClient(Node):
             logger.debug(traceback.format_exc())
             self._notify_drives_expected(self.motors_on)
             raise RuntimeError(f"SetServoOn failed: {e}")
+
+    def _call_uf_service(self, cli, name: str, request) -> tuple:
+        """Call one UFACTORY service and normalise its (ret, message) answer."""
+        if cli is None:
+            return False, f"UFACTORY service {name} is not available"
+        fut = cli.call_async(request)
+        res = self._wait_for_future(fut, timeout=10.0)
+        ok = res.ret == 0
+        if not ok:
+            logger.error(f"{name} failed: ret={res.ret} ({res.message})")
+        return ok, f"{name}: ret={res.ret} ({res.message})"
+
+    def _set_ufactory_motors(self, enable: bool) -> Dict[str, Any]:
+        """
+        Motors on/off for a UFACTORY arm (Lite 6).
+
+        Turning the motors back on needs the full recovery sequence, not just
+        motion_enable: after a stop the controller sits in a mode that ignores
+        trajectory commands, so the servo mode and the START state have to be
+        restored before ros2_control can drive the arm again.
+        """
+        if self.uf_motion_enable_cli is None:
+            self._notify_drives_expected(self.motors_on)
+            return {"success": False, "message": "UFACTORY motion_enable service not available"}
+
+        try:
+            enable_req = UFSetInt16ById.Request()
+            enable_req.id = UF_ALL_SERVOS_ID
+            enable_req.data = 1 if enable else 0
+            ok, message = self._call_uf_service(
+                self.uf_motion_enable_cli, UF_MOTION_ENABLE_SRV, enable_req)
+
+            if ok and enable:
+                mode_req = UFSetInt16.Request()
+                mode_req.data = UF_MODE_SERVO
+                ok, mode_message = self._call_uf_service(
+                    self.uf_set_mode_cli, UF_SET_MODE_SRV, mode_req)
+                message = f"{message}; {mode_message}"
+
+                if ok:
+                    state_req = UFSetInt16.Request()
+                    state_req.data = UF_STATE_START
+                    ok, state_message = self._call_uf_service(
+                        self.uf_set_state_cli, UF_SET_STATE_SRV, state_req)
+                    message = f"{message}; {state_message}"
+
+            if ok:
+                self.motors_on = enable
+                logger.info(f"UFACTORY motors {'ON' if enable else 'OFF'} ({message})")
+            else:
+                logger.error(f"UFACTORY motor state change failed ({message})")
+
+            time.sleep(1)  # let the controller settle before the next command
+            self._notify_drives_expected(self.motors_on)
+            return {"success": ok, "message": message}
+        except Exception as e:
+            logger.error(f"Critical error during UFACTORY motor state change: {e}")
+            logger.debug(traceback.format_exc())
+            self._notify_drives_expected(self.motors_on)
+            raise RuntimeError(f"UFACTORY motion_enable failed: {e}")
 
     def call_move_joints(self, req: JointReq) -> Dict[str, Any]:
         logger.info(f"Joint movement requested: {req.joints} (Relative={req.is_relative}, Angle Format={req.angle_format}, Execute={req.execute})")
